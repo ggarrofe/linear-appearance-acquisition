@@ -59,12 +59,13 @@ def parse_args():
     parser.add_argument('-c', '--config', is_config_file=True, help='config file path')
     parser.add_argument('--mesh', type=str, help='initial mesh path')
     parser.add_argument('--dataset_path', type=str, help='path to dataset')
-    parser.add_argument('--out_path', type=str, help='path to the output folder')
+    parser.add_argument('--out_path', type=str, help='path to the output folder', default="./out")
     parser.add_argument('--dataset_type', type=str, help='type of dataset', choices=['synthetic', 'llff', 'tiny', 'meshroom', 'colmap'])
-    parser.add_argument('--batch_size', type=int,)
+    parser.add_argument('--batch_size', type=int)
     parser.add_argument('--shuffle', type=bool, default=False)
-    parser.add_argument('--N_f', type=int, )
-    parser.add_argument('--lr', type=float, default=2e-5)
+    parser.add_argument('--N_f', type=int, help='number of points to sample with the fine network', default=128)
+    parser.add_argument('--factor', type=int, default=1)
+    parser.add_argument('--lr', type=float, default=2e-5, help='learning rate')
 
     args = parser.parse_args()
     return args
@@ -78,7 +79,7 @@ if __name__ == "__main__":
     # Load data
     dataset = data.NeRFDataset(args, device=device)
 
-    # Create models
+    '''# Create models
     model = nerf.NeRFModel()
     model.to(device)
     model_f = None
@@ -147,4 +148,4 @@ if __name__ == "__main__":
         if it%500 == 0:
             validation_view(model, poses[i_val[0]], hwf, images[i_val[0]], it=it, img_shape=images.shape[-3:], 
                             N_samples=N_samples, model_f=model_f, N_f=N_f, near=near, far=far)
-            v.plot_losses(training_losses, val_losses, it=it)
+            v.plot_losses(training_losses, val_losses, it=it)'''

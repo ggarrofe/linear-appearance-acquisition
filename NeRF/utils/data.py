@@ -1,7 +1,3 @@
-from ast import arg
-from audioop import avg
-from cgi import test
-from tkinter import image_names
 import numpy as np
 import os
 import json
@@ -16,12 +12,13 @@ from pprint import pprint
 
 def get_subdirs(path) -> list:
         """ Check if the provided path contains the images or has other inner directories that 
-            contain the images.
+            contain the images. Ommits the resized folders that end with a number.
 
             e.g.: dataset           Has the following subdirs: ["train", "test", "val"]
                     |-> train
                     |-> test
                     |-> val
+                    |-> train_1
 
                   dataset           Does not have subdirs.
                     |-> img0.png
@@ -45,22 +42,12 @@ def get_subdirs(path) -> list:
             path = path+'/'
 
         if not any(fname.endswith('.png') for fname in os.listdir(path)):
-            subdirs = [name for name in os.listdir(path) if os.path.isdir(os.path.join(path, name))]
+            subdirs = [name for name in os.listdir(path) if os.path.isdir(os.path.join(path, name)) and not name[-1].isdigit()]
 
         if len(subdirs) == 0:
             subdirs = ['.'] 
         
         return subdirs
-
-def batchify(locations, view_dirs, chunksize):
-    locs_flat = torch.reshape(locations, [-1, locations.shape[-1]])
-    view_dirs = torch.broadcast_to(view_dirs, locations.shape)
-    view_dirs_flat = torch.reshape(view_dirs, [-1, view_dirs.shape[-1]])
-    for i in range(0, locs_flat.shape[0], chunksize):
-        #upper = i+chunksize if i+chunksize < locs_flat.shape[0] else locs_flat.shape[0]
-        #print(f"{i}:{i+chunksize}, {locs_flat[i:i+chunksize].shape}, {locs_flat.shape[0]}")
-        yield (locs_flat[i:i+chunksize], view_dirs_flat[i:i+chunksize])
-
 class NeRFSubDataset():
     def __init__(self, rays, images, hwf, name, batch_size=None, shuffle=False):
         self.dataset = TensorDataset(rays, images)
@@ -100,7 +87,7 @@ class NeRFDataset():
         elif args.dataset_type == "synthetic":
             self.load_data(args.dataset_path, device=device)
         elif args.dataset_type == "llff":
-            self.load_llff(args.dataset_path, device=device, factor=args.factor, spherify=args.spherify, test_path=args.test_path)
+            self.load_llff(args.dataset_path, device=device, factor=args.factor)
         elif args.dataset_type == "meshroom":
             self.load_meshroom(args.dataset_path, device=device)
         elif args.dataset_type == "colmap":
@@ -248,13 +235,13 @@ class NeRFDataset():
 
         self.hwf = (height, width, focal_length)
        
-    def load_llff(self, dataset_path, device=torch.device('cuda'), factor=1, spherify=False, test_path=None):
+    def load_llff(self, dataset_path, device=torch.device('cuda'), factor=1):
         poses = None
         images = None
         subdirs = get_subdirs(dataset_path)
         
         for i_dir, dir in enumerate(subdirs):
-            images_dir, poses_dir, bds = load_llff_data(dataset_path, factor, bd_factor=.75, filename=f"poses_bounds_{dir}.npy")
+            images_dir, poses_dir, bds = load_llff_data(dataset_path, factor, subdir=dir)
             hwf = poses_dir[0, :3, -1]
             poses = poses_dir[:, :3, :4]
 

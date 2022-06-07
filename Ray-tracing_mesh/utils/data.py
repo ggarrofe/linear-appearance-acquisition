@@ -15,12 +15,13 @@ from pprint import pprint
 
 def get_subdirs(path) -> list:
         """ Check if the provided path contains the images or has other inner directories that 
-            contain the images.
+            contain the images. Ommits the resized folders that end with a number.
 
             e.g.: dataset           Has the following subdirs: ["train", "test", "val"]
                     |-> train
                     |-> test
                     |-> val
+                    |-> train_1
 
                   dataset           Does not have subdirs.
                     |-> img0.png
@@ -44,21 +45,12 @@ def get_subdirs(path) -> list:
             path = path+'/'
 
         if not any(fname.endswith('.png') for fname in os.listdir(path)):
-            subdirs = [name for name in os.listdir(path) if os.path.isdir(os.path.join(path, name))]
+            subdirs = [name for name in os.listdir(path) if os.path.isdir(os.path.join(path, name)) and not name[-1].isdigit()]
 
         if len(subdirs) == 0:
             subdirs = ['.'] 
         
         return subdirs
-
-def batchify(locations, view_dirs, chunksize):
-    locs_flat = torch.reshape(locations, [-1, locations.shape[-1]])
-    view_dirs = torch.broadcast_to(view_dirs, locations.shape)
-    view_dirs_flat = torch.reshape(view_dirs, [-1, view_dirs.shape[-1]])
-    for i in range(0, locs_flat.shape[0], chunksize):
-        #upper = i+chunksize if i+chunksize < locs_flat.shape[0] else locs_flat.shape[0]
-        #print(f"{i}:{i+chunksize}, {locs_flat[i:i+chunksize].shape}, {locs_flat.shape[0]}")
-        yield (locs_flat[i:i+chunksize], view_dirs_flat[i:i+chunksize])
 
 class NeRFSubDataset():
     def __init__(self, rays, images, hwf):
@@ -95,7 +87,7 @@ class NeRFDataset():
         elif args.dataset_type == "synthetic":
             self.load_data(args.dataset_path, device=device)
         elif args.dataset_type == "llff":
-            self.load_llff(args.dataset_path, device=device, factor=args.factor, spherify=args.spherify, test_path=args.test_path)
+            self.load_llff(args.dataset_path, device=device, factor=args.factor, test_path=args.test_path)
         elif args.dataset_type == "meshroom":
             self.load_meshroom(args.dataset_path, device=device)
         elif args.dataset_type == "colmap":
@@ -116,6 +108,7 @@ class NeRFDataset():
         
         self.subdatasets = []
 
+        print("Creating datasets...")
         for indices in self.subdirs_indices:
             rays = torch.reshape(rays_odv[indices], [rays_odv[indices].shape[0], -1, 9])#.to(self.device)
             images = torch.reshape(self.images[indices], [self.images[indices].shape[0], -1, 3])#.to(self.device)
@@ -153,7 +146,6 @@ class NeRFDataset():
         # view (i.e., the R matrix)
 
         directions = torch.stack([xx, -yy, -torch.ones_like(xx)], dim=-1)
-        #directions = torch.stack([xx, yy, torch.ones_like(xx)], dim=-1)
         
         rays_d = torch.sum(directions[..., None, :] * R, dim=-1)
         rays_o = t.expand(rays_d.shape)
@@ -247,32 +239,20 @@ class NeRFDataset():
     def _load_test(self, test_path):
         poses_colmap = np.load(os.path.join(test_path, 'poses_colmap.npy'))
         poses_colmap = torch.from_numpy(poses_colmap[:, :-2].reshape([-1, 3, 5]))
-        custom_pose_colmap = np.load(os.path.join(test_path, 'custom_poses_colmap.npy'))
-        custom_pose_colmap = custom_pose_colmap[:, :-2].reshape([-1, 3, 5]).transpose([1,2,0])
-        # Correct rotation matrix ordering and move variable dim to axis 0
-        custom_pose_colmap = np.concatenate([custom_pose_colmap[:, 1:2, :], -custom_pose_colmap[:, 0:1, :], custom_pose_colmap[:, 2:, :]], 1)
-        custom_pose_colmap = np.moveaxis(custom_pose_colmap, -1, 0).astype(np.float32)
 
         poses_llff = np.load(os.path.join(test_path, 'poses_llff.npy'))
-        print("poses llff", poses_llff[0])
         poses_llff = poses_llff[:, :-2].reshape([-1, 3, 5]).transpose([1,2,0])
         poses_llff = np.concatenate([poses_llff[:, 1:2, :], -poses_llff[:, 0:1, :], poses_llff[:, 2:, :]], 1)
         poses_llff = torch.from_numpy(np.moveaxis(poses_llff, -1, 0).astype(np.float32))
         
-        custom_pose_llff = np.load(os.path.join(test_path, 'custom_poses_llff.npy'))
-        custom_pose_llff = custom_pose_llff[:, :-2].reshape([-1, 3, 5]).transpose([1,2,0])
-        # Correct rotation matrix ordering and move variable dim to axis 0
-        custom_pose_llff = np.concatenate([custom_pose_llff[:, 1:2, :], -custom_pose_llff[:, 0:1, :], custom_pose_llff[:, 2:, :]], 1)
-        custom_pose_llff = np.moveaxis(custom_pose_llff, -1, 0).astype(np.float32)
-        return poses_colmap, poses_llff, custom_pose_colmap[0], custom_pose_llff[0]
+        return poses_colmap, poses_llff
 
-    def load_llff(self, dataset_path, device=torch.device('cuda'), factor=1, spherify=False, test_path=None):
+    def load_llff_old(self, dataset_path, device=torch.device('cuda'), factor=1, spherify=False, test_path=None):
         images, poses, bds, render_poses, i_test, custom_pose_nerf = load_llff_data(dataset_path, factor,
                                                                   recenter=True, bd_factor=.75,
                                                                   spherify=spherify,
                                                                   test_path=test_path)
 
-        poses_colmap, poses_llff, custom_pose_colmap, custom_pose_llff = self._load_test(test_path)
         hwf = poses[0, :3, -1]
         poses = poses[:, :3, :4]
 
@@ -298,7 +278,45 @@ class NeRFDataset():
         self.subdirs = ["train", "val", "test"]
 
         if test_path is not None:
+            poses_colmap, poses_llff, custom_pose_colmap, custom_pose_llff = self._load_test(test_path)
             self.test_data = (poses_colmap, poses_llff)
+
+    def load_llff(self, dataset_path, device=torch.device('cuda'), factor=1, test_path=None):
+        poses = None
+        images = None
+        subdirs = get_subdirs(dataset_path)
+        
+        for i_dir, dir in enumerate(subdirs):
+            images_dir, poses_dir, bds = load_llff_data(dataset_path, factor, subdir=dir)
+            hwf = poses_dir[0, :3, -1]
+            poses_dir = poses_dir[:, :3, :4]
+
+            if poses is None:
+                poses = poses_dir
+                images = images_dir
+            else:
+                poses = np.concatenate((poses, poses_dir[None, ...]), axis=0)
+                images = np.concatenate((images, images_dir[None, ...]), axis=0)
+
+            self.subdirs_indices[i_dir] = list(range(self.subdirs_indices[i_dir][0], images.shape[0]))
+            self.subdirs_indices.append([images.shape[0]])
+            self.subdirs.append(dir)
+
+        if test_path is not None:
+            poses_colmap, poses_llff = self._load_test(test_path)
+            self.test_data = (poses_colmap, poses_llff)
+            images = images[:5,...]
+            poses = poses[:5,...]
+            for i in range(len(self.subdirs_indices)):
+                self.subdirs_indices[i] = list(range(5))
+
+        self.images = torch.from_numpy(images).to(device)
+        self.poses = torch.from_numpy(poses).to(device)
+        focal_length = torch.from_numpy(np.array([hwf[2]])).to(device)
+        self.hwf = (int(hwf[0]), int(hwf[1]), focal_length)
+        print("hwf",self.hwf)
+
+        
 
     def get_test_poses(self, i):
         return self.test_data[0][i], self.test_data[1][i]
