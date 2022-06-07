@@ -57,9 +57,11 @@ def _minify(basedir, factors=[], resolutions=[]):
         print('Done')
             
         
-def _load_data(basedir, factor=None, width=None, height=None, load_imgs=True, filename='poses_bounds.npy'):
+        
+        
+def _load_data(basedir, factor=None, width=None, height=None, load_imgs=True):
     
-    poses_arr = np.load(os.path.join(basedir, filename))
+    poses_arr = np.load(os.path.join(basedir, 'poses_bounds.npy'))
     poses = poses_arr[:, :-2].reshape([-1, 3, 5]).transpose([1,2,0])
     bds = poses_arr[:, -2:].transpose([1,0])
     
@@ -96,11 +98,10 @@ def _load_data(basedir, factor=None, width=None, height=None, load_imgs=True, fi
         print( 'Mismatch between imgs {} and poses {} !!!!'.format(len(imgfiles), poses.shape[-1]) )
         return
     
-    # Focal length refactor
     sh = imageio.imread(imgfiles[0]).shape
     poses[:2, 4, :] = np.array(sh[:2]).reshape([2, 1])
     poses[2, 4, :] = poses[2, 4, :] * 1./factor
-
+    
     if not load_imgs:
         return poses, bds
     
@@ -115,6 +116,11 @@ def _load_data(basedir, factor=None, width=None, height=None, load_imgs=True, fi
     
     print('Loaded image data', imgs.shape, poses[:,-1,0])
     return poses, bds, imgs
+
+    
+            
+            
+    
 
 def normalize(x):
     return x / np.linalg.norm(x)
@@ -234,13 +240,11 @@ def spherify_poses(poses, bds):
     return poses_reset, new_poses, bds
     
 
-def load_llff_data(basedir, factor=8, recenter=True, bd_factor=.75, spherify=False, path_zflat=False, test_path=None):
+def load_llff_data(basedir, factor=8, recenter=True, bd_factor=.75, spherify=False, path_zflat=False):
+    
+
     poses, bds, imgs = _load_data(basedir, factor=factor) # factor=8 downsamples original imgs by 8x
     print('Loaded', basedir, bds.min(), bds.max())
-
-    if test_path is not None:
-        custom_pose_nerf, _, _ = _load_data(test_path, factor=factor, filename="custom_poses_llff.npy")
-        poses = np.append(poses, custom_pose_nerf, axis=2)
     
     # Correct rotation matrix ordering and move variable dim to axis 0
     poses = np.concatenate([poses[:, 1:2, :], -poses[:, 0:1, :], poses[:, 2:, :]], 1)
@@ -248,19 +252,16 @@ def load_llff_data(basedir, factor=8, recenter=True, bd_factor=.75, spherify=Fal
     imgs = np.moveaxis(imgs, -1, 0).astype(np.float32)
     images = imgs
     bds = np.moveaxis(bds, -1, 0).astype(np.float32)
-
-    custom_pose_nerf = poses[-1, ...]
-    poses = poses[:100, ...]
     
     # Rescale if bd_factor is provided
     sc = 1. if bd_factor is None else 1./(bds.min() * bd_factor)
     poses[:,:3,3] *= sc
     bds *= sc
     
-    '''if recenter:
-        poses = recenter_poses(poses)'''
+    if recenter:
+        poses = recenter_poses(poses)
         
-    '''if spherify:
+    if spherify:
         poses, render_poses, bds = spherify_poses(poses, bds)
 
     else:
@@ -296,11 +297,10 @@ def load_llff_data(basedir, factor=8, recenter=True, bd_factor=.75, spherify=Fal
             N_views/=2
 
         # Generate poses for spiral path
-        render_poses = render_path_spiral(c2w_path, up, rads, focal, zdelta, zrate=.5, rots=N_rots, N=N_views)'''
+        render_poses = render_path_spiral(c2w_path, up, rads, focal, zdelta, zrate=.5, rots=N_rots, N=N_views)
         
         
     render_poses = np.array(render_poses).astype(np.float32)
-    render_poses = None
 
     c2w = poses_avg(poses)
     print('Data:')
@@ -313,7 +313,7 @@ def load_llff_data(basedir, factor=8, recenter=True, bd_factor=.75, spherify=Fal
     images = images.astype(np.float32)
     poses = poses.astype(np.float32)
 
-    return images, poses, bds, render_poses, i_test, custom_pose_nerf
+    return images, poses, bds, render_poses, i_test
 
 
 
