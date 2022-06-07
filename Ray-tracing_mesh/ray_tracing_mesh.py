@@ -61,14 +61,11 @@ if __name__ == '__main__':
             v.plot_rays_and_mesh(rays_od, mesh, dataset.hwf)
             
         else:
-            #v.plot_rays_and_mesh(rays_od, mesh, dataset.hwf)
             print("[TEST] Drawing rays for loaded poses in red:")
             print(dataset.poses[i])
             poses_colmap, poses_llff = dataset.get_test_poses(i)
-            #print("[TEST] Drawing rays for poses COLMAP in blue:")
-            #print(poses_colmap)
             print("[TEST] Drawing rays for poses LLFF in green:")
-            print(poses_llff)
+            print(poses_llff, end='\n\n')
 
             rays_colmap = torch.cat(data.NeRFDataset.get_rays_origins_and_directions(poses_colmap, dataset.hwf), dim=-1)
             rays_colmap = torch.reshape(rays_colmap, [-1, 6])
