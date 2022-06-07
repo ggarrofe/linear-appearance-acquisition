@@ -10,7 +10,7 @@ import time
 
 import open3d as o3d
 
-from kmeans_pytorch import kmeans, kmeans_predict
+
 import visualization as v
 
 import matplotlib.pyplot as plt
@@ -69,6 +69,7 @@ if __name__ == "__main__":
     import utils.networks as net
     import utils.utils as utils
     import utils.embedder as emb
+    from utils.kmeans import kmeans, kmeans_predict
    
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f'Using {device}')
@@ -98,22 +99,14 @@ if __name__ == "__main__":
     # TRAINING
     mask = (xnv[:,0] == -1.) & (xnv[:,1] == -1.) & (xnv[:,2] == -1.)
     X = xnv[~mask, :3]
-    cluster_centers = []
-    cluster_ids = torch.zeros(X.shape[0])
-    '''for i in range(0, len(X), args.batch_size):
-        cluster_ids[i:i+args.batch_size], cluster_centers = kmeans(X=X[i:i+args.batch_size], 
-                                                                   num_clusters=args.num_clusters, 
-                                                                   cluster_centers=cluster_centers, 
-                                                                   tol=1e-4,
-                                                                   distance='euclidean', 
-                                                                   device=device)'''
 
-    cluster_ids, cluster_centers = kmeans(X=X, 
-                                        num_clusters=args.num_clusters, 
-                                        cluster_centers=cluster_centers, 
-                                        tol=1e-4,
-                                        distance='euclidean', 
-                                        device=torch.device('cpu'))
+    cluster_ids = torch.zeros(X.shape[0])
+    cluster_ids, centroids = kmeans(X=X,
+                                    num_clusters=args.num_clusters, 
+                                    tol=1e-3,
+                                    distance='euclidean', 
+                                    device=device,
+                                    batch_size=10_000)
 
     for cluster_id in range(args.num_clusters):
         inv_matrices[cluster_id] = compute_inv(xnv[~mask], target_rgb[~mask], cluster_id, cluster_ids, embed_fn=embed_fn)
@@ -128,12 +121,12 @@ if __name__ == "__main__":
 
     mask_tr = (xnv_tr[:,0] == -1.) & (xnv_tr[:,1] == -1.) & (xnv_tr[:,2] == -1.)
     cluster_ids_tr = kmeans_predict(
-        xnv_tr[~mask_tr, :3], cluster_centers, 'euclidean', device=device
+        xnv_tr[~mask_tr, :3], centroids, 'euclidean', device=device
     )
 
     mask_val = (xnv_val[:,0] == -1.) & (xnv_val[:,1] == -1.) & (xnv_val[:,2] == -1.)
     cluster_ids_val = kmeans_predict(
-        xnv_val[~mask_val, :3], cluster_centers, 'euclidean', device=device
+        xnv_val[~mask_val, :3], centroids, 'euclidean', device=device
     )
 
     for cluster_id in range(args.num_clusters):
