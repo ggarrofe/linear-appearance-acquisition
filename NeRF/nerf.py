@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from tqdm.notebook import tqdm
 
 def get_sampling_locations(rays_o, rays_d, near, far, n_samples, stratified=True):
-    z_locations = torch.linspace(near, far, n_samples).to(rays_d)
+    depths = torch.linspace(near, far, n_samples).to(rays_d)
     
     if stratified:
         # Generate for each ray, n_samples of uniform noise
@@ -14,16 +14,15 @@ def get_sampling_locations(rays_o, rays_d, near, far, n_samples, stratified=True
         
         # Limit the noise values from 0 to the length of the division
         noise *= (far-near)/n_samples
-
-        z_locations = z_locations + noise
+        depths = depths + noise
 
     # Need to broadcast the ray direction to each location
-    locations = rays_o[...,None,:] + rays_d[...,None,:] * z_locations[...,:,None]
+    locations = rays_o[...,None,:] + rays_d[...,None,:] * depths[...,:,None]
 
     locations = torch.reshape(locations, [-1,n_samples,3])
-    z_locations = torch.reshape(z_locations, [-1,n_samples])
+    depths = torch.reshape(depths, [-1,n_samples])
     
-    return locations, z_locations
+    return locations, depths
 
 def positional_encoding(input, L=6, log_sampling=False):
     if log_sampling:
@@ -38,15 +37,15 @@ def positional_encoding(input, L=6, log_sampling=False):
             
     return torch.cat(enc, dim=-1)
 
-def volume_rendering(raw_radiance_density, z_locations, rays_d, raw_noise_std=0.):
+def volume_rendering(raw_radiance_density, depths, rays_d, raw_noise_std=0.):
 
     # distance between adjacent samples
-    dists = z_locations[..., 1:] - z_locations[..., :-1]
+    dists = depths[..., 1:] - depths[..., :-1]
 
     # last sample' distance is going to be infinity, we represent such distance 
     # with a symbolic high value (i.e., 1e10)
     inf = torch.tensor([1e10]).to(dists)
-    dists = torch.concat([dists, torch.broadcast_to(inf, dists[..., :1].shape)], dim=-1)
+    dists = torch.concat([dists, torch.broadcast_to(inf, dists[..., :1].shape)], dim=-1).to(raw_radiance_density)
 
     # convert the distances in the rays to real-world distances by multiplying 
     # by the norm of the ray's direction
