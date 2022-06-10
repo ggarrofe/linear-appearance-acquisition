@@ -1,7 +1,7 @@
 from llff.poses.pose_utils import gen_poses
 import sys
-
 import configargparse
+
 parser = configargparse.ArgumentParser()
 parser.add_argument('--match_type', type=str, 
 					default='exhaustive_matcher', help='type of matcher used.  Valid options: \
