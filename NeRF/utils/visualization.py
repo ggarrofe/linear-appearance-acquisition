@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
-import open3d as o3d
-    
+import torch
+import wandb
 
 def plot_losses(training_losses, val_losses, it):
     plt.figure(figsize=(9, 4))
@@ -39,9 +39,19 @@ def plt_first_ray_sampling_pdf(pdf, cdf, j, samples):
     fig.tight_layout()
     plt.show()
 
-def plot_mesh(mesh, mesh_path=None):
-    if mesh_path is not None:
-        mesh = o3d.io.read_triangle_mesh(mesh_path)
+def validation_view(rgb_map, val_target, img_shape, it=0, out_path=None):
+    print("rgb_map val target", rgb_map.shape, val_target.shape)
+    rgb_map = torch.reshape(rgb_map, img_shape)
+    val_target = torch.reshape(val_target, img_shape)
+    
+    fig = plt.figure(figsize=(10, 4))
+    plt.subplot(121)
+    plt.imshow(rgb_map.numpy())
+    plt.title(f"Reconstruction - it {it}")
+    plt.subplot(122)
+    plt.imshow(val_target.numpy())
+    plt.title("Target image")
 
-    mesh.compute_vertex_normals()
-    o3d.visualization.draw_geometries([mesh])
+    wandb.log({"validation_view": fig})
+    if out_path is not None:
+        plt.savefig(f"{out_path}/validation_it{it}.png", bbox_inches='tight', dpi=150)

@@ -3,7 +3,8 @@ import os
 import json
 import torch
 from torch.utils.data import TensorDataset, DataLoader
-import cv2
+import cv2, imageio
+
 from tqdm import tqdm
 from utils.load_llff import load_llff_data
 from scipy.spatial.transform import Rotation as R
@@ -48,8 +49,26 @@ def get_subdirs(path) -> list:
             subdirs = ['.'] 
         
         return subdirs
+
+def get_images_size(basedir, subdirs):
+        num_images = 0
+        num_images_list = []
+
+        for subdir in subdirs:
+            files_list = [f for f in os.listdir(os.path.join(basedir, subdir)) 
+                                    if f.endswith('JPG') or f.endswith('jpg') or f.endswith('png')]
+            num_images += len(files_list)
+            num_images_list.append(len(files_list))
+            
+        img_size = list(imageio.imread(os.path.join(basedir, subdir, files_list[0])).shape)
+        img_size[-1] = 3
+        images_size = [num_images]
+        images_size.extend(img_size)
+        return tuple(images_size), num_images_list
+
 class NeRFSubDataset():
     def __init__(self, rays, images, hwf, name, batch_size=None, shuffle=False):
+        print("Creating dataset with rays and images", rays.shape, images.shape)
         self.dataset = TensorDataset(rays, images)
         self.name = name
         self.hwf = hwf
@@ -57,12 +76,13 @@ class NeRFSubDataset():
         self.n_samples = images.shape[0]
 
         if batch_size is None:
-            batch_size=height*width
+            #batch_size=height*width
+            batch_size = 1
 
         self.dataloader = DataLoader(self.dataset, batch_size=batch_size, shuffle=shuffle)
         self.iterator = iter(self.dataloader)
 
-    def next_batch(self):
+    def next_batch(self, device=torch.device('cuda')):
         try:
             batch_rays, target_rgb = next(self.iterator)
             
@@ -70,7 +90,7 @@ class NeRFSubDataset():
             self.iterator = iter(self.dataloader)
             batch_rays, target_rgb = next(self.iterator)
 
-        return batch_rays, target_rgb
+        return batch_rays.float().to(device), target_rgb.float().to(device)
         
 class NeRFDataset():
 
@@ -93,9 +113,9 @@ class NeRFDataset():
         elif args.dataset_type == "colmap":
             self.load_colmap(args.dataset_path, device=device)
         
-        self._create()
+        self._create(args.batch_size)
     
-    def _create(self):
+    def _create(self, batch_size=None):
         #focal_length = focal_length.to(self.poses)
         
         rays_od = [torch.cat(self.get_rays_origins_and_directions(c2w, self.hwf), dim=-1) for c2w in tqdm(self.poses, unit="pose", desc="Generating rays")]
@@ -106,13 +126,18 @@ class NeRFDataset():
         view_dirs = view_dirs / torch.norm(view_dirs, dim=-1, keepdim=True)
         rays_odv = torch.cat([rays_od, view_dirs], dim=-1)
         
+        print("Creating datasets...")
         self.subdatasets = []
 
         for indices, name in zip(self.subdirs_indices, self.subdirs):
             rays = torch.reshape(rays_odv[indices], [rays_odv[indices].shape[0], -1, 9])#.to(self.device)
             images = torch.reshape(self.images[indices], [self.images[indices].shape[0], -1, 3])#.to(self.device)
-            self.subdatasets.append(NeRFSubDataset(rays, images, self.hwf, name))
+            
+            #rays = torch.reshape(rays_odv[indices], [-1, 9])
+            #images = torch.reshape(self.images[indices], [-1, 3])
+            self.subdatasets.append(NeRFSubDataset(rays, images, self.hwf, name, batch_size=batch_size))
 
+        print("Dataset created successfully")
         #focal_length = focal_length.to(self.device)
 
     def get_rays_od(self, img, subdataset=0):
@@ -145,16 +170,15 @@ class NeRFDataset():
         # view (i.e., the R matrix)
 
         directions = torch.stack([xx, -yy, -torch.ones_like(xx)], dim=-1)
-        #directions = torch.stack([xx, yy, torch.ones_like(xx)], dim=-1)
         
         rays_d = torch.sum(directions[..., None, :] * R, dim=-1)
         rays_o = t.expand(rays_d.shape)
         
         return rays_o, rays_d
 
-    def next_batch(self, dataset="train"):
-        subdataset = [d for d in self.subdatasets if d.name == dataset]
-        return subdataset.next_batch()
+    def next_batch(self, dataset="train", device=torch.device('cuda')):
+        subdataset = [d for d in self.subdatasets if d.name == dataset][0]
+        return subdataset.next_batch(device)
     
     def load_data(self,  
                   dataset_path,
@@ -236,30 +260,43 @@ class NeRFDataset():
         self.hwf = (height, width, focal_length)
        
     def load_llff(self, dataset_path, device=torch.device('cuda'), factor=1):
-        poses = None
-        images = None
         subdirs = get_subdirs(dataset_path)
-        
+        imgs_size, num_images = get_images_size(dataset_path, subdirs)
+        print("img shape", imgs_size)
+        images = np.zeros(imgs_size)
+        poses = np.zeros((imgs_size[0], 3, 4))
+        i_imgs = 0
+
         for i_dir, dir in enumerate(subdirs):
-            images_dir, poses_dir, bds = load_llff_data(dataset_path, factor, subdir=dir)
-            hwf = poses_dir[0, :3, -1]
-            poses = poses_dir[:, :3, :4]
+            hwf = load_llff_data(dataset_path, 
+                                 poses[i_imgs:i_imgs+num_images[i_dir]],
+                                 images[i_imgs:i_imgs+num_images[i_dir]],
+                                 factor=factor, 
+                                 subdir=dir,
+                                 i = i_imgs,
+                                 i_n=i_imgs+num_images[i_dir])
+            
+            '''hwf = poses_dir[0, :3, -1]
+            poses_dir = poses_dir[:, :3, :4]'''
 
-            if poses is None:
-                poses = poses_dir[None, ...]
-                images = images_dir[None, ...]
+            '''if poses is None:
+                poses = poses_dir
+                images = images_dir
             else:
-                poses = np.concatenate((poses, poses_dir[None, ...]))
-                images = np.concatenate((images, images_dir[None, ...]))
+                print("2")
+                poses = np.concatenate((poses, poses_dir), axis=0)
+                print("3")
+                images = np.concatenate((images, images_dir), axis=0)'''
 
-            self.subdirs_indices[i_dir] = list(range(self.subdirs_indices[i_dir][0], images.shape[0]))
-            self.subdirs_indices.append([images.shape[0]])
+            self.subdirs_indices.append(list(range(i_imgs, i_imgs+num_images[i_dir])))
             self.subdirs.append(dir)
+            i_imgs += num_images[i_dir]
 
         self.images = torch.from_numpy(images).to(device)
         self.poses = torch.from_numpy(poses).to(device)
         focal_length = torch.from_numpy(np.array([hwf[2]])).to(device)
         self.hwf = (int(hwf[0]), int(hwf[1]), focal_length)
+        print("hwf",self.hwf)
 
     def get_test_poses(self, i):
         return self.test_data[0][i], self.test_data[1][i]
