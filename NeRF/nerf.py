@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from tqdm.notebook import tqdm
+import utils.utils as utils
 
 def get_sampling_locations(rays_o, rays_d, near, far, n_samples, stratified=True):
     depths = torch.linspace(near, far, n_samples).to(rays_d)
@@ -148,16 +149,22 @@ class NeRFModel(nn.Module):
         self.volume_density_layers = nn.Sequential(*volume_density_layers)
     
     def forward(self, x, view_dirs=None):
+        print("Has nan? x", utils.has_nan(x))
         enc_x = positional_encoding(x, L=self.L_x)
+        print("Has nan? enc_x", utils.has_nan(enc_x))
         out_density = enc_x
 
         for l, layer in enumerate(self.volume_density_layers):
             out_density = layer(torch.cat((out_density, enc_x), dim=-1) if l/2 in self.skips else out_density)
-            
+        
+        print("Has nan? out_density", utils.has_nan(out_density))
         if self.viewing_direction:
             volume_density = self.volume_density_out(out_density)
+            print("Has nan? volume_density", utils.has_nan(volume_density))
             feature_vector = self.feature_vector(out_density)
+            print("Has nan? feature_vector", utils.has_nan(feature_vector))
             enc_view_dirs = positional_encoding(view_dirs, L=self.L_d)
+            print("Has nan? enc_view_dirs", utils.has_nan(enc_view_dirs))
             out_radiance = self.radiance_layers(torch.cat((feature_vector, enc_view_dirs), dim=-1))
             
         else:
