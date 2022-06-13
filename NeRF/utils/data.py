@@ -7,6 +7,7 @@ import cv2, imageio
 
 from tqdm import tqdm
 from utils.load_llff import load_llff_data
+import utils.utils as utils
 from scipy.spatial.transform import Rotation as R
 
 from pprint import pprint
@@ -43,7 +44,7 @@ def get_subdirs(path) -> list:
             path = path+'/'
 
         if not any(fname.endswith('.png') for fname in os.listdir(path)):
-            subdirs = [name for name in os.listdir(path) if os.path.isdir(os.path.join(path, name)) and not name[-1].isdigit()]
+            subdirs = [name for name in os.listdir(path) if os.path.isdir(os.path.join(path, name)) and not name[-1].isdigit() and not ".tmp" in name]
 
         if len(subdirs) == 0:
             subdirs = ['.'] 
@@ -261,6 +262,7 @@ class NeRFDataset():
        
     def load_llff(self, dataset_path, device=torch.device('cuda'), factor=1):
         subdirs = get_subdirs(dataset_path)
+        print(subdirs)
         imgs_size, num_images = get_images_size(dataset_path, subdirs)
         print("img shape", imgs_size)
         images = np.zeros(imgs_size)
@@ -276,6 +278,10 @@ class NeRFDataset():
                                  i = i_imgs,
                                  i_n=i_imgs+num_images[i_dir])
             
+            poses_old = poses.copy()
+            utils.summarize_diff(poses_old, poses)
+            print(poses[0])
+            print(poses_old[0])
             '''hwf = poses_dir[0, :3, -1]
             poses_dir = poses_dir[:, :3, :4]'''
 
