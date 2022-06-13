@@ -6,6 +6,7 @@ from tqdm.notebook import tqdm
 import seaborn as sn
 import utils.visualization as v
 import utils.data as data
+import utils.utils as utils
 import nerf
 import configargparse
 import wandb
@@ -20,7 +21,8 @@ def run_model(locations, view_dirs, model, n_samples, chunk_size, device=torch.d
     for i in range(0, locs_flat.shape[0], chunk_size):
         raw_radiance_density_flat = model(locs_flat[i:i+chunk_size], 
                                           view_dirs=view_dirs_flat[i:i+chunk_size])
-                                          
+        
+        print("Has nan? raw_radiance_density_flat", utils.has_nan(raw_radiance_density_flat))
         raw_radiance_density_chunk = torch.reshape(raw_radiance_density_flat, 
                                             [-1] + list(locations.shape[1:-1]) + [raw_radiance_density_flat.shape[-1]])
         if raw_radiance_density is None:
@@ -42,9 +44,13 @@ def predict(batch_rays, model, chunk_size=1024*32, N_samples=64, model_f=None, N
                                                    far=far, 
                                                    n_samples=N_samples)
     
+    print("Has nan? locations", utils.has_nan(locations))
+    print("Has nan? depths", utils.has_nan(depths))
     raw_radiance_density = run_model(locations, view_dirs, model, N_samples, chunk_size, device=device)
+    print("Has nan? raw_radiance_density", utils.has_nan(raw_radiance_density))
     rgb_map, weights = nerf.volume_rendering(raw_radiance_density, depths, 
                                         rays_d, raw_noise_std=raw_noise_std)
+    print("Has nan? rgb_map", utils.has_nan(rgb_map))
     
     if N_f > 0:
         rgb_map_0, weights_0 = rgb_map, weights
@@ -143,7 +149,7 @@ if __name__ == "__main__":
     for it in tqdm(range(args.N_iters), unit="iteration"):
         # By default each batch will correspond to the rays of a single image
         batch_rays_tr, target_rgb_tr = dataset.next_batch("train", device=device)
-        
+        print("Has nan? batch_rays", utils.has_nan(batch_rays_tr))
         model.train()
         pred = None
         #for i in range(0, batch_rays_tr.shape[0], args.chunk_size):
