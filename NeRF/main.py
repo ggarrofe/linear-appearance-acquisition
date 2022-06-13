@@ -71,7 +71,6 @@ def predict(batch_rays, model, chunk_size=1024*32, N_samples=64, model_f=None, N
     if N_f > 0:
         pred['rgb_map_0'] = rgb_map_0
         pred['weights_0'] = weights_0
-
     return pred
 
 def parse_args():
