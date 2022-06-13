@@ -1,5 +1,6 @@
 import numpy as np
 import os, imageio
+import utils.utils as utils
 
 def _minify(basedir, subdir=None, factors=[], resolutions=[]):
     needtoload = False
@@ -124,6 +125,7 @@ def load_llff_data(basedir, poses, images, factor=8, subdir=None, i=0, i_n=1):
     images = np.moveaxis(images, 0, -1)
     hwf = _load_data(basedir, poses, images, factor=factor, subdir=subdir) # factor=8 downsamples original imgs by 8x
     print('Loaded', basedir, subdir)
+    
     # Correct rotation matrix ordering and move variable dim to axis 0
     poses = np.concatenate([poses[:, 1:2, :], -poses[:, 0:1, :], poses[:, 2:, :]], 1)
     poses = np.moveaxis(poses, -1, 0).astype(np.float32)
