@@ -13,63 +13,63 @@ from scipy.spatial.transform import Rotation as R
 from pprint import pprint
 
 def get_subdirs(path) -> list:
-        """ Check if the provided path contains the images or has other inner directories that 
-            contain the images. Ommits the resized folders that end with a number.
+    """ Check if the provided path contains the images or has other inner directories that 
+        contain the images. Ommits the resized folders that end with a number.
 
-            e.g.: dataset           Has the following subdirs: ["train", "test", "val"]
-                    |-> train
-                    |-> test
-                    |-> val
-                    |-> train_1
+        e.g.: dataset           Has the following subdirs: ["train", "test", "val"]
+                |-> train
+                |-> test
+                |-> val
+                |-> train_1
 
-                  dataset           Does not have subdirs.
-                    |-> img0.png
-                    |-> img1.png
-                    ...
+                dataset           Does not have subdirs.
+                |-> img0.png
+                |-> img1.png
+                ...
 
-                  dataset           Does not have subdirs and will use the images in dataset/
-                    |-> docs
-                    |-> img0.png
-                    ...
+                dataset           Does not have subdirs and will use the images in dataset/
+                |-> docs
+                |-> img0.png
+                ...
 
-        Args:
-            path (str): Data path
+    Args:
+        path (str): Data path
 
-        Returns:
-            list: list of subdirs, if there are no subdirs will return a list with ['.']
-        """
-        subdirs = []
+    Returns:
+        list: list of subdirs, if there are no subdirs will return a list with ['.']
+    """
+    subdirs = []
 
-        if path[-1] != '/':
-            path = path+'/'
+    if path[-1] != '/':
+        path = path+'/'
 
-        if not any(fname.endswith('.png') for fname in os.listdir(path)):
-            subdirs = [name for name in os.listdir(path) if os.path.isdir(os.path.join(path, name)) and not name[-1].isdigit() and not ".tmp" in name]
+    if not any(fname.endswith('.png') for fname in os.listdir(path)):
+        subdirs = [name for name in os.listdir(path) if os.path.isdir(os.path.join(path, name)) and not name[-1].isdigit() and not ".tmp" in name]
 
-        if len(subdirs) == 0:
-            subdirs = ['.'] 
-        
-        return subdirs
+    if len(subdirs) == 0:
+        subdirs = ['.'] 
+    
+    return subdirs
 
 def get_images_size(basedir, subdirs):
-        num_images = 0
-        num_images_list = []
+    num_images = 0
+    num_images_list = []
 
-        for subdir in subdirs:
-            files_list = [f for f in os.listdir(os.path.join(basedir, subdir)) 
-                                    if f.endswith('JPG') or f.endswith('jpg') or f.endswith('png')]
-            num_images += len(files_list)
-            num_images_list.append(len(files_list))
-            
-        img_size = list(imageio.imread(os.path.join(basedir, subdir, files_list[0])).shape)
-        img_size[-1] = 3
-        images_size = [num_images]
-        images_size.extend(img_size)
-        return tuple(images_size), num_images_list
+    for subdir in subdirs:
+        files_list = [f for f in os.listdir(os.path.join(basedir, subdir)) 
+                                if f.endswith('JPG') or f.endswith('jpg') or f.endswith('png')]
+        num_images += len(files_list)
+        num_images_list.append(len(files_list))
+        
+    img_size = list(imageio.imread(os.path.join(basedir, subdir, files_list[0])).shape)
+    img_size[-1] = 3
+    images_size = [num_images]
+    images_size.extend(img_size)
+    return tuple(images_size), num_images_list
 
 class NeRFSubDataset():
     def __init__(self, rays, images, hwf, name, batch_size=None, shuffle=False):
-        print("Creating dataset with rays and images", rays.shape, images.shape)
+        print(f"Creating {name} dataset with rays ({rays.shape}) and images ({images.shape})")
         self.dataset = TensorDataset(rays, images)
         self.name = name
         self.hwf = hwf
@@ -100,7 +100,7 @@ class NeRFDataset():
                  device=torch.device('cuda')):
 
         self.device = device
-        self.subdirs_indices = [[0]]
+        self.subdirs_indices = []
         self.subdirs = []
 
         if args.dataset_type == "tiny":
@@ -263,25 +263,26 @@ class NeRFDataset():
     def load_llff(self, dataset_path, device=torch.device('cuda'), factor=1):
         subdirs = get_subdirs(dataset_path)
         print(subdirs)
+
         imgs_size, num_images = get_images_size(dataset_path, subdirs)
-        print("img shape", imgs_size)
         images = np.zeros(imgs_size)
         poses = np.zeros((imgs_size[0], 3, 4))
         i_imgs = 0
 
         for i_dir, dir in enumerate(subdirs):
+            poses_old = poses.copy()
+            print(f"Loading {dir} - {num_images[i_dir]} images...")
             hwf = load_llff_data(dataset_path, 
                                  poses[i_imgs:i_imgs+num_images[i_dir]],
                                  images[i_imgs:i_imgs+num_images[i_dir]],
                                  factor=factor, 
                                  subdir=dir,
-                                 i = i_imgs,
+                                 i=i_imgs,
                                  i_n=i_imgs+num_images[i_dir])
             
-            poses_old = poses.copy()
+            
             utils.summarize_diff(poses_old, poses)
-            print(poses[0])
-            print(poses_old[0])
+            print("HWF", hwf)
             '''hwf = poses_dir[0, :3, -1]
             poses_dir = poses_dir[:, :3, :4]'''
 
@@ -302,7 +303,6 @@ class NeRFDataset():
         self.poses = torch.from_numpy(poses).to(device)
         focal_length = torch.from_numpy(np.array([hwf[2]])).to(device)
         self.hwf = (int(hwf[0]), int(hwf[1]), focal_length)
-        print("hwf",self.hwf)
 
     def get_test_poses(self, i):
         return self.test_data[0][i], self.test_data[1][i]
