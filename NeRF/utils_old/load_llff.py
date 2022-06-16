@@ -63,7 +63,7 @@ def _load_data(basedir, poses, images, factor=None, width=None, height=None, loa
     pos = poses_arr[:, :-2].reshape([-1, 3, 5])
     hwf = pos[0, :3, -1]
     poses[:] = pos[:, :3, :4]
-    poses = poses.transpose([1,2,0])
+    poses[:] = poses.transpose([1,2,0])
     
     img0 = [os.path.join(basedir, subdir, f) for f in sorted(os.listdir(os.path.join(basedir, subdir))) \
             if f.endswith('JPG') or f.endswith('jpg') or f.endswith('png')][0]
@@ -104,7 +104,7 @@ def _load_data(basedir, poses, images, factor=None, width=None, height=None, loa
         return
     
     # Focal length refactor
-    hwf[2] *= (1./factor)
+    hwf *= (1./factor)
 
     if not load_imgs:
         return hwf
