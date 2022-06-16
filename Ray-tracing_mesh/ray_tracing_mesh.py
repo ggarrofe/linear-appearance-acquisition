@@ -1,20 +1,16 @@
-
-from email.policy import default
-from random import choices
 import configargparse
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
-import copy 
 
 import open3d as o3d
 import open3d.core as o3c
 
+import visualization as v
+
+import sys
+sys.path.append('../')
 import utils.data as data
-import utils.visualization as v
-
-import os
-
 
 def load_mesh(path):
     return o3d.io.read_triangle_mesh(path, print_progress=True)
@@ -40,6 +36,8 @@ def parse_args():
     parser.add_argument('--dataset_type', type=str, help='type of dataset', choices=['synthetic', 'llff', 'tiny', 'meshroom', 'colmap'])
     parser.add_argument('--factor', type=int, default=1)
     parser.add_argument('--spherify', type=bool, default=False)
+    parser.add_argument('--batch_size', type=int, default=16384)
+    parser.add_argument("--test", action='store_true', help='use reduced number of images')
 
     args = parser.parse_args()
     return args
@@ -54,8 +52,8 @@ if __name__ == '__main__':
     mesh = load_mesh(args.mesh)
     dataset = data.NeRFDataset(args, device=device)
 
-    for i in range(5):#dataset.get_n_samples()):
-        rays_od = dataset.get_rays_od(i)
+    for i in range(dataset.get_n_images()):
+        rays_od = dataset.get_rays_od(i, device=device)
 
         if args.test_path is None:
             v.plot_rays_and_mesh(rays_od, mesh, dataset.hwf)
