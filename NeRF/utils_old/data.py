@@ -51,7 +51,7 @@ def get_subdirs(path) -> list:
     
     return subdirs
 
-def get_images_size(basedir, subdirs):
+def get_images_size(basedir, subdirs, factor=1):
     num_images = 0
     num_images_list = []
 
@@ -61,7 +61,8 @@ def get_images_size(basedir, subdirs):
         num_images += len(files_list)
         num_images_list.append(len(files_list))
         
-    img_size = list(imageio.imread(os.path.join(basedir, subdir, files_list[0])).shape)
+    img_size = list(imageio.imread(os.path.join(basedir, subdir, files_list[0])).shape) 
+    img_size = [int(s/factor) for s in img_size]
     img_size[-1] = 3
     images_size = [num_images]
     images_size.extend(img_size)
@@ -92,6 +93,13 @@ class NeRFSubDataset():
             batch_rays, target_rgb = next(self.iterator)
 
         return batch_rays.float().to(device), target_rgb.float().to(device)
+
+    def get_image(self, i, device=torch.device('cuda')):
+        h = self.hwf[0]
+        w = self.hwf[1]
+        rays = self.dataset.tensors[0][i*h*w:(i+1)*h*w, ...].float().to(device)
+        imgs = self.dataset.tensors[1][i*h*w:(i+1)*h*w, ...].float().to(device)
+        return rays, imgs
         
 class NeRFDataset():
 
@@ -131,11 +139,11 @@ class NeRFDataset():
         self.subdatasets = []
 
         for indices, name in zip(self.subdirs_indices, self.subdirs):
-            rays = torch.reshape(rays_odv[indices], [rays_odv[indices].shape[0], -1, 9])#.to(self.device)
-            images = torch.reshape(self.images[indices], [self.images[indices].shape[0], -1, 3])#.to(self.device)
+            #rays = torch.reshape(rays_odv[indices], [rays_odv[indices].shape[0], -1, 9])#.to(self.device)
+            #images = torch.reshape(self.images[indices], [self.images[indices].shape[0], -1, 3])#.to(self.device)
             
-            #rays = torch.reshape(rays_odv[indices], [-1, 9])
-            #images = torch.reshape(self.images[indices], [-1, 3])
+            rays = torch.reshape(rays_odv[indices], [-1, 9])
+            images = torch.reshape(self.images[indices], [-1, 3])
             self.subdatasets.append(NeRFSubDataset(rays, images, self.hwf, name, batch_size=batch_size))
 
         print("Dataset created successfully")
@@ -181,6 +189,10 @@ class NeRFDataset():
         subdataset = [d for d in self.subdatasets if d.name == dataset][0]
         return subdataset.next_batch(device)
     
+    def get_image(self, dataset="val", i=0, device=torch.device('cuda')):
+        subdataset = [d for d in self.subdatasets if d.name == dataset][0]
+        return subdataset.get_image(i, device=device)
+
     def load_data(self,  
                   dataset_path,
                   device=torch.device('cuda'), 
@@ -264,7 +276,7 @@ class NeRFDataset():
         subdirs = get_subdirs(dataset_path)
         print(subdirs)
 
-        imgs_size, num_images = get_images_size(dataset_path, subdirs)
+        imgs_size, num_images = get_images_size(dataset_path, subdirs, factor=factor)
         images = np.zeros(imgs_size)
         poses = np.zeros((imgs_size[0], 3, 4))
         i_imgs = 0
@@ -283,17 +295,6 @@ class NeRFDataset():
             
             utils.summarize_diff(poses_old, poses)
             print("HWF", hwf)
-            '''hwf = poses_dir[0, :3, -1]
-            poses_dir = poses_dir[:, :3, :4]'''
-
-            '''if poses is None:
-                poses = poses_dir
-                images = images_dir
-            else:
-                print("2")
-                poses = np.concatenate((poses, poses_dir), axis=0)
-                print("3")
-                images = np.concatenate((images, images_dir), axis=0)'''
 
             self.subdirs_indices.append(list(range(i_imgs, i_imgs+num_images[i_dir])))
             self.subdirs.append(dir)
