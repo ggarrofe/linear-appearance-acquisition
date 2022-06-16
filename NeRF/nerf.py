@@ -1,16 +1,13 @@
-import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from tqdm.notebook import tqdm
-import utils.utils as utils
 
 def get_sampling_locations(rays_o, rays_d, near, far, n_samples, stratified=True):
     # rays_o, rays_d Size([n_poses, H*W, 3])
     # depths Size([n_samples])
     depths = torch.linspace(near, far, n_samples).to(rays_d) 
-    
+    #print("GSL rays_o, rays_d", rays_o.shape, rays_d.shape)
+    #print("GSL depths", depths.shape)
+
     if stratified:
         # Generate for each ray, n_samples of uniform noise
         noise = torch.rand(list(rays_d.shape[:-1]) + [n_samples]).to(rays_d)
@@ -22,6 +19,7 @@ def get_sampling_locations(rays_o, rays_d, near, far, n_samples, stratified=True
     # Need to broadcast the ray direction to each location
     # locations Size([n_poses, H*W, n_samples, 3])
     locations = rays_o[...,None,:] + rays_d[...,None,:] * depths[...,:,None]
+    #print("GSL locations", locations.shape)
 
     locations = torch.reshape(locations, [-1,n_samples,3])
     depths = torch.reshape(depths, [-1,n_samples])
@@ -35,12 +33,14 @@ def positional_encoding(input, L=6, log_sampling=False):
     else:
         freq_bands = torch.linspace(2.**0., 2.**(L-1), L)
 
+    #print("ENC freq_bands", freq_bands.shape)
 
     enc = [input]
     for f in freq_bands:
         for fn in [torch.sin, torch.cos]:
             enc.append(fn(f * input))
 
+    #print("ENC torch cat enc", torch.cat(enc, dim=-1).shape)
     # torch.cat(enc, dim=-1) Size([n_poses*H*W*n_samples, 3 + 2*L*3]) -> 2 bc sin and cos
     return torch.cat(enc, dim=-1)
 
@@ -48,30 +48,38 @@ def volume_rendering(raw_radiance_density, depths, rays_d, raw_noise_std=0.):
 
     # distance between adjacent samples dists Size([H*W, n_samples-1])
     dists = depths[..., 1:] - depths[..., :-1]
+    #print("VOL dists", dists.shape)
     
     # last sample' distance is going to be infinity, we represent such distance 
     # with a symbolic high value (i.e., 1e10) dists Size([H*W, n_samples])
     inf = torch.tensor([1e10]).to(dists)
     # dists Size([n_images, H*W, n_samples])
     dists = torch.concat([dists, torch.broadcast_to(inf, dists[..., :1].shape)], dim=-1).to(raw_radiance_density)
-    
+    #print("VOL dists", dists.shape)
+    #print(dists)
     # convert the distances in the rays to real-world distances by multiplying 
     # by the norm of the ray's direction
     dists = dists * torch.norm(rays_d[..., None, :], dim=-1)
-    
+    #print(dists)
+
     # Adding noise to model's predictions for density helps regularizing the network 
     # during training. raw_radiance_density Size([H*W, n_samples])
+    #print("VOL raw_radiance_density", raw_radiance_density.shape)
     raw_density = raw_radiance_density[..., 3]
     if raw_noise_std > 0.:
         noise = torch.randn(raw_density.shape).to(raw_density) * raw_noise_std
         raw_density = raw_density + noise
 
+    #print(raw_density)
     # alpha Size([n_images, H*W, n_samples])
     alpha = 1.0 - torch.exp(-raw_density * dists)
+    #print("VOL alpha", alpha.shape)
 
+    #print(alpha)
     # transmitance Size([n_images, H*W, n_samples])
     transmitance = torch.cumprod(1.0 - alpha + 1e-10, dim=-1)
-
+    #print("VOL transmitance", transmitance.shape)
+    #print(transmitance)
     # exclusive = True, for the first sample the transmitance should be 1 as the
     # probability to travel from one sample to the same sample without hitting any
     # particle is 1
@@ -80,6 +88,7 @@ def volume_rendering(raw_radiance_density, depths, rays_d, raw_noise_std=0.):
 
     weights = transmitance * alpha
     rgb = torch.sum(weights[..., None] * raw_radiance_density[..., :3], dim=-2)
+    #print(rgb)
     return rgb, weights
 
 def sample_pdf(locations, weights, N_samples=128, plt_fn=None, rays_o=None, rays_d=None):
@@ -158,8 +167,8 @@ class NeRFModel(nn.Module):
         self.volume_density_layers = nn.Sequential(*volume_density_layers)
     
     def forward(self, x, view_dirs=None):
-        #print("Has nan? x", utils.has_nan(x))
         # x Size([H*W*n_images*n_samples, 3])
+        #print("FWD x", x.shape)
         enc_x = positional_encoding(x, L=self.L_x)
         #print("Has nan? enc_x", utils.has_nan(enc_x))
         out_density = enc_x
@@ -180,5 +189,7 @@ class NeRFModel(nn.Module):
         else:
             volume_density = torch.relu(out_density[..., 3])
             out_radiance = torch.sigmoid(out_density[..., :3])
-            
+        
+        #print("out_radiance", out_radiance)
+        #print("volume_density", volume_density)
         return torch.cat((out_radiance, volume_density), dim=-1)

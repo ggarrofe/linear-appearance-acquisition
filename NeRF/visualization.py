@@ -40,7 +40,6 @@ def plt_first_ray_sampling_pdf(pdf, cdf, j, samples):
     plt.show()
 
 def validation_view(rgb_map, val_target, img_shape, it=0, out_path=None):
-    print("rgb_map val target", rgb_map.shape, val_target.shape)
     rgb_map = torch.reshape(rgb_map, img_shape)
     val_target = torch.reshape(val_target, img_shape)
     
