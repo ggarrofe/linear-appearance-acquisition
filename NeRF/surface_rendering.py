@@ -1,9 +1,12 @@
 import torch
 import torch.nn as nn
+import numpy as np
 from tqdm import tqdm
 
 import configargparse
 import wandb
+
+import open3d as o3d
 
 import nerf
 import visualization as v
@@ -119,6 +122,8 @@ if __name__ == "__main__":
     if args.colab:
         sys.path.append(args.colab_path)
     import utils.data as data
+    import utils.networks as net
+    import utils.utils as utils
 
     wandb.init(project="controllable-neural-rendering", entity="guillemgarrofe")
     
@@ -129,6 +134,22 @@ if __name__ == "__main__":
     print("dataset to: ", device if args.dataset_to_gpu == True else torch.device("cpu"))
     dataset = data.NeRFDataset(args, device=device if args.dataset_to_gpu else torch.device("cpu"))
     
+    mesh = o3d.io.read_triangle_mesh(args.mesh, print_progress=True)
+    mesh = o3d.t.geometry.TriangleMesh.from_legacy(mesh)
+    scene = o3d.t.geometry.RaycastingScene()
+    scene.add_triangles(mesh)
+    #dataset.compute_depths(scene)
+    #dataset.compute_normals()
+    dataset.create_xnv_dataset(scene)
+
+    '''if args.test:
+        for i in range(4):
+            depths = dataset.get_depths("train", i, device=torch.device("cpu"))
+            normals = dataset.get_normals("train", i, device=torch.device("cpu"))
+            img = dataset.get_image("train", i, device=torch.device("cpu"))
+            v.print_depths(depths, img, dataset.hwf, args.out_path+f"/depths_{i}.png")
+            v.print_normals(normals, img, dataset.hwf, args.out_path+f"/norms_{i}.png")'''
+
     wandb.config = {
         "learning_rate": args.lrate,
         "num_iters": args.N_iters,
@@ -139,73 +160,25 @@ if __name__ == "__main__":
     }
 
     # Create models
-    print("Creating coarse model...")
-    model = nerf.NeRFModel(D=args.D_c)
-    model.to(device)
-    model_f = None
-
-    if args.N_f > 0:
-        print("Creating fine model...")
-        model_f = nerf.NeRFModel(D=2)
-        model_f.to(device)
+    rend_net = net.SurfaceRenderingNetwork(input_ch=9,
+                                           out_ch=3,
+                                           hidden_ch=[512, 512, 512, 512],
+                                           enc_dim=6)
+    rend_net.to(device)
 
     # Create optimizer
-        print("Creating optimizer...")
-        optimizer = torch.optim.Adam(list(model.parameters()) + list(model_f.parameters()), lr=args.lrate)
+    optimizer = torch.optim.Adam(rend_net.parameters(), lr=args.lrate)
 
-    else:
-        print("Creating optimizer...")
-        optimizer = torch.optim.Adam(model.parameters(), lr=args.lrate)
-    
     loss_fn = nn.MSELoss()
-    mse2psnr = lambda x : -10. * torch.log(x) / torch.log(torch.Tensor([10.]).to(device))
-    #img2mse = lambda x, y : torch.mean((x - y) ** 2)
-    
-    # Train
-    training_losses = []
-    val_losses = []
-    
+
     for step in tqdm(range(args.N_iters), unit="iteration"):
         # By default each batch will correspond to the rays of a single image
-        batch_rays_tr, target_rgb_tr = dataset.next_batch("train", device=device)
+        batch_xnv_tr, target_rgb_tr = dataset.next_batch("train", device=device)
         
-        model.train()
-        pred = None
+        rend_net.train()
+        pred_rgb = rend_net(batch_xnv_tr[..., :3], batch_xnv_tr[..., 3:6], batch_xnv_tr[..., 6:])
         
-        pred = predict(batch_rays_tr, 
-                        model, 
-                        N_samples=args.N_samples, 
-                        model_f=model_f, 
-                        N_f=args.N_f, 
-                        near=args.near, 
-                        far=args.far, 
-                        raw_noise_std=args.raw_noise_std,
-                        device=device)
-
-        if args.N_f > 0:
-            loss_c = loss_fn(pred['rgb_map_0'], target_rgb_tr)
-            loss_f = loss_fn(pred['rgb_map'], target_rgb_tr)
-            #loss_c = img2mse(pred['rgb_map_0'], target_rgb_tr)
-            #loss_f = img2mse(pred['rgb_map'], target_rgb_tr)
-            loss = loss_c + loss_f
-            wandb.log({
-                "loss_tr": loss,
-                "loss_c_tr": loss_c,
-                "loss_f_tr": loss_f,
-                "gpu_memory": torch.cuda.memory_allocated(0)/1024/1024/1024
-                })
-        else:
-            # print(pred['rgb_map'].shape, target_rgb_tr.shape)
-            # print("pred", pred['rgb_map'])
-            # print("target", target_rgb_tr)
-            loss = loss_fn(pred['rgb_map'], target_rgb_tr)
-            #loss = img2mse(pred['rgb_map'], target_rgb_tr)
-            psnr = mse2psnr(loss)
-            #print("loss", loss)
-            wandb.log({
-                "loss": loss,
-                "psnr": psnr
-                })
+        loss = loss_fn(pred_rgb, target_rgb_tr)
 
         optimizer.zero_grad()
         loss.backward()
@@ -217,41 +190,84 @@ if __name__ == "__main__":
         for param_group in optimizer.param_groups:
             param_group['lr'] = new_lrate
 
-        training_losses.append(loss.item())
-
-        # ----- VALIDATION LOSS -----
-        model.eval()
-        batch_rays_val, target_rgb_val = dataset.next_batch("val", device=device)
-        pred = predict(batch_rays_val, model, N_samples=args.N_samples, model_f=model_f, N_f=args.N_f, near=args.near, far=args.far)
-        
-        if args.N_f > 0:
-            loss_c = loss_fn(pred['rgb_map_0'], target_rgb_val)
-            loss_f = loss_fn(pred['rgb_map'], target_rgb_val)
-            #loss_c = img2mse(pred['rgb_map_0'], target_rgb_val)
-            #loss_f = img2mse(pred['rgb_map'], target_rgb_val)
-            loss_val = loss_c + loss_f
-            wandb.log({
-                "loss_val": loss_val,
-                "loss_c_val": loss_c,
-                "loss_f_val": loss_f
+        wandb.log({
+                "loss": loss
                 })
-        else:
-            loss_val = loss_fn(pred['rgb_map'], target_rgb_val)
-            #loss_val = img2mse(pred['rgb_map'], target_rgb_val)
-            wandb.log({"loss_val": loss_val})
 
-        val_losses.append(loss_val.item())
-        
+        # VALIDATION
+
+        rend_net.eval()
+        batch_xnv_val, target_rgb_val = dataset.next_batch("val", device=device)
+        pred_rgb = rend_net(batch_xnv_val[..., :3], batch_xnv_val[..., 3:6], batch_xnv_val[..., 6:])
+
+        loss = loss_fn(pred_rgb, target_rgb_val)
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        wandb.log({
+                "val_loss": loss
+                })
+
         if step%500 == 0:
-            rays, img = dataset.get_X_target("train", 0, device=device)
+            xnv, img = dataset.get_X_target("train", 0, device=device)
             rgb_map = None
-            for i in range(0, rays.shape[0], args.batch_size):
-                pred = predict(rays[i:i+args.batch_size], model, N_samples=args.N_samples, model_f=model_f, N_f=args.N_f, near=args.near, far=args.far)
+            for i in range(0, xnv.shape[0], args.batch_size):
+                pred = rend_net(xnv[i:i+args.batch_size, :3], xnv[i:i+args.batch_size, 3:6], xnv[i:i+args.batch_size, 6:])
                 
                 if rgb_map is None:
-                    rgb_map = pred['rgb_map']
+                    rgb_map = pred
                 else:
-                    rgb_map = torch.cat((rgb_map, pred['rgb_map']), dim=0)
+                    rgb_map = torch.cat((rgb_map, pred), dim=0)
 
-            v.validation_view(rgb_map.detach().cpu(), img.detach().cpu(), img_shape=(dataset.hwf[0], dataset.hwf[1], 3), it=step, out_path=args.out_path)
-            #v.plot_losses(training_losses, val_losses, it=it)
+            #v.validation_view(rgb_map.detach().cpu(), img.detach().cpu(), img_shape=(dataset.hwf[0], dataset.hwf[1], 3), it=step, out_path=args.out_path, name="training")
+            v.validation_view_rgb_xnv(rgb_map.detach().cpu(), 
+                                      img.detach().cpu(), 
+                                      points=xnv[..., :3].detach().cpu(),
+                                      normals=xnv[..., 3:6].detach().cpu(),
+                                      viewdirs=xnv[..., 6:].detach().cpu(),
+                                      img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
+                                      it=step, 
+                                      out_path=args.out_path,
+                                      name="training_xnv")
+
+            xnv, img = dataset.get_X_target("train", np.random.randint(0, dataset.get_n_images()), device=device)
+            rgb_map = None
+            for i in range(0, xnv.shape[0], args.batch_size):
+                pred = rend_net(xnv[i:i+args.batch_size, :3], xnv[i:i+args.batch_size, 3:6], xnv[i:i+args.batch_size, 6:])
+                
+                if rgb_map is None:
+                    rgb_map = pred
+                else:
+                    rgb_map = torch.cat((rgb_map, pred), dim=0)
+
+            v.validation_view_rgb_xnv(rgb_map.detach().cpu(), 
+                                      img.detach().cpu(), 
+                                      points=xnv[..., :3].detach().cpu(),
+                                      normals=xnv[..., 3:6].detach().cpu(),
+                                      viewdirs=xnv[..., 6:].detach().cpu(),
+                                      img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
+                                      it=step, 
+                                      out_path=args.out_path,
+                                      name="training_random_xnv")
+
+            xnv, img = dataset.get_X_target("val", 0, device=device)
+            rgb_map = None
+            for i in range(0, xnv.shape[0], args.batch_size):
+                pred = rend_net(xnv[i:i+args.batch_size, :3], xnv[i:i+args.batch_size, 3:6], xnv[i:i+args.batch_size, 6:])
+                
+                if rgb_map is None:
+                    rgb_map = pred
+                else:
+                    rgb_map = torch.cat((rgb_map, pred), dim=0)
+
+            #v.validation_view(rgb_map.detach().cpu(), img.detach().cpu(), img_shape=(dataset.hwf[0], dataset.hwf[1], 3), it=step, out_path=args.out_path)
+            v.validation_view_rgb_xnv(rgb_map.detach().cpu(), 
+                                      img.detach().cpu(), 
+                                      points=xnv[..., :3].detach().cpu(),
+                                      normals=xnv[..., 3:6].detach().cpu(),
+                                      viewdirs=xnv[..., 6:].detach().cpu(),
+                                      img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
+                                      it=step, 
+                                      out_path=args.out_path)
