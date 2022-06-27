@@ -70,18 +70,82 @@ def get_images_size(basedir, subdirs, factor=1):
 
 class NeRFSubDataset():
     def __init__(self, rays, images, hwf, name, batch_size=None, shuffle=False):
-        print(f"Creating {name} dataset with rays ({rays.shape}) and images ({images.shape})")
+        print(f"\tCreating {name} dataset with rays ({rays.shape}) and images ({images.shape})")
         self.dataset = TensorDataset(rays, images)
         self.name = name
         self.hwf = hwf
         height, width, focal = hwf
-        print(images.shape)
-        self.n_images = images.shape[0]/(height*width)
+        
+        self.n_images = int(images.shape[0]/(height*width))
 
         if batch_size is None:
             batch_size=height*width
 
+        self.batch_size = batch_size
+        self.shuffle = shuffle
+
         self.dataloader = DataLoader(self.dataset, batch_size=batch_size, shuffle=shuffle)
+        self.iterator = iter(self.dataloader)
+
+        self.inf_value = 10.0
+
+    def compute_depths(self, scene):
+        h, w, f = self.hwf
+        self.depths = torch.zeros((self.dataset.tensors[0].shape[0]))
+        self.points = torch.zeros((self.dataset.tensors[0].shape[0], 3))
+        
+        for i in range(0, self.dataset.tensors[0].shape[0], h*w):
+            rays_od = self.dataset.tensors[0][i:i+h*w, :6]
+            hit = utils.cast_rays(scene, rays_od)
+            hit = hit.reshape(h, w).T.flatten()
+
+            # depths are inf if the ray does not hit the mesh
+            self.depths[i:i+h*w] = torch.from_numpy(hit)
+            self.points[i:i+h*w] = rays_od[..., :3] + self.depths[i:i+h*w, None] * rays_od[..., 3:]
+
+        self.points = torch.nan_to_num(self.points, posinf=self.inf_value, neginf=self.inf_value, nan=0.0)
+
+    def compute_normals(self):
+        """
+        Consider your range image is a function z(x,y).
+        The normal to the surface is in the direction (-dz/dx,-dz/dy,1). (Where by dz/dx I mean 
+        the differential: the rate of change of z with x). And then normals are conventionally 
+        normalized to unit length.
+
+        Incidentally, if you're wondering where that (-dz/dx,-dz/dy,1) comes from... if you take 
+        the 2 orthogonal tangent vectors in the plane parellel to the x and y axes, those are (1,0,dzdx) 
+        and (0,1,dzdy). The normal is perpendicular to the tangents, so should be (1,0,dzdx)X(0,1,dzdy) 
+        - where 'X' is cross-product - which is (-dzdx,-dzdy,1). So there's your cross product derived 
+        normal, but there's little need to compute it so explicitly in code when you can just use the 
+        resulting expression for the normal directly.
+        """
+
+        h, w, f = self.hwf
+        self.normals = torch.zeros_like(self.points, requires_grad=False, device=self.depths.device)
+            
+        padding_h = torch.zeros((h,1))
+        padding_w = torch.zeros((1,w))
+        
+        for i in range(0, self.dataset.tensors[0].shape[0], h*w):
+            depths = self.depths[i:i+h*w].reshape(h, w)
+            dzdx = torch.cat([padding_w, (depths[2:,...] - depths[:-2,...])/2, padding_w], dim=0)
+            dzdy = torch.cat([padding_h, (depths[..., 2:] - depths[..., :-2])/2, padding_h], dim=1)
+            ones = torch.ones_like(dzdx)
+            direction = torch.stack([-dzdx, -dzdy, ones], dim=-1)
+
+            magnitude = torch.sqrt(torch.pow(direction[..., 0], 2)+torch.pow(direction[..., 1], 2)+torch.pow(direction[..., 2], 2)).unsqueeze(-1)
+            normals = direction/magnitude * 0.5 + 0.5
+            self.normals[i:i+h*w] = torch.nan_to_num(normals).reshape((h*w, 3))
+
+    def create_xnv_dataset(self, scene):
+        self.compute_depths(scene)
+        self.compute_normals()
+
+        viewdirs = self.dataset.tensors[0][..., 6:]
+        X = torch.cat([self.points, self.normals, viewdirs], dim=-1)
+        
+        self.dataset = TensorDataset(X, self.dataset.tensors[1])
+        self.dataloader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=self.shuffle)
         self.iterator = iter(self.dataloader)
 
     def next_batch(self, device=torch.device('cuda')):
@@ -97,14 +161,31 @@ class NeRFSubDataset():
     def get_image(self, i, device=torch.device('cuda')):
         h = self.hwf[0]
         w = self.hwf[1]
-        rays = self.dataset.tensors[0][i*h*w:(i+1)*h*w, ...].float().to(device)
+        
         imgs = self.dataset.tensors[1][i*h*w:(i+1)*h*w, ...].float().to(device)
-        return rays, imgs
+        return imgs
+
+    def get_X_target(self, i, device=torch.device('cuda')):
+        h = self.hwf[0]
+        w = self.hwf[1]
+        X = self.dataset.tensors[0][i*h*w:(i+1)*h*w, ...].float().to(device)
+        target = self.dataset.tensors[1][i*h*w:(i+1)*h*w, ...].float().to(device)
+        return X, target
 
     def get_rays_od(self, i, device):
         h = self.hwf[0]
         w = self.hwf[1]
         return self.dataset.tensors[0][i*h*w:(i+1)*h*w, ..., :6].float().to(device)
+
+    def get_depths(self, i, device=torch.device('cuda')):
+        h = self.hwf[0]
+        w = self.hwf[1]
+        return self.depths[i*h*w:(i+1)*h*w].to(device)
+
+    def get_normals(self, i, device=torch.device('cuda')):
+        h = self.hwf[0]
+        w = self.hwf[1]
+        return self.normals[i*h*w:(i+1)*h*w].to(device)
         
 class NeRFDataset():
 
@@ -147,14 +228,14 @@ class NeRFDataset():
                 rays = rays[:4*h*w]
                 images = images[:4*h*w]
 
-            print(f"Computing view dirs for {name}...\n\tRays shape {rays.shape}")
+            print(f"\tComputing view dirs for {name}...")
             view_dirs = rays[..., 3:]
             view_dirs = view_dirs / torch.norm(view_dirs, dim=-1, keepdim=True)
             rays_odv = torch.cat([rays, view_dirs], dim=-1)
 
             self.subdatasets.append(NeRFSubDataset(rays_odv, images, self.hwf, name, batch_size=batch_size))
 
-        print("Dataset created successfully")
+        print("Datasets created successfully\n")
         #focal_length = focal_length.to(self.device)
 
     @staticmethod
@@ -195,13 +276,37 @@ class NeRFDataset():
         subdataset = [d for d in self.subdatasets if d.name == dataset][0]
         return subdataset.get_image(i, device=device)
 
-    def get_rays_od(self, img, dataset="train", device=torch.device('cuda')):
+    def get_X_target(self, dataset="val", i=0, device=torch.device('cuda')):
+        subdataset = [d for d in self.subdatasets if d.name == dataset][0]
+        return subdataset.get_X_target(i, device=device)
+
+    def get_rays_od(self,dataset="train", img=0, device=torch.device('cuda')):
         subdataset = [d for d in self.subdatasets if d.name == dataset][0]
         return subdataset.get_rays_od(img, device=device)
 
     def get_n_images(self, dataset="train"):
         subdataset = [d for d in self.subdatasets if d.name == dataset][0]
         return subdataset.n_images
+
+    def compute_depths(self, scene):
+        for subdataset in self.subdatasets:
+            subdataset.compute_depths(scene)
+
+    def get_depths(self, dataset="val", i=0, device=torch.device('cuda')):
+        subdataset = [d for d in self.subdatasets if d.name == dataset][0]
+        return subdataset.get_depths(i, device=device)
+
+    def compute_normals(self):
+        for subdataset in self.subdatasets:
+            subdataset.compute_normals()
+
+    def get_normals(self, dataset="val", i=0, device=torch.device('cuda')):
+        subdataset = [d for d in self.subdatasets if d.name == dataset][0]
+        return subdataset.get_normals(i, device=device)
+
+    def create_xnv_dataset(self, scene):
+        for d in self.subdatasets:
+            d.create_xnv_dataset(scene)
 
     def load_synthetic(self,  
                   dataset_path,
@@ -304,7 +409,6 @@ class NeRFDataset():
                                  i_n=i_imgs+num_images[i_dir])
             
             utils.summarize_diff(poses_old, poses)
-            print("HWF", hwf)
 
             self.subdirs_indices.append(list(range(i_imgs, i_imgs+num_images[i_dir])))
             self.subdirs.append(dir)
