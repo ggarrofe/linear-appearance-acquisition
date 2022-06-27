@@ -39,7 +39,7 @@ def plt_first_ray_sampling_pdf(pdf, cdf, j, samples):
     fig.tight_layout()
     plt.show()
 
-def validation_view(rgb_map, val_target, img_shape, it=0, out_path=None):
+def validation_view(rgb_map, val_target, img_shape, it=0, out_path=None, name="validation"):
     rgb_map = torch.reshape(rgb_map, img_shape)
     val_target = torch.reshape(val_target, img_shape)
     
@@ -51,6 +51,59 @@ def validation_view(rgb_map, val_target, img_shape, it=0, out_path=None):
     plt.imshow(val_target.numpy())
     plt.title("Target image")
 
-    wandb.log({"validation_view": fig})
+    wandb.log({f"{name}_view": fig})
     if out_path is not None:
-        plt.savefig(f"{out_path}/validation_it{it}.png", bbox_inches='tight', dpi=150)
+        plt.savefig(f"{out_path}/{name}_it{it}.png", bbox_inches='tight', dpi=150)
+
+def validation_view_rgb_xnv(rgb_map, val_target, img_shape, points, normals, viewdirs, it=0, out_path=None, name="validation_xnv"):
+    rgb_map = torch.reshape(rgb_map, img_shape)
+    val_target = torch.reshape(val_target, img_shape)
+    points = torch.reshape(points, img_shape)
+    normals = torch.reshape(normals, img_shape)
+    viewdirs = torch.reshape(viewdirs, img_shape)
+    
+    fig = plt.figure(figsize=(25, 4))
+    plt.subplot(151)
+    plt.imshow(rgb_map.numpy())
+    plt.title(f"Reconstruction - it {it}")
+    plt.subplot(152)
+    plt.imshow(val_target.numpy())
+    plt.title("Target image")
+    plt.subplot(153)
+    plt.imshow(points.numpy())
+    plt.title("3D points")
+    plt.subplot(154)
+    plt.imshow(normals.numpy())
+    plt.title("Normals")
+    plt.subplot(155)
+    plt.imshow(viewdirs.numpy())
+    plt.title("View directions")
+
+    wandb.log({f"{name}_view": fig})
+    if out_path is not None:
+        plt.savefig(f"{out_path}/{name}_it{it}.png", bbox_inches='tight', dpi=150)
+
+def print_depths(depths, img, hwf, path="./depths.png"):
+    depths = depths.reshape(hwf[0], hwf[1])
+    img = img.reshape(hwf[0], hwf[1], img.shape[-1])
+    
+    fig = plt.figure(figsize=(9, 4))
+    ax1 = fig.add_subplot(2,1,1)    
+    ax1.imshow(img)
+    ax2 = fig.add_subplot(2,2,1)   
+    ax2.imshow(depths)
+    plt.savefig(path)
+    plt.show()
+
+def print_normals(normals, img, hwf, path="./norms.png"):
+    normals = normals.reshape(hwf[0], hwf[1], 3)
+    img = img.reshape(hwf[0], hwf[1], img.shape[-1])
+    
+    fig = plt.figure(figsize=(9, 4))
+    ax1 = fig.add_subplot(2,1,1)    
+    ax1.imshow(img)
+    ax2 = fig.add_subplot(2,2,1)   
+    ax2.imshow(normals)
+    plt.savefig(path)
+    print(f"Saved {path}")
+    plt.show()
