@@ -91,7 +91,7 @@ def _load_data(basedir, poses, images, factor=None, width=None, height=None, loa
     
     if subdir is None:
         subdir = 'images'
-
+    print(f"\tfrom {subdir + sfx}")
     imgdir = os.path.join(basedir, subdir + sfx)
     
     if not os.path.exists(imgdir):
@@ -118,16 +118,14 @@ def _load_data(basedir, poses, images, factor=None, width=None, height=None, loa
     imgs = [imread(f)[...,:3]/255. for f in imgfiles]
     images[:] = np.stack(imgs, -1)  
     
-    print('Loaded image data', images.shape, poses[:,-1,0])
-    print("_load data poses shape", poses.shape)
+    print('\tLoaded image data', images.shape, hwf)
     return hwf, poses
 
 def load_llff_data(basedir, poses, images, factor=8, subdir=None, i=0, i_n=1):
     images = np.moveaxis(images, 0, -1)
     hwf, poses = _load_data(basedir, poses, images, factor=factor, subdir=subdir) # factor=8 downsamples original imgs by 8x
     
-    print("_load llf data poses shape", poses.shape)
-    print('Loaded', basedir, subdir)
+    print('\tLoaded', basedir, subdir)
     
     # Correct rotation matrix ordering and move variable dim to axis 0
     poses = np.concatenate([poses[:, 1:2, :], -poses[:, 0:1, :], poses[:, 2:, :]], 1)
