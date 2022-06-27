@@ -2,11 +2,7 @@ import torch
 import torch.nn as nn
 
 def get_sampling_locations(rays_o, rays_d, near, far, n_samples, stratified=True):
-    # rays_o, rays_d Size([n_poses, H*W, 3])
-    # depths Size([n_samples])
-    depths = torch.linspace(near, far, n_samples).to(rays_d) 
-    #print("GSL rays_o, rays_d", rays_o.shape, rays_d.shape)
-    #print("GSL depths", depths.shape)
+    depths = torch.linspace(near, far, n_samples).to(rays_d)
 
     if stratified:
         # Generate for each ray, n_samples of uniform noise
@@ -19,7 +15,6 @@ def get_sampling_locations(rays_o, rays_d, near, far, n_samples, stratified=True
     # Need to broadcast the ray direction to each location
     # locations Size([n_poses, H*W, n_samples, 3])
     locations = rays_o[...,None,:] + rays_d[...,None,:] * depths[...,:,None]
-    #print("GSL locations", locations.shape)
 
     locations = torch.reshape(locations, [-1,n_samples,3])
     depths = torch.reshape(depths, [-1,n_samples])
@@ -27,36 +22,29 @@ def get_sampling_locations(rays_o, rays_d, near, far, n_samples, stratified=True
     return locations, depths
 
 def positional_encoding(input, L=6, log_sampling=False):
-    # freq_bands Size([L])
     if log_sampling:
         freq_bands = 2.**torch.linspace(0., L-1, L)
     else:
         freq_bands = torch.linspace(2.**0., 2.**(L-1), L)
-
-    #print("ENC freq_bands", freq_bands.shape)
 
     enc = [input]
     for f in freq_bands:
         for fn in [torch.sin, torch.cos]:
             enc.append(fn(f * input))
 
-    #print("ENC torch cat enc", torch.cat(enc, dim=-1).shape)
-    # torch.cat(enc, dim=-1) Size([n_poses*H*W*n_samples, 3 + 2*L*3]) -> 2 bc sin and cos
     return torch.cat(enc, dim=-1)
 
 def volume_rendering(raw_radiance_density, depths, rays_d, raw_noise_std=0.):
 
     # distance between adjacent samples dists Size([H*W, n_samples-1])
     dists = depths[..., 1:] - depths[..., :-1]
-    #print("VOL dists", dists.shape)
     
     # last sample' distance is going to be infinity, we represent such distance 
     # with a symbolic high value (i.e., 1e10) dists Size([H*W, n_samples])
     inf = torch.tensor([1e10]).to(dists)
-    # dists Size([n_images, H*W, n_samples])
     dists = torch.concat([dists, torch.broadcast_to(inf, dists[..., :1].shape)], dim=-1).to(raw_radiance_density)
-    #print("VOL dists", dists.shape)
-    #print(dists)
+    
+    
     # convert the distances in the rays to real-world distances by multiplying 
     # by the norm of the ray's direction
     dists = dists * torch.norm(rays_d[..., None, :], dim=-1)
