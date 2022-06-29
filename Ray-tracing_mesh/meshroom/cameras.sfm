@@ -1,0 +1,4523 @@
+{
+    "version": [
+        "1",
+        "0",
+        "0"
+    ],
+    "featuresFolders": [
+        "..\/..\/FeatureExtraction\/5bbef0dedfb261b63abfefc7ac96c92c50ee6142"
+    ],
+    "matchesFolders": [
+        "..\/..\/FeatureMatching\/ba034a5292adc85f4d5930cb42977c4c4a7202f0"
+    ],
+    "views": [
+        {
+            "viewId": "15105580",
+            "poseId": "15105580",
+            "intrinsicId": "1253890980",
+            "resectionId": "29",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_73.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:10:12",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:23.50",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "30735839",
+            "poseId": "30735839",
+            "intrinsicId": "1253890980",
+            "resectionId": "29",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_85.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:14:42",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:20.90",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "72367324",
+            "poseId": "72367324",
+            "intrinsicId": "1253890980",
+            "resectionId": "29",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_92.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:17:22",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:23.31",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "104695656",
+            "poseId": "104695656",
+            "intrinsicId": "1253890980",
+            "resectionId": "29",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_1.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:43:04",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:21.87",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "116010848",
+            "poseId": "116010848",
+            "intrinsicId": "1253890980",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_96.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:18:54",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.95",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "156129938",
+            "poseId": "156129938",
+            "intrinsicId": "1253890980",
+            "resectionId": "6",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_9.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:46:06",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.48",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "170006105",
+            "poseId": "170006105",
+            "intrinsicId": "1253890980",
+            "resectionId": "28",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_52.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:02:21",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.85",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "182231157",
+            "poseId": "182231157",
+            "intrinsicId": "1253890980",
+            "resectionId": "1",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_23.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:51:24",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:23.07",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "190341660",
+            "poseId": "190341660",
+            "intrinsicId": "1253890980",
+            "resectionId": "29",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_17.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:49:07",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:21.50",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "219531487",
+            "poseId": "219531487",
+            "intrinsicId": "1253890980",
+            "resectionId": "28",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_48.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:00:51",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.28",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "223659546",
+            "poseId": "223659546",
+            "intrinsicId": "1253890980",
+            "resectionId": "3",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_54.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:03:06",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.58",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "244043306",
+            "poseId": "244043306",
+            "intrinsicId": "1253890980",
+            "resectionId": "10",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_5.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:44:35",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:23.29",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "250768331",
+            "poseId": "250768331",
+            "intrinsicId": "1253890980",
+            "resectionId": "8",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_83.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:13:58",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.76",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "264625541",
+            "poseId": "264625541",
+            "intrinsicId": "1253890980",
+            "resectionId": "28",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_3.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:43:50",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:23.18",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "275670572",
+            "poseId": "275670572",
+            "intrinsicId": "1253890980",
+            "resectionId": "28",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_51.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:01:58",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:21.74",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "341626611",
+            "poseId": "341626611",
+            "intrinsicId": "1253890980",
+            "resectionId": "29",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_26.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:52:31",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:20.87",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "457097035",
+            "poseId": "457097035",
+            "intrinsicId": "1253890980",
+            "resectionId": "27",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_77.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:11:41",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.88",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "464536084",
+            "poseId": "464536084",
+            "intrinsicId": "1253890980",
+            "resectionId": "28",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_87.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:15:29",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:23.40",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "479927997",
+            "poseId": "479927997",
+            "intrinsicId": "1253890980",
+            "resectionId": "18",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_39.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:57:28",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.19",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "507097311",
+            "poseId": "507097311",
+            "intrinsicId": "1253890980",
+            "resectionId": "13",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_34.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:55:34",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.91",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "512678538",
+            "poseId": "512678538",
+            "intrinsicId": "1253890980",
+            "resectionId": "28",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_8.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:45:44",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:21.88",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "524461323",
+            "poseId": "524461323",
+            "intrinsicId": "1253890980",
+            "resectionId": "28",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_6.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:44:59",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:23.53",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "574220798",
+            "poseId": "574220798",
+            "intrinsicId": "1253890980",
+            "resectionId": "28",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_49.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:01:14",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:23.13",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "600051110",
+            "poseId": "600051110",
+            "intrinsicId": "1253890980",
+            "resectionId": "0",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_94.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:18:09",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.88",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "636607541",
+            "poseId": "636607541",
+            "intrinsicId": "1253890980",
+            "resectionId": "5",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_35.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:55:57",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.54",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "641875427",
+            "poseId": "641875427",
+            "intrinsicId": "1253890980",
+            "resectionId": "28",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_10.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:46:28",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:21.69",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "643313308",
+            "poseId": "643313308",
+            "intrinsicId": "1253890980",
+            "resectionId": "4",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_40.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:57:51",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.46",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "655812624",
+            "poseId": "655812624",
+            "intrinsicId": "1253890980",
+            "resectionId": "2",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_45.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:59:43",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:23.13",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "665276791",
+            "poseId": "665276791",
+            "intrinsicId": "1253890980",
+            "resectionId": "29",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_53.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:02:43",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:21.10",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "694921915",
+            "poseId": "694921915",
+            "intrinsicId": "1253890980",
+            "resectionId": "12",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_66.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:07:34",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.84",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "736113608",
+            "poseId": "736113608",
+            "intrinsicId": "1253890980",
+            "resectionId": "29",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_71.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:09:26",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.90",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "737360045",
+            "poseId": "737360045",
+            "intrinsicId": "1253890980",
+            "resectionId": "28",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_38.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:57:06",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.42",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "745535470",
+            "poseId": "745535470",
+            "intrinsicId": "1253890980",
+            "resectionId": "29",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_63.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:06:29",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.45",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "758278312",
+            "poseId": "758278312",
+            "intrinsicId": "1253890980",
+            "resectionId": "30",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_13.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:47:35",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:21.55",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "766850422",
+            "poseId": "766850422",
+            "intrinsicId": "1253890980",
+            "resectionId": "29",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_20.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:50:15",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:23.15",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "781057212",
+            "poseId": "781057212",
+            "intrinsicId": "1253890980",
+            "resectionId": "25",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_62.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:06:06",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.71",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "842247542",
+            "poseId": "842247542",
+            "intrinsicId": "1253890980",
+            "resectionId": "28",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_27.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:52:54",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.19",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "895117048",
+            "poseId": "895117048",
+            "intrinsicId": "1253890980",
+            "resectionId": "28",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_78.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:12:03",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:21.95",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "896578897",
+            "poseId": "896578897",
+            "intrinsicId": "1253890980",
+            "resectionId": "29",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_0.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:42:42",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:21.05",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "918653315",
+            "poseId": "918653315",
+            "intrinsicId": "1253890980",
+            "resectionId": "28",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_43.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:58:56",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:23.61",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "919749271",
+            "poseId": "919749271",
+            "intrinsicId": "1253890980",
+            "resectionId": "11",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_58.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:04:36",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:23.06",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "966168579",
+            "poseId": "966168579",
+            "intrinsicId": "1253890980",
+            "resectionId": "24",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_14.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:47:58",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:23.02",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "969119514",
+            "poseId": "969119514",
+            "intrinsicId": "1253890980",
+            "resectionId": "28",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_88.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:15:51",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.36",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1036019469",
+            "poseId": "1036019469",
+            "intrinsicId": "1253890980",
+            "resectionId": "30",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_98.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:19:39",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:21.94",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1067577877",
+            "poseId": "1067577877",
+            "intrinsicId": "1253890980",
+            "resectionId": "29",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_19.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:49:52",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.22",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1159840518",
+            "poseId": "1159840518",
+            "intrinsicId": "1253890980",
+            "resectionId": "30",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_55.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:03:27",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:21.61",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1189722373",
+            "poseId": "1189722373",
+            "intrinsicId": "1253890980",
+            "resectionId": "28",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_81.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:13:12",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:21.78",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1200127992",
+            "poseId": "1200127992",
+            "intrinsicId": "1253890980",
+            "resectionId": "29",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_29.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:53:40",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.80",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1248663152",
+            "poseId": "1248663152",
+            "intrinsicId": "1253890980",
+            "resectionId": "29",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_69.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:08:41",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:21.03",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1251971737",
+            "poseId": "1251971737",
+            "intrinsicId": "1253890980",
+            "resectionId": "29",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_95.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:18:31",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:21.25",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1270231694",
+            "poseId": "1270231694",
+            "intrinsicId": "1253890980",
+            "resectionId": "30",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_42.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:58:32",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:20.63",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1273256759",
+            "poseId": "1273256759",
+            "intrinsicId": "1253890980",
+            "resectionId": "29",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_28.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:53:17",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:23.36",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1294172738",
+            "poseId": "1294172738",
+            "intrinsicId": "1253890980",
+            "resectionId": "28",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_50.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:01:36",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.40",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1295018367",
+            "poseId": "1295018367",
+            "intrinsicId": "1253890980",
+            "resectionId": "19",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_82.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:13:35",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.41",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1398667390",
+            "poseId": "1398667390",
+            "intrinsicId": "1253890980",
+            "resectionId": "21",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_47.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:00:28",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.24",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1462496400",
+            "poseId": "1462496400",
+            "intrinsicId": "1253890980",
+            "resectionId": "29",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_86.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:15:05",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:23.29",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1471736375",
+            "poseId": "1471736375",
+            "intrinsicId": "1253890980",
+            "resectionId": "29",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_33.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:55:11",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:23.57",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1477047348",
+            "poseId": "1477047348",
+            "intrinsicId": "1253890980",
+            "resectionId": "28",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_2.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:43:26",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.44",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1494036838",
+            "poseId": "1494036838",
+            "intrinsicId": "1253890980",
+            "resectionId": "30",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_65.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:07:11",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:21.12",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1501220487",
+            "poseId": "1501220487",
+            "intrinsicId": "1253890980",
+            "resectionId": "17",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_11.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:46:51",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.36",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1514042536",
+            "poseId": "1514042536",
+            "intrinsicId": "1253890980",
+            "resectionId": "28",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_61.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:05:43",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.20",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1530147898",
+            "poseId": "1530147898",
+            "intrinsicId": "1253890980",
+            "resectionId": "26",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_31.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:54:26",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.76",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1559891299",
+            "poseId": "1559891299",
+            "intrinsicId": "1253890980",
+            "resectionId": "29",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_72.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:09:49",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.04",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1581538070",
+            "poseId": "1581538070",
+            "intrinsicId": "1253890980",
+            "resectionId": "7",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_97.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:19:17",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.61",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1605635214",
+            "poseId": "1605635214",
+            "intrinsicId": "1253890980",
+            "resectionId": "29",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_75.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:10:56",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:20.60",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1617051615",
+            "poseId": "1617051615",
+            "intrinsicId": "1253890980",
+            "resectionId": "29",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_4.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:44:12",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.28",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1645761361",
+            "poseId": "1645761361",
+            "intrinsicId": "1253890980",
+            "resectionId": "28",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_18.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:49:29",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.26",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1652348234",
+            "poseId": "1652348234",
+            "intrinsicId": "1253890980",
+            "resectionId": "28",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_7.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:45:22",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.16",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1658308466",
+            "poseId": "1658308466",
+            "intrinsicId": "1253890980",
+            "resectionId": "30",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_70.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:09:03",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:21.88",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1705388250",
+            "poseId": "1705388250",
+            "intrinsicId": "1253890980",
+            "resectionId": "29",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_68.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:08:20",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:23.24",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1706445471",
+            "poseId": "1706445471",
+            "intrinsicId": "1253890980",
+            "resectionId": "29",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_25.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:52:10",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.11",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1726443074",
+            "poseId": "1726443074",
+            "intrinsicId": "1253890980",
+            "resectionId": "28",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_67.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:07:57",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:21.92",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1730525209",
+            "poseId": "1730525209",
+            "intrinsicId": "1253890980",
+            "resectionId": "29",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_41.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:58:12",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:20.65",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1732779520",
+            "poseId": "1732779520",
+            "intrinsicId": "1253890980",
+            "resectionId": "15",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_12.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:47:14",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.48",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1746719803",
+            "poseId": "1746719803",
+            "intrinsicId": "1253890980",
+            "resectionId": "28",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_99.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:20:03",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:23.58",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1763927165",
+            "poseId": "1763927165",
+            "intrinsicId": "1253890980",
+            "resectionId": "29",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_36.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:56:20",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:23.33",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1784319181",
+            "poseId": "1784319181",
+            "intrinsicId": "1253890980",
+            "resectionId": "29",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_59.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:04:59",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.74",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1799401453",
+            "poseId": "1799401453",
+            "intrinsicId": "1253890980",
+            "resectionId": "28",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_80.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:12:50",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:23.81",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1803421326",
+            "poseId": "1803421326",
+            "intrinsicId": "1253890980",
+            "resectionId": "29",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_64.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:06:50",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:20.94",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1816115923",
+            "poseId": "1816115923",
+            "intrinsicId": "1253890980",
+            "resectionId": "28",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_60.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:05:21",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.04",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1835967674",
+            "poseId": "1835967674",
+            "intrinsicId": "1253890980",
+            "resectionId": "30",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_84.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:14:21",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.81",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1860815354",
+            "poseId": "1860815354",
+            "intrinsicId": "1253890980",
+            "resectionId": "28",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_93.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:17:46",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:23.46",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1878890197",
+            "poseId": "1878890197",
+            "intrinsicId": "1253890980",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_16.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:48:45",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:23.47",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1879364352",
+            "poseId": "1879364352",
+            "intrinsicId": "1253890980",
+            "resectionId": "30",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_76.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:11:18",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.02",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1887026359",
+            "poseId": "1887026359",
+            "intrinsicId": "1253890980",
+            "resectionId": "28",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_21.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:50:38",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.72",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1892666868",
+            "poseId": "1892666868",
+            "intrinsicId": "1253890980",
+            "resectionId": "30",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_89.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:16:13",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:21.42",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1897581877",
+            "poseId": "1897581877",
+            "intrinsicId": "1253890980",
+            "resectionId": "28",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_91.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:16:59",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.37",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1906326680",
+            "poseId": "1906326680",
+            "intrinsicId": "1253890980",
+            "resectionId": "29",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_24.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:51:48",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:23.38",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1906901856",
+            "poseId": "1906901856",
+            "intrinsicId": "1253890980",
+            "resectionId": "29",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_74.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:10:35",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.69",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1944413608",
+            "poseId": "1944413608",
+            "intrinsicId": "1253890980",
+            "resectionId": "29",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_15.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:48:21",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.64",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1947554615",
+            "poseId": "1947554615",
+            "intrinsicId": "1253890980",
+            "resectionId": "22",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_37.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:56:43",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.39",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1958634366",
+            "poseId": "1958634366",
+            "intrinsicId": "1253890980",
+            "resectionId": "14",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_79.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:12:26",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.37",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1978934919",
+            "poseId": "1978934919",
+            "intrinsicId": "1253890980",
+            "resectionId": "28",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_22.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:51:01",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.95",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1981892785",
+            "poseId": "1981892785",
+            "intrinsicId": "1253890980",
+            "resectionId": "31",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_46.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:00:06",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.41",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "1986343286",
+            "poseId": "1986343286",
+            "intrinsicId": "1253890980",
+            "resectionId": "23",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_30.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:54:03",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.95",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "2001370889",
+            "poseId": "2001370889",
+            "intrinsicId": "1253890980",
+            "resectionId": "28",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_44.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:59:20",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:23.30",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "2001791466",
+            "poseId": "2001791466",
+            "intrinsicId": "1253890980",
+            "resectionId": "9",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_90.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:16:36",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:23.17",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "2071524944",
+            "poseId": "2071524944",
+            "intrinsicId": "1253890980",
+            "resectionId": "16",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_57.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:04:13",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.45",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "2083234292",
+            "poseId": "2083234292",
+            "intrinsicId": "1253890980",
+            "resectionId": "28",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_32.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 12:54:47",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:20.91",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        },
+        {
+            "viewId": "2098058704",
+            "poseId": "2098058704",
+            "intrinsicId": "1253890980",
+            "resectionId": "20",
+            "path": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train\/r_56.png",
+            "width": "800",
+            "height": "800",
+            "metadata": {
+                "AliceVision:useWhiteBalance": "1",
+                "Camera": "Camera",
+                "Date": "2020\/02\/20 13:03:50",
+                "File": "\/projects\/inverse_rendering\/matt\/blender\/lego\/Lego_856_Bulldozer.blend",
+                "Frame": "001",
+                "RenderTime": "00:22.48",
+                "ResolutionUnit": "inch",
+                "Scene": "Scene",
+                "Time": "00:00:00:01",
+                "XResolution": "72.009",
+                "YResolution": "72.009",
+                "cycles": ""
+            }
+        }
+    ],
+    "intrinsics": [
+        {
+            "intrinsicId": "1253890980",
+            "width": "800",
+            "height": "800",
+            "sensorWidth": "-1",
+            "sensorHeight": "-1",
+            "serialNumber": "\/homes\/gg921\/Documents\/Individual_Project\/MeshRoom\/lego_train",
+            "type": "radial3",
+            "initializationMode": "unknown",
+            "pxInitialFocalLength": "-1",
+            "pxFocalLength": "1101.0280696653615",
+            "principalPoint": [
+                "399.6366631765228",
+                "399.76358769773373"
+            ],
+            "distortionParams": [
+                "-0.018343318200392051",
+                "0.30105726302367852",
+                "-0.11703951835149229"
+            ],
+            "locked": "0"
+        }
+    ],
+    "poses": [
+        {
+            "poseId": "15105580",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "-0.95991806191570972",
+                        "0.15872158172048248",
+                        "-0.23100816847924641",
+                        "-0.16219303367587998",
+                        "0.35761319462795382",
+                        "0.91967723841302307",
+                        "0.22858419506825609",
+                        "0.92028270793497902",
+                        "-0.31753582985367146"
+                    ],
+                    "center": [
+                        "0.5642691001802822",
+                        "-2.0443624143765144",
+                        "3.0196352198773817"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "30735839",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.96079939845532714",
+                        "0.051773282260981088",
+                        "-0.27236747818307211",
+                        "-0.17073041786745291",
+                        "0.88452356973685109",
+                        "-0.43413037096566148",
+                        "0.21843909984864524",
+                        "0.46361361263869588",
+                        "0.85868898783751202"
+                    ],
+                    "center": [
+                        "0.65720841672668473",
+                        "0.99494236475311515",
+                        "0.37759229620371126"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "72367324",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.13825135523200055",
+                        "0.75515249152480801",
+                        "-0.64080517891196087",
+                        "-0.59651624694179706",
+                        "0.57998556102455134",
+                        "0.5547838463199064",
+                        "0.79060415500488501",
+                        "0.30555108173088064",
+                        "0.53064451993976203"
+                    ],
+                    "center": [
+                        "1.485107027594524",
+                        "-1.22747809702157",
+                        "1.1159849981570333"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "104695656",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.7151011290010052",
+                        "-0.21752038464516629",
+                        "0.66431563098071578",
+                        "0.41733547071569876",
+                        "0.89524423352747162",
+                        "-0.15610530810422829",
+                        "-0.5607686512136657",
+                        "0.38887355862751694",
+                        "0.7309691342432848"
+                    ],
+                    "center": [
+                        "-1.445107528147856",
+                        "0.36953917882463938",
+                        "0.66711756595252192"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "116010848",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.99296764829156858",
+                        "-0.052508996564125283",
+                        "0.10610398072711683",
+                        "0.06585698886829193",
+                        "0.9897787627335578",
+                        "-0.12649449734604673",
+                        "-0.098377367638666613",
+                        "0.13259263222915529",
+                        "0.98627637476268815"
+                    ],
+                    "center": [
+                        "-0.19266679309939244",
+                        "0.30353541400256795",
+                        "0.093657175073443857"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "156129938",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.98255381761704319",
+                        "0.089864928209016898",
+                        "-0.16282595052436374",
+                        "-0.11645752060144748",
+                        "0.97990609454261024",
+                        "-0.16193113281149016",
+                        "0.14500221164360819",
+                        "0.17806835922262346",
+                        "0.97327592082729808"
+                    ],
+                    "center": [
+                        "0.41088663453323887",
+                        "0.383188591889563",
+                        "0.12179503936528416"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "170006105",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.51431837772564348",
+                        "0.36423254509542186",
+                        "-0.77640920874689134",
+                        "-0.51870492096242493",
+                        "0.85307820885109797",
+                        "0.056593060994850869",
+                        "0.68295081177419126",
+                        "0.37362042593615508",
+                        "0.62768301396505799"
+                    ],
+                    "center": [
+                        "1.7877977141172734",
+                        "-0.10786349100660786",
+                        "0.89863421750595329"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "182231157",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.99792251051978553",
+                        "-0.032993839090223548",
+                        "0.055335970037372319",
+                        "0.033223748770100134",
+                        "0.99944268792080693",
+                        "-0.0032397653146092912",
+                        "-0.055198238337376325",
+                        "0.0050715031027212939",
+                        "0.99846253527146889"
+                    ],
+                    "center": [
+                        "-0.078845795563259616",
+                        "0.027013061765251391",
+                        "0.066253253963464001"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "219531487",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "-0.4203248249670154",
+                        "0.8726312178228226",
+                        "-0.24868011419794983",
+                        "-0.54122209083846817",
+                        "-0.021137337259620803",
+                        "0.84061397880478395",
+                        "0.72828956459974403",
+                        "0.48792209486211058",
+                        "0.48117183982490558"
+                    ],
+                    "center": [
+                        "0.6046059397792255",
+                        "-1.8659423859905455",
+                        "1.229098327256001"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "223659546",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.99317360143404665",
+                        "0.06383687747300848",
+                        "-0.097627099152958349",
+                        "-0.075045190781886761",
+                        "0.99043158528378394",
+                        "-0.11581664048296651",
+                        "0.089299589892875078",
+                        "0.12235247421587599",
+                        "0.98846115517920974"
+                    ],
+                    "center": [
+                        "0.26450875383191513",
+                        "0.27970877410433942",
+                        "0.087928154200859504"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "244043306",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.95538519400267452",
+                        "0.20885993472937636",
+                        "-0.20884601682893661",
+                        "-0.18267447357704208",
+                        "0.9734596575389004",
+                        "0.13786345363292396",
+                        "0.23209732394799898",
+                        "-0.093561866212081707",
+                        "0.96818232239960367"
+                    ],
+                    "center": [
+                        "0.51415153244448364",
+                        "-0.28982977650744923",
+                        "0.13427079352834748"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "250768331",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.93092518067665109",
+                        "0.18058796239076153",
+                        "-0.3174370737984103",
+                        "-0.22404606339670036",
+                        "0.96880834629115065",
+                        "-0.1058949934276764",
+                        "0.28841232542765266",
+                        "0.16970084265011415",
+                        "0.9423481068826185"
+                    ],
+                    "center": [
+                        "0.7577304554354849",
+                        "0.25720475880478455",
+                        "0.19184355656016955"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "264625541",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.22653025126721274",
+                        "0.84040984384594097",
+                        "-0.49233661211375968",
+                        "-0.58622440035461276",
+                        "0.52131192025888817",
+                        "0.62014097931427292",
+                        "0.77783352826275631",
+                        "0.14813904334385275",
+                        "0.61076167704553952"
+                    ],
+                    "center": [
+                        "1.1507980761224261",
+                        "-1.3731905970126204",
+                        "0.93658611081986387"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "275670572",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.83166957750732962",
+                        "-0.14059310239417563",
+                        "0.53717715272334554",
+                        "0.32968635400105739",
+                        "0.90346477587619933",
+                        "-0.27396771112023116",
+                        "-0.44680266542878772",
+                        "0.40495058749204177",
+                        "0.79773579577174603"
+                    ],
+                    "center": [
+                        "-1.1605188048673636",
+                        "0.63425980057740106",
+                        "0.51656737593191715"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "457097035",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "-0.74628455694150175",
+                        "-0.59835304088863328",
+                        "0.29160418126280685",
+                        "0.40284024961050618",
+                        "-0.057256418242297435",
+                        "0.91347766029816402",
+                        "-0.52988592485965447",
+                        "0.79918417215895143",
+                        "0.28377026906679248"
+                    ],
+                    "center": [
+                        "-0.60855141242266064",
+                        "-2.0288515439711476",
+                        "1.6706173242242155"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "464536084",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.63500380748906782",
+                        "0.64092741296822731",
+                        "-0.43125655447800709",
+                        "-0.46763555726458395",
+                        "0.76327218929978269",
+                        "0.44579429182455754",
+                        "0.61488791666142606",
+                        "-0.08141017348815946",
+                        "0.78440119428542365"
+                    ],
+                    "center": [
+                        "1.013772409529621",
+                        "-0.98157214939811299",
+                        "0.54711075784343155"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "479927997",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.48209712744020955",
+                        "-0.7915258618775457",
+                        "0.37559175935170191",
+                        "0.52261892244921204",
+                        "0.60388730789717948",
+                        "0.6018218849948227",
+                        "-0.70317268264056065",
+                        "-0.093845241433465898",
+                        "0.70479872945995836"
+                    ],
+                    "center": [
+                        "-0.79691598382739037",
+                        "-1.3305486372689037",
+                        "0.72575456323153498"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "507097311",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.90617196484287454",
+                        "-0.21499732075228295",
+                        "0.36418199049670774",
+                        "0.24947090908464786",
+                        "0.96710047631377338",
+                        "-0.049808977445356444",
+                        "-0.34149177977410161",
+                        "0.13598831119994328",
+                        "0.9299949158805676"
+                    ],
+                    "center": [
+                        "-0.77175675777570452",
+                        "0.13127123455845821",
+                        "0.22054081126752972"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "512678538",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.83435568480643574",
+                        "0.18948084582182312",
+                        "-0.51763655232009087",
+                        "-0.33510675912484189",
+                        "0.91996503801211615",
+                        "-0.20339072944510261",
+                        "0.43766888308403751",
+                        "0.34316371880199137",
+                        "0.83107437144816287"
+                    ],
+                    "center": [
+                        "1.2072309392508001",
+                        "0.47612825472087145",
+                        "0.44090895853987366"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "574220798",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "-0.99933832915811804",
+                        "-0.030660433924916467",
+                        "0.01956634015335108",
+                        "0.026550537498694512",
+                        "-0.24726781809072607",
+                        "0.96858334442379401",
+                        "-0.024859059394740261",
+                        "0.96846195791481005",
+                        "0.24791825918600918"
+                    ],
+                    "center": [
+                        "0.0014468384540967244",
+                        "-2.1522155161189085",
+                        "1.7516594553369325"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "600051110",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.9972016650409965",
+                        "-0.035502591272274425",
+                        "0.06579061675055238",
+                        "0.039648630932575521",
+                        "0.99723678501589663",
+                        "-0.06282340866532736",
+                        "-0.063378429332357669",
+                        "0.065256115606984591",
+                        "0.99585381159648689"
+                    ],
+                    "center": [
+                        "-0.10240518685614845",
+                        "0.16074547995269697",
+                        "0.071965945669398165"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "636607541",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.99989566548542519",
+                        "0.011101102039395754",
+                        "-0.0092424930062010857",
+                        "-0.012915897749997194",
+                        "0.97359304153223147",
+                        "-0.22792491979888962",
+                        "0.0064682090852391273",
+                        "0.22802051445764604",
+                        "0.97363484287370283"
+                    ],
+                    "center": [
+                        "0.066205118755692419",
+                        "0.53109469492788197",
+                        "0.12203674351709137"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "641875427",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.56408202204246671",
+                        "0.18499998890007791",
+                        "-0.80472757906974524",
+                        "-0.5000237992994514",
+                        "0.85209919498123954",
+                        "-0.15460647478830028",
+                        "0.65710552618481599",
+                        "0.4895936744069459",
+                        "0.57315823420594902"
+                    ],
+                    "center": [
+                        "1.8502076647002799",
+                        "0.36587149942583386",
+                        "1.0216236632765503"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "643313308",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.99950266969718282",
+                        "-0.0059806324574035192",
+                        "0.030961997732927824",
+                        "0.013421494039126415",
+                        "0.9691607180992069",
+                        "-0.24606374375593673",
+                        "-0.028535535144133362",
+                        "0.24635692506775417",
+                        "0.96875899412867328"
+                    ],
+                    "center": [
+                        "-0.024076526525860564",
+                        "0.57183972773501224",
+                        "0.13264906228623721"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "655812624",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.98530247857512254",
+                        "-0.10285842224045602",
+                        "0.13637877653038305",
+                        "0.09758860173024278",
+                        "0.99421811353039991",
+                        "0.044797405509571508",
+                        "-0.14019804037880185",
+                        "-0.030829980575034291",
+                        "0.98964338110841055"
+                    ],
+                    "center": [
+                        "-0.26079011429981902",
+                        "-0.080844850143216421",
+                        "0.0858092396505169"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "665276791",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.80598655095242833",
+                        "0.10384025675418565",
+                        "-0.58275456305466511",
+                        "-0.35929378042029769",
+                        "0.86821261005049633",
+                        "-0.3422204597925082",
+                        "0.47041859979713779",
+                        "0.4852051780706072",
+                        "0.73707684547703078"
+                    ],
+                    "center": [
+                        "1.352885597642143",
+                        "0.78735864806944966",
+                        "0.65260500079133799"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "694921915",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.93272459452275203",
+                        "-0.28579942042157225",
+                        "0.21987160357595381",
+                        "0.21131485365389246",
+                        "0.92731044330947809",
+                        "0.30893587417846657",
+                        "-0.29218292797082102",
+                        "-0.24168995224434286",
+                        "0.92531891993329818"
+                    ],
+                    "center": [
+                        "-0.44811776255461444",
+                        "-0.67354554551561785",
+                        "0.23057792616797074"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "736113608",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "-0.10656369452658981",
+                        "0.67924778732568725",
+                        "-0.7261312707919978",
+                        "-0.59795019176426556",
+                        "0.53969885817638552",
+                        "0.5926050207787511",
+                        "0.79441786685466842",
+                        "0.49734051302529514",
+                        "0.34864404042779018"
+                    ],
+                    "center": [
+                        "1.6764403348489694",
+                        "-1.3124737645034252",
+                        "1.5252362339936352"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "737360045",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.8524157087403913",
+                        "-0.19239242333904877",
+                        "0.48618166865313273",
+                        "0.31023387109493356",
+                        "0.93458339217472519",
+                        "-0.17409430862792691",
+                        "-0.42088288717654987",
+                        "0.29923074459839843",
+                        "0.8563402108794258"
+                    ],
+                    "center": [
+                        "-1.0459385697831363",
+                        "0.41002804435819085",
+                        "0.38522473908926164"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "758278312",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "-0.83337808130943158",
+                        "0.10908425923497855",
+                        "-0.54183170632601996",
+                        "-0.32618965076671869",
+                        "0.69432779548652335",
+                        "0.64148984726767933",
+                        "0.44618525897400113",
+                        "0.71134347315623869",
+                        "-0.5430554095783624"
+                    ],
+                    "center": [
+                        "1.2609439073483992",
+                        "-1.419386754917761",
+                        "3.5261081091166147"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "766850422",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "-0.83659119322454711",
+                        "0.26949932364071544",
+                        "-0.4769541801644322",
+                        "-0.32340557323396318",
+                        "0.45977280382516494",
+                        "0.82705368874333574",
+                        "0.44218097044122145",
+                        "0.84615547236896349",
+                        "-0.29748429531609921"
+                    ],
+                    "center": [
+                        "1.1164817515483711",
+                        "-1.8359016871611689",
+                        "2.9745298664981421"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "781057212",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.98762431939799389",
+                        "0.15146452230516955",
+                        "-0.040702606999014991",
+                        "-0.099508322843536737",
+                        "0.80574021092783277",
+                        "0.58384998602281224",
+                        "0.12122828637952418",
+                        "-0.57257419691847666",
+                        "0.81084060801408175"
+                    ],
+                    "center": [
+                        "0.1372463103646421",
+                        "-1.2905977873553027",
+                        "0.48820120321840227"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "842247542",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.53181070648721862",
+                        "-0.55317654809088268",
+                        "0.64122779034273059",
+                        "0.50541889266654627",
+                        "0.81486847256411798",
+                        "0.28379766622850056",
+                        "-0.67950652344277573",
+                        "0.17316200236563645",
+                        "0.7129416564736808"
+                    ],
+                    "center": [
+                        "-1.3936415678995084",
+                        "-0.6177846001563676",
+                        "0.70645680077774076"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "895117048",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.95211409775551725",
+                        "-0.068660802790575126",
+                        "0.29793361511476169",
+                        "0.17952189821892028",
+                        "0.91433682957394558",
+                        "-0.36298767216606836",
+                        "-0.24748865209353099",
+                        "0.39909128810939892",
+                        "0.88287910318463636"
+                    ],
+                    "center": [
+                        "-0.62322505539635686",
+                        "0.83371346418270365",
+                        "0.32544290666063369"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "896578897",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.42279730602767629",
+                        "-0.26507030278503857",
+                        "0.86659112192382126",
+                        "0.54244756498704794",
+                        "0.84005438179710412",
+                        "-0.0076990170221551135",
+                        "-0.72594288842536481",
+                        "0.47333536758299932",
+                        "0.49895946983668438"
+                    ],
+                    "center": [
+                        "-1.8996440988571819",
+                        "0.036464363339027472",
+                        "1.1868612266656704"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "918653315",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "-0.9742443206930872",
+                        "0.18426628527849506",
+                        "-0.12997668909050294",
+                        "-0.12897615623359679",
+                        "0.017457463882959323",
+                        "0.99149401817559213",
+                        "0.18496798296048919",
+                        "0.98272130996760165",
+                        "0.0067581221569853467"
+                    ],
+                    "center": [
+                        "0.33731169656314131",
+                        "-2.2041137616792832",
+                        "2.291759688071735"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "919749271",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.99663523486274197",
+                        "0.069381678250245174",
+                        "-0.043639332640023724",
+                        "-0.055133866700390929",
+                        "0.96143932630260098",
+                        "0.26943399670691931",
+                        "0.060650353442916617",
+                        "-0.26612140943933865",
+                        "0.96202958897596758"
+                    ],
+                    "center": [
+                        "0.14339367125058905",
+                        "-0.5845864112522966",
+                        "0.14915306175337667"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "966168579",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.93696548082353859",
+                        "0.3091887581228982",
+                        "-0.16278206165156908",
+                        "-0.21623612037895384",
+                        "0.8790102656566281",
+                        "0.42495045959937833",
+                        "0.27447700812376596",
+                        "-0.36296455022589219",
+                        "0.89046005373107107"
+                    ],
+                    "center": [
+                        "0.41135088446332413",
+                        "-0.93457786663366149",
+                        "0.30855692757757536"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "969119514",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.46745046651678135",
+                        "-0.88371528131649169",
+                        "0.023181089727565385",
+                        "0.52712781467585157",
+                        "0.29968866502009933",
+                        "0.79518738109550746",
+                        "-0.7096663500183058",
+                        "-0.35949131509145626",
+                        "0.60592051130945457"
+                    ],
+                    "center": [
+                        "-0.0060662121067562857",
+                        "-1.7641209156322994",
+                        "0.9479691817999456"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1036019469",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "-0.33128178899016453",
+                        "0.35204164547461314",
+                        "-0.87539651366395266",
+                        "-0.56590657532614463",
+                        "0.66825124564937943",
+                        "0.48289752607637909",
+                        "0.75498485036860885",
+                        "0.65536779943752155",
+                        "-0.022156786190913269"
+                    ],
+                    "center": [
+                        "2.0110868913147977",
+                        "-1.0668747978729063",
+                        "2.356655837001667"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1067577877",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "-0.90237593592773224",
+                        "0.40284783971228882",
+                        "0.15307282024478194",
+                        "0.42231285951105241",
+                        "0.89738325802494257",
+                        "0.12788720384830432",
+                        "-0.085845902349194259",
+                        "0.18004695569678947",
+                        "-0.97990488048288182"
+                    ],
+                    "center": [
+                        "-0.42834101898085902",
+                        "-0.4331765452821435",
+                        "5.4417052329011675"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1159840518",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "-0.71210139099769809",
+                        "0.1636645187318882",
+                        "-0.68273386780458101",
+                        "-0.41491338882819434",
+                        "0.68635765960384287",
+                        "0.59729393339815484",
+                        "0.56635544378971703",
+                        "0.7086092635658916",
+                        "-0.42084964402783764"
+                    ],
+                    "center": [
+                        "1.5784770932115664",
+                        "-1.3197102648613557",
+                        "3.2497876751239794"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1189722373",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.7750194237058714",
+                        "-0.19265336421423884",
+                        "0.60185511058356478",
+                        "0.37687821477058647",
+                        "0.90539727745547371",
+                        "-0.19549573194203412",
+                        "-0.5072550680968646",
+                        "0.37833906913396059",
+                        "0.77430733217301606"
+                    ],
+                    "center": [
+                        "-1.3051910891124592",
+                        "0.45784361064193091",
+                        "0.56993566914184179"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1200127992",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.045176106174206108",
+                        "0.46351937079224692",
+                        "-0.88493441131605699",
+                        "-0.60070887532812756",
+                        "0.72039526523529895",
+                        "0.34666916350979249",
+                        "0.79819043249900756",
+                        "0.51592679202278557",
+                        "0.31098485291107719"
+                    ],
+                    "center": [
+                        "2.031241319372135",
+                        "-0.7593118659758894",
+                        "1.6100414396067739"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1248663152",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.79152800265852474",
+                        "0.10221376541704932",
+                        "-0.60252449507607142",
+                        "-0.37083168922459953",
+                        "0.86399350444313006",
+                        "-0.3405863804483511",
+                        "0.48576463361821276",
+                        "0.49301883375723821",
+                        "0.72177915617342137"
+                    ],
+                    "center": [
+                        "1.397120193651374",
+                        "0.78400442835144679",
+                        "0.6875565409114025"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1270231694",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.30223451632950082",
+                        "-0.15060041788091957",
+                        "0.94126181866320546",
+                        "0.57318010866673008",
+                        "0.81769967969831669",
+                        "-0.053214630037853206",
+                        "-0.76165534211207897",
+                        "0.55559584947636398",
+                        "0.33345823108264894"
+                    ],
+                    "center": [
+                        "-2.0697506572699376",
+                        "0.1384175684713298",
+                        "1.5596685324793407"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1273256759",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "-0.88574216287543583",
+                        "0.25565866216083688",
+                        "-0.38742672773942177",
+                        "-0.27323744540711159",
+                        "0.38755310113190122",
+                        "0.88042256458500767",
+                        "0.37523608479481374",
+                        "0.88568687596981888",
+                        "-0.27341660228062592"
+                    ],
+                    "center": [
+                        "0.91510865760060367",
+                        "-1.9553546661755496",
+                        "2.9204655363210699"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1294172738",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.051883346488126592",
+                        "-0.61755247203627139",
+                        "0.78481657897822432",
+                        "0.5986294812185825",
+                        "0.64826399023027603",
+                        "0.47052794092029387",
+                        "-0.79934402016476225",
+                        "0.44540177733436476",
+                        "0.40331922118121927"
+                    ],
+                    "center": [
+                        "-1.7163104041755244",
+                        "-1.0369855224501716",
+                        "1.4008786276165233"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1295018367",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.68254575478990775",
+                        "-0.69127558406512568",
+                        "0.23721163439783988",
+                        "0.43428723117537804",
+                        "0.64468227076630569",
+                        "0.62910998291047915",
+                        "-0.58781450599342888",
+                        "-0.32637836422627498",
+                        "0.74023730648264552"
+                    ],
+                    "center": [
+                        "-0.48637064973414817",
+                        "-1.3915938795953213",
+                        "0.64643346903341192"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1398667390",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.010140216448733683",
+                        "-0.96337770130619871",
+                        "0.26795630359511496",
+                        "0.59938158324101398",
+                        "0.22034994451223255",
+                        "0.76953727630632129",
+                        "-0.80039920894630345",
+                        "0.15280479894113469",
+                        "0.57966524799981856"
+                    ],
+                    "center": [
+                        "-0.55537727252497393",
+                        "-1.7060800906265783",
+                        "1.0072695217550593"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1462496400",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "-0.87744897333657623",
+                        "0.42607466266067456",
+                        "-0.22032630580387033",
+                        "-0.28100787428054247",
+                        "-0.084351496373070822",
+                        "0.95599131777017432",
+                        "0.38873882464055354",
+                        "0.90074702713815047",
+                        "0.19374446913103016"
+                    ],
+                    "center": [
+                        "0.54022075054710195",
+                        "-2.1240951347366739",
+                        "1.8729330697176052"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1471736375",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "-0.91415739293589493",
+                        "0.32603470448700117",
+                        "-0.2408684960942829",
+                        "-0.23593495851151164",
+                        "0.05523462878675367",
+                        "0.97019783092674494",
+                        "0.32962244506832211",
+                        "0.94374281838478824",
+                        "0.026429840224972967"
+                    ],
+                    "center": [
+                        "0.58644996213016509",
+                        "-2.1563372169583945",
+                        "2.2476003335994226"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1477047348",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.63662337102002597",
+                        "0.27520024389137565",
+                        "-0.72039954832941544",
+                        "-0.46726959856718464",
+                        "0.88080297531680429",
+                        "-0.076454175346590297",
+                        "0.61348985788353549",
+                        "0.38529332259356952",
+                        "0.689332466839367"
+                    ],
+                    "center": [
+                        "1.6614553693800311",
+                        "0.19058770481719833",
+                        "0.76086941140912978"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1501220487",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.19883251940231905",
+                        "-0.7803982644269164",
+                        "0.59282727510429456",
+                        "0.58645903654222142",
+                        "0.57939095990430134",
+                        "0.56601405816387762",
+                        "-0.78519515261245443",
+                        "0.23512691139176045",
+                        "0.57287337855173137"
+                    ],
+                    "center": [
+                        "-1.2846480118601056",
+                        "-1.250616305005553",
+                        "1.0212066438664904"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1514042536",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.41560645211289182",
+                        "-0.66590667918321433",
+                        "0.61954787674667888",
+                        "0.54323810595646516",
+                        "0.72805778208332816",
+                        "0.41811987059303618",
+                        "-0.72949546756574635",
+                        "0.16278869913814203",
+                        "0.66433139488808179"
+                    ],
+                    "center": [
+                        "-1.344991488970436",
+                        "-0.91916336910623231",
+                        "0.81542272885401534"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1530147898",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.96508021315109072",
+                        "0.25018826208876743",
+                        "-0.077627415886705617",
+                        "-0.16346647238472556",
+                        "0.80674502413806826",
+                        "0.56783904271770658",
+                        "0.20469219474698858",
+                        "-0.53532074454617373",
+                        "0.81947105248946472"
+                    ],
+                    "center": [
+                        "0.22040535956425056",
+                        "-1.2550429627104145",
+                        "0.46832971427391445"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1559891299",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "-0.91102903539320523",
+                        "0.31239751807383243",
+                        "-0.26913544428751013",
+                        "0.26991245017953525",
+                        "0.94523478136303829",
+                        "0.18351696744347484",
+                        "0.31172642799192662",
+                        "0.094546278630515498",
+                        "-0.94545631061858959"
+                    ],
+                    "center": [
+                        "0.98690331619849947",
+                        "-0.57128318670227007",
+                        "5.0289705780960361"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1581538070",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.94329748595766394",
+                        "0.16858634757069474",
+                        "-0.2859519127383548",
+                        "-0.20386713433335329",
+                        "0.97405600700086348",
+                        "-0.098250123482061025",
+                        "0.26196954884997087",
+                        "0.15097529148276767",
+                        "0.95319379815283944"
+                    ],
+                    "center": [
+                        "0.6869296516434622",
+                        "0.24023880339716774",
+                        "0.16776256732473294"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1605635214",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.58378436700691816",
+                        "-0.13248300417560224",
+                        "0.80102688247207987",
+                        "0.48583538153889927",
+                        "0.84747065038946423",
+                        "-0.21390997819973354",
+                        "-0.65050733653302029",
+                        "0.51404450228853305",
+                        "0.55910504807562789"
+                    ],
+                    "center": [
+                        "-1.7529212743315901",
+                        "0.49953267120932199",
+                        "1.0515969700455794"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1617051615",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "-0.92324894281384795",
+                        "-0.20151265831091386",
+                        "-0.32711471708497131",
+                        "-0.26911439133568443",
+                        "0.94684096438565801",
+                        "0.17626580081587076",
+                        "0.27420582409776795",
+                        "0.25076849224275566",
+                        "-0.92839987576968086"
+                    ],
+                    "center": [
+                        "1.4212292550383196",
+                        "-0.72259442714978583",
+                        "5.5721129422647628"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1645761361",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "-0.86864689363693559",
+                        "-0.47938691661836258",
+                        "0.12506301751533716",
+                        "0.30197083575910583",
+                        "-0.31218009794577994",
+                        "0.90075368486479723",
+                        "-0.39276734656263063",
+                        "0.82020227421149139",
+                        "0.41593514019910394"
+                    ],
+                    "center": [
+                        "-0.23499459253384536",
+                        "-1.9996305666048282",
+                        "1.3752231444556033"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1652348234",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.01904898702888333",
+                        "0.99749042208291661",
+                        "-0.068190864094965109",
+                        "-0.60085154163369658",
+                        "0.065934427648665361",
+                        "0.79663672785470596",
+                        "0.79913363150951389",
+                        "0.025797463121157271",
+                        "0.60059964193040338"
+                    ],
+                    "center": [
+                        "0.19974289891734612",
+                        "-1.7669574804901846",
+                        "0.96150775243095676"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1658308466",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "-0.64443367760875925",
+                        "0.24360675430886852",
+                        "-0.72481789741889535",
+                        "-0.4538789742098826",
+                        "0.64098720261893338",
+                        "0.61897437980011671",
+                        "0.61538533613812618",
+                        "0.72786753968964224",
+                        "-0.30250575652756212"
+                    ],
+                    "center": [
+                        "1.6713787244562959",
+                        "-1.3668158281363503",
+                        "2.9836646399416038"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1705388250",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "-0.99147606045922276",
+                        "0.074659522091120922",
+                        "-0.10677629557811491",
+                        "-0.072126242165632765",
+                        "0.36798342383671701",
+                        "0.92703074650869677",
+                        "0.10850357932955038",
+                        "0.92683016542543151",
+                        "-0.35946184460960984"
+                    ],
+                    "center": [
+                        "0.28550582407586167",
+                        "-2.0619614699933551",
+                        "3.1141497185455789"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1726443074",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.41457872194346096",
+                        "-0.44206450095584771",
+                        "0.79542659014291428",
+                        "0.54415285903866473",
+                        "0.82102407209807171",
+                        "0.17267639976426263",
+                        "-0.72939848458286072",
+                        "0.36124569205757684",
+                        "0.58092977256985956"
+                    ],
+                    "center": [
+                        "-1.7388457521569589",
+                        "-0.36846695672780061",
+                        "1.0034437593207026"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1730525209",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.50450615525429188",
+                        "-0.16439387257598323",
+                        "0.84761323371571051",
+                        "0.51709687759765577",
+                        "0.84370200264503792",
+                        "-0.14414489207567177",
+                        "-0.69143644573401475",
+                        "0.51102014186548805",
+                        "0.51066041174002241"
+                    ],
+                    "center": [
+                        "-1.8572970062573289",
+                        "0.34262428597909489",
+                        "1.1607338902325692"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1732779520",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.61423484653621974",
+                        "-0.67599665518635366",
+                        "0.40711678358609671",
+                        "0.46997554760837335",
+                        "0.72780886679349521",
+                        "0.49941689805910439",
+                        "-0.63390735754590843",
+                        "-0.11542432843049344",
+                        "0.76474746580523778"
+                    ],
+                    "center": [
+                        "-0.86784397084503984",
+                        "-1.1011164791872989",
+                        "0.59092990368901854"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1746719803",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "-0.99929090924650887",
+                        "0.034524137630125754",
+                        "-0.015025399102240405",
+                        "-0.015926428672177396",
+                        "-0.025973472445365853",
+                        "0.99953575603821176",
+                        "0.034117848218132359",
+                        "0.99906629542289427",
+                        "0.026504901111653267"
+                    ],
+                    "center": [
+                        "0.079438471303732966",
+                        "-2.2218947168992971",
+                        "2.2479441124935104"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1763927165",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "-0.89970474126286648",
+                        "0.32764468470722896",
+                        "-0.28841001912592945",
+                        "-0.25449152717331003",
+                        "0.14307443661377672",
+                        "0.95643283516650923",
+                        "0.35463423572198283",
+                        "0.93390506271823548",
+                        "-0.045341952793567897"
+                    ],
+                    "center": [
+                        "0.69344027629366412",
+                        "-2.1260424462773377",
+                        "2.4083225672932711"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1799401453",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "-0.9998386348343371",
+                        "-0.0064453735917263371",
+                        "0.016767869628317597",
+                        "0.015999152121732113",
+                        "0.10496199872997469",
+                        "0.99434752775576118",
+                        "-0.0081689304070272067",
+                        "0.99445534639915922",
+                        "-0.10484194100708588"
+                    ],
+                    "center": [
+                        "0.0080306115427049921",
+                        "-2.211783341169451",
+                        "2.5422207613705394"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1803421326",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.58992218917085326",
+                        "-0.13092223010240014",
+                        "0.79677548932486764",
+                        "0.4826742070351322",
+                        "0.84823763093465621",
+                        "-0.21798745681659876",
+                        "-0.64731554947094738",
+                        "0.51317861523194463",
+                        "0.56358698377601779"
+                    ],
+                    "center": [
+                        "-1.7429118627913875",
+                        "0.50882140052129399",
+                        "1.0412792262423307"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1816115923",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.92804697256732271",
+                        "-0.072912931797421143",
+                        "0.36525678787030319",
+                        "0.21869033046961034",
+                        "0.90048795343080679",
+                        "-0.37589358212809376",
+                        "-0.30150183426924565",
+                        "0.4287250285470886",
+                        "0.85164047216509065"
+                    ],
+                    "center": [
+                        "-0.77487759757093078",
+                        "0.86370917708054828",
+                        "0.39420663618644503"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1835967674",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "-0.63152341541125623",
+                        "0.58663758763846852",
+                        "-0.50698571632445422",
+                        "-0.45950483610118081",
+                        "0.24350658255158308",
+                        "0.85414275730329514",
+                        "0.62452660582790931",
+                        "0.77237353982627277",
+                        "0.1157826998705076"
+                    ],
+                    "center": [
+                        "1.1844394978570332",
+                        "-1.8982948647398776",
+                        "2.0476940645773682"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1860815354",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.6059807023771393",
+                        "0.68037435329006013",
+                        "-0.41216274423053006",
+                        "-0.48039654718702024",
+                        "0.72598174562697526",
+                        "0.49210736884058015",
+                        "0.63403986136306756",
+                        "-0.10020600980750718",
+                        "0.7667804182431629"
+                    ],
+                    "center": [
+                        "0.97091881265412328",
+                        "-1.0854631942275172",
+                        "0.58653908157910917"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1878890197",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.85086514467736896",
+                        "0.32140266614734492",
+                        "-0.41560658292011965",
+                        "-0.32026706796244353",
+                        "0.94438190999764404",
+                        "0.074644579494704669",
+                        "0.41648230544874232",
+                        "0.069592630806573672",
+                        "0.90647634000315769"
+                    ],
+                    "center": [
+                        "0.97815093987455415",
+                        "-0.14814606903477207",
+                        "0.2721721019687271"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1879364352",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "-0.34554540273663076",
+                        "0.36821068507291954",
+                        "-0.86314498553007357",
+                        "-0.56295974214403344",
+                        "0.65456287345970532",
+                        "0.50460258958243287",
+                        "0.75078272714061767",
+                        "0.66027898352613423",
+                        "-0.018893399402751476"
+                    ],
+                    "center": [
+                        "1.9833249338048353",
+                        "-1.1159740829262352",
+                        "2.3495047383158392"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1887026359",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.01988156582926083",
+                        "0.88908286861372454",
+                        "-0.45731430775536375",
+                        "-0.60162486139430682",
+                        "0.37596293899187389",
+                        "0.70476903639197563",
+                        "0.79853130777224879",
+                        "0.26111974502550228",
+                        "0.54236908951871399"
+                    ],
+                    "center": [
+                        "1.0740864297622754",
+                        "-1.5647902632222204",
+                        "1.0892930123083651"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1892666868",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "-0.32383672648144285",
+                        "0.20311143509588883",
+                        "-0.92405385098222048",
+                        "-0.56738968742606266",
+                        "0.73987049967879615",
+                        "0.36147003514482912",
+                        "0.75709888203875875",
+                        "0.6413558985760851",
+                        "-0.12435390696445525"
+                    ],
+                    "center": [
+                        "2.1193012914720106",
+                        "-0.79267360075818927",
+                        "2.5864823150003948"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1897581877",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "-0.56774310192240562",
+                        "0.79073154946741253",
+                        "-0.22893533343804739",
+                        "-0.49056017481396635",
+                        "-0.10165041759409299",
+                        "0.86545820666825812",
+                        "0.66107373651205936",
+                        "0.60366448403050144",
+                        "0.44561273053423056"
+                    ],
+                    "center": [
+                        "0.559650125138907",
+                        "-1.9209538427314898",
+                        "1.3091974109200246"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1906326680",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.26162086713784422",
+                        "0.55339437459105945",
+                        "-0.79076493855570817",
+                        "-0.58211280082943873",
+                        "0.74398640596136112",
+                        "0.32806846062247913",
+                        "0.76986960518554615",
+                        "0.37448483803175153",
+                        "0.51678031802283653"
+                    ],
+                    "center": [
+                        "1.8208879922271692",
+                        "-0.71782758264204105",
+                        "1.1476328160676172"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1906901856",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "-0.94329607216836586",
+                        "-0.33150509519371479",
+                        "0.017230556936417923",
+                        "-0.33058418893033531",
+                        "0.94284941108865505",
+                        "0.041822028155627473",
+                        "-0.03011003588515667",
+                        "0.033754405199674521",
+                        "-0.99897648914707227"
+                    ],
+                    "center": [
+                        "0.052180419506989373",
+                        "-0.24859643956321711",
+                        "5.9551241121585479"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1944413608",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "-0.94770841353114343",
+                        "-0.31364251653203123",
+                        "0.058967234509834307",
+                        "-0.31174694937286307",
+                        "0.94935519991689576",
+                        "0.03922427752634973",
+                        "-0.068283251819145366",
+                        "0.018790322355007123",
+                        "-0.99748900811327146"
+                    ],
+                    "center": [
+                        "-0.1208057067103202",
+                        "-0.22812914699983575",
+                        "5.9223872548240273"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1947554615",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "-0.61968048533857512",
+                        "-0.7592193420930744",
+                        "0.19895247342595943",
+                        "0.47353537449422767",
+                        "-0.15951389080970202",
+                        "0.86620988665643928",
+                        "-0.62590761713942999",
+                        "0.63098439697864894",
+                        "0.45836486075650551"
+                    ],
+                    "center": [
+                        "-0.40080097331294451",
+                        "-1.9228234075970567",
+                        "1.2795283739133692"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1958634366",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.37423587097567573",
+                        "-0.80780022585699784",
+                        "0.45541882699385694",
+                        "0.55414626116289289",
+                        "0.58858276486082295",
+                        "0.58863592325645231",
+                        "-0.74355190411582173",
+                        "0.032079962814386742",
+                        "0.66790825857415725"
+                    ],
+                    "center": [
+                        "-0.97625542416612698",
+                        "-1.3011610843924017",
+                        "0.80816794839382888"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1981892785",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "-0.40988972263001255",
+                        "0.65652093660204947",
+                        "-0.63322245308063663",
+                        "-0.54387551982495852",
+                        "0.38139801862158723",
+                        "0.74748576596926475",
+                        "0.73224984412249794",
+                        "0.6507809241170911",
+                        "0.20073453760596954"
+                    ],
+                    "center": [
+                        "1.4674209230656587",
+                        "-1.6601520855342762",
+                        "1.8576490884303554"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "1986343286",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "-0.75835731163256714",
+                        "-0.57994562419412243",
+                        "0.2975857202076656",
+                        "0.39439583207709228",
+                        "-0.044752162167503329",
+                        "0.917850299134642",
+                        "-0.51898566023893511",
+                        "0.81342505306845769",
+                        "0.26266626640460233"
+                    ],
+                    "center": [
+                        "-0.62211225916280366",
+                        "-2.038731768502732",
+                        "1.7181318959706"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "2001370889",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.58970437841210166",
+                        "0.69074681961089202",
+                        "-0.41847052139790514",
+                        "-0.48860389539668814",
+                        "0.71770805341817434",
+                        "0.49614653426369626",
+                        "0.64305130392899368",
+                        "-0.088113456725591927",
+                        "0.76073716831707927"
+                    ],
+                    "center": [
+                        "0.98531783632747638",
+                        "-1.0947561865983579",
+                        "0.59997260993526047"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "2001791466",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.87446302247874919",
+                        "0.25642293321157777",
+                        "-0.41177870469525402",
+                        "-0.29593855404097019",
+                        "0.95460123278629105",
+                        "-0.034012624053917043",
+                        "0.38436284231110351",
+                        "0.15160397648499885",
+                        "0.9106489113618188"
+                    ],
+                    "center": [
+                        "0.96928961235800726",
+                        "0.095886292166056097",
+                        "0.26340003872067402"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "2071524944",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.22985492901333776",
+                        "-0.866694033635663",
+                        "0.44272809225146093",
+                        "0.58244899799984706",
+                        "0.48695077028502093",
+                        "0.65087027282539123",
+                        "-0.77969216767724925",
+                        "0.10826079336107519",
+                        "0.61673310620039112"
+                    ],
+                    "center": [
+                        "-0.94773821105266842",
+                        "-1.4409860762188673",
+                        "0.92293484384953473"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "2083234292",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.91087759396193102",
+                        "0.092039472089640598",
+                        "-0.40228192153710279",
+                        "-0.25174323526813336",
+                        "0.89635170008845666",
+                        "-0.36493694420442907",
+                        "0.32699748059405093",
+                        "0.4336846381023815",
+                        "0.83963699439647699"
+                    ],
+                    "center": [
+                        "0.94813008702764412",
+                        "0.83859437505187517",
+                        "0.42192727791764767"
+                    ]
+                },
+                "locked": "0"
+            }
+        },
+        {
+            "poseId": "2098058704",
+            "pose": {
+                "transform": {
+                    "rotation": [
+                        "0.9827072873541296",
+                        "-0.1802855469786441",
+                        "0.042231610574299243",
+                        "0.10512152988831872",
+                        "0.7309506863869184",
+                        "0.67428522008452196",
+                        "-0.15243310445906252",
+                        "-0.65818554801902485",
+                        "0.73726245872407503"
+                    ],
+                    "center": [
+                        "-0.048538070949022571",
+                        "-1.4928030196575939",
+                        "0.65366837528039856"
+                    ]
+                },
+                "locked": "0"
+            }
+        }
+    ]
+}
