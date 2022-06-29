@@ -101,7 +101,7 @@ class NeRFSubDataset():
 
             # depths are inf if the ray does not hit the mesh
             self.depths[i:i+h*w] = torch.from_numpy(hit)
-            self.points[i:i+h*w] = rays_od[..., :3] + self.depths[i:i+h*w, None] * rays_od[..., 3:]
+            self.points[i:i+h*w] = rays_od[..., :3] + rays_od[..., 3:] * self.depths[i:i+h*w, None] 
 
         self.points = torch.nan_to_num(self.points, posinf=self.inf_value, neginf=self.inf_value, nan=0.0)
 
@@ -170,7 +170,7 @@ class NeRFSubDataset():
         w = self.hwf[1]
         X = self.dataset.tensors[0][i*h*w:(i+1)*h*w, ...].float().to(device)
         target = self.dataset.tensors[1][i*h*w:(i+1)*h*w, ...].float().to(device)
-        return X, target
+        return X, target, self.depths[i*h*w:(i+1)*h*w]
 
     def get_rays_od(self, i, device):
         h = self.hwf[0]
