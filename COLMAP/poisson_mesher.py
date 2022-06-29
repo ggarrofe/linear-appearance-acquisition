@@ -27,4 +27,5 @@ if __name__ == "__main__":
     mesh.remove_vertices_by_mask(vertices_to_remove)
     o3d.visualization.draw_geometries([mesh])
 
+    
     o3d.io.write_triangle_mesh(sys.argv[2], mesh)
