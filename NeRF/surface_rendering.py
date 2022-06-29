@@ -36,7 +36,7 @@ def parse_args():
     parser.add_argument('--colab_path', type=str, help='google colab base dir')
     parser.add_argument("--test", action='store_true', help='use reduced number of images')
     parser.add_argument("--resume", action='store_true', help='Resume the run from the last checkpoint')
-    parser.add_argument("--run_id", action='store_true', help='Id of the run that must be resumed')
+    parser.add_argument("--run_id", type=str, help='Id of the run that must be resumed')
     parser.add_argument('--checkpoint_path', type=str, help='Path where checkpoints are saved')
 
 
@@ -107,8 +107,8 @@ if __name__ == "__main__":
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         iter = checkpoint['iter']
 
-    pbar = tqdm(range(args.N_iters), unit="iteration")
-    while iter < args.N_iters :
+    pbar = tqdm(total=args.N_iters, unit="iteration")
+    while iter < args.N_iters:
         # By default each batch will correspond to the rays of a single image
         batch_xnv_tr, target_rgb_tr = dataset.next_batch("train", device=device)
         
@@ -131,7 +131,7 @@ if __name__ == "__main__":
                 "loss": loss
                 })
 
-        # VALIDATION
+        #  --------------- VALIDATION --------------
 
         rend_net.eval()
         batch_xnv_val, target_rgb_val = dataset.next_batch("val", device=device)
@@ -147,8 +147,9 @@ if __name__ == "__main__":
                 "val_loss": loss
                 })
 
-        if iter%2000 == 0:
-            xnv, img = dataset.get_X_target("train", 0, device=device)
+        # --------------- EVALUATION --------------
+        if iter%50 == 0:
+            xnv, img, depths = dataset.get_X_target("train", 0, device=device)
             rgb_map = None
             for i in range(0, xnv.shape[0], args.batch_size):
                 pred = rend_net(xnv[i:i+args.batch_size, :3], xnv[i:i+args.batch_size, 3:6], xnv[i:i+args.batch_size, 6:])
@@ -158,18 +159,18 @@ if __name__ == "__main__":
                 else:
                     rgb_map = torch.cat((rgb_map, pred), dim=0)
 
-            #v.validation_view(rgb_map.detach().cpu(), img.detach().cpu(), img_shape=(dataset.hwf[0], dataset.hwf[1], 3), it=step, out_path=args.out_path, name="training")
-            v.validation_view_rgb_xnv(rgb_map.detach().cpu(), 
+            v.validation_view_rgb_xndv(rgb_map.detach().cpu(), 
                                       img.detach().cpu(), 
                                       points=xnv[..., :3].detach().cpu(),
                                       normals=xnv[..., 3:6].detach().cpu(),
+                                      depths=depths,
                                       viewdirs=xnv[..., 6:].detach().cpu(),
                                       img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
                                       it=iter, 
                                       out_path=args.out_path,
                                       name="training_xnv")
 
-            xnv, img = dataset.get_X_target("train", np.random.randint(0, dataset.get_n_images()), device=device)
+            xnv, img, depths = dataset.get_X_target("train", np.random.randint(0, dataset.get_n_images()), device=device)
             rgb_map = None
             for i in range(0, xnv.shape[0], args.batch_size):
                 pred = rend_net(xnv[i:i+args.batch_size, :3], xnv[i:i+args.batch_size, 3:6], xnv[i:i+args.batch_size, 6:])
@@ -179,17 +180,18 @@ if __name__ == "__main__":
                 else:
                     rgb_map = torch.cat((rgb_map, pred), dim=0)
 
-            v.validation_view_rgb_xnv(rgb_map.detach().cpu(), 
+            v.validation_view_rgb_xndv(rgb_map.detach().cpu(), 
                                       img.detach().cpu(), 
                                       points=xnv[..., :3].detach().cpu(),
                                       normals=xnv[..., 3:6].detach().cpu(),
+                                      depths=depths,
                                       viewdirs=xnv[..., 6:].detach().cpu(),
                                       img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
                                       it=iter, 
                                       out_path=args.out_path,
                                       name="training_random_xnv")
 
-            xnv, img = dataset.get_X_target("val", 0, device=device)
+            xnv, img, depths = dataset.get_X_target("val", 0, device=device)
             rgb_map = None
             for i in range(0, xnv.shape[0], args.batch_size):
                 pred = rend_net(xnv[i:i+args.batch_size, :3], xnv[i:i+args.batch_size, 3:6], xnv[i:i+args.batch_size, 6:])
@@ -199,15 +201,36 @@ if __name__ == "__main__":
                 else:
                     rgb_map = torch.cat((rgb_map, pred), dim=0)
 
-            #v.validation_view(rgb_map.detach().cpu(), img.detach().cpu(), img_shape=(dataset.hwf[0], dataset.hwf[1], 3), it=step, out_path=args.out_path)
-            v.validation_view_rgb_xnv(rgb_map.detach().cpu(), 
+            v.validation_view_rgb_xndv(rgb_map.detach().cpu(), 
                                       img.detach().cpu(), 
                                       points=xnv[..., :3].detach().cpu(),
                                       normals=xnv[..., 3:6].detach().cpu(),
+                                      depths=depths,
                                       viewdirs=xnv[..., 6:].detach().cpu(),
                                       img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
                                       it=iter, 
                                       out_path=args.out_path)
+
+            xnv, img, depths = dataset.get_X_target("val", np.random.randint(0, dataset.get_n_images("val")), device=device)
+            rgb_map = None
+            for i in range(0, xnv.shape[0], args.batch_size):
+                pred = rend_net(xnv[i:i+args.batch_size, :3], xnv[i:i+args.batch_size, 3:6], xnv[i:i+args.batch_size, 6:])
+                
+                if rgb_map is None:
+                    rgb_map = pred
+                else:
+                    rgb_map = torch.cat((rgb_map, pred), dim=0)
+
+            v.validation_view_rgb_xndv(rgb_map.detach().cpu(), 
+                                      img.detach().cpu(), 
+                                      points=xnv[..., :3].detach().cpu(),
+                                      normals=xnv[..., 3:6].detach().cpu(),
+                                      depths=depths,
+                                      viewdirs=xnv[..., 6:].detach().cpu(),
+                                      img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
+                                      it=iter, 
+                                      out_path=args.out_path,
+                                      name="val_random_xnv")
 
         
         torch.save({ # Save our checkpoint loc
@@ -218,6 +241,6 @@ if __name__ == "__main__":
         wandb.save(f"{args.checkpoint_path}/{run.id}.tar") # saves checkpoint to wandb    
 
         iter += 1
-        pbar.update(iter)
+        pbar.update(1)
     
     pbar.close()
