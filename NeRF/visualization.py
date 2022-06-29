@@ -55,29 +55,35 @@ def validation_view(rgb_map, val_target, img_shape, it=0, out_path=None, name="v
     if out_path is not None:
         plt.savefig(f"{out_path}/{name}_it{it}.png", bbox_inches='tight', dpi=150)
 
-def validation_view_rgb_xnv(rgb_map, val_target, img_shape, points, normals, viewdirs, it=0, out_path=None, name="validation_xnv", save=True):
+def validation_view_rgb_xndv(rgb_map, val_target, img_shape, points, normals, depths, viewdirs, it=0, out_path=None, name="validation_xnv", save=True):
     rgb_map = torch.reshape(rgb_map, img_shape)
     val_target = torch.reshape(val_target, img_shape)
     points = torch.reshape(points, img_shape)
+    points /= 7.0 # Keep the values lower than 1, constant so that all the views are scaled the same way
     normals = torch.reshape(normals, img_shape)
     viewdirs = torch.reshape(viewdirs, img_shape)
-    
-    fig = plt.figure(figsize=(25, 4))
-    plt.subplot(151)
+    depths = torch.reshape(depths, img_shape)
+    depths /= torch.max(depths)
+
+    fig = plt.figure(figsize=(25, 10))
+    plt.subplot(231)
     plt.imshow(rgb_map.numpy())
     plt.title(f"Reconstruction - it {it}")
-    plt.subplot(152)
+    plt.subplot(232)
     plt.imshow(val_target.numpy())
     plt.title("Target image")
-    plt.subplot(153)
+    plt.subplot(233)
     plt.imshow(points.numpy())
     plt.title("3D points")
-    plt.subplot(154)
+    plt.subplot(234)
     plt.imshow(normals.numpy())
     plt.title("Normals")
-    plt.subplot(155)
+    plt.subplot(235)
     plt.imshow(viewdirs.numpy())
     plt.title("View directions")
+    plt.subplot(236)
+    plt.imshow(depths.numpy())
+    plt.title("Depths")
 
     if save:
         wandb.log({f"{name}_view": fig})
@@ -87,7 +93,6 @@ def validation_view_rgb_xnv(rgb_map, val_target, img_shape, points, normals, vie
 def dataset_view_rgb_xnv(img, img_shape, points, normals, viewdirs):
     img = torch.reshape(img, img_shape)
     points = torch.reshape(points, img_shape)
-    points /= torch.max(points) # Clip the values between 0 and 1
     normals = torch.reshape(normals, img_shape)
     viewdirs = torch.reshape(viewdirs, img_shape)
     
