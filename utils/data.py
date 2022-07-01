@@ -71,6 +71,7 @@ def get_images_size(basedir, subdirs, factor=1):
 class NeRFSubDataset():
     def __init__(self, rays, images, hwf, name, batch_size=None, shuffle=False):
         print(f"\tCreating {name} dataset with rays ({rays.shape}) and images ({images.shape})")
+        rays[..., 3:6] /= torch.norm(rays[..., 3:6])
         self.dataset = TensorDataset(rays, images)
         self.name = name
         self.hwf = hwf
@@ -96,12 +97,19 @@ class NeRFSubDataset():
         
         for i in range(0, self.dataset.tensors[0].shape[0], h*w):
             rays_od = self.dataset.tensors[0][i:i+h*w, :6]
+            #rays_od[..., 3:] /= torch.norm(rays_od[..., 3:])
+            norm=torch.norm(rays_od[..., 3:])
+            #print("norms shape depths", norm.shape, rays_od[..., :3].shape)
+            #print("norms depth", norm)
             hit = utils.cast_rays(scene, rays_od)
+            depths = torch.from_numpy(hit)
             hit = hit.reshape(h, w).T.flatten()
 
             # depths are inf if the ray does not hit the mesh
-            self.depths[i:i+h*w] = torch.from_numpy(hit)
-            self.points[i:i+h*w] = rays_od[..., :3] + rays_od[..., 3:] * self.depths[i:i+h*w, None] 
+            self.depths[i:i+h*w] = torch.from_numpy(hit) #* torch.norm(rays_od[..., 3:], dim=-1)
+            points = rays_od[..., :3] + rays_od[..., 3:] * depths[..., None] 
+            points = points.reshape(h, w, points.shape[-1])
+            self.points[i:i+h*w] = torch.transpose(points, 0, 1).flatten(end_dim=1)
 
         self.points = torch.nan_to_num(self.points, posinf=self.inf_value, neginf=self.inf_value, nan=0.0)
 
@@ -186,6 +194,11 @@ class NeRFSubDataset():
         h = self.hwf[0]
         w = self.hwf[1]
         return self.normals[i*h*w:(i+1)*h*w].to(device)
+
+    def get_points(self, i, device=torch.device('cuda')):
+        h = self.hwf[0]
+        w = self.hwf[1]
+        return self.points[i*h*w:(i+1)*h*w].to(device)
         
 class NeRFDataset():
 
@@ -225,8 +238,8 @@ class NeRFDataset():
             if test:
                 h = self.hwf[0]
                 w = self.hwf[1]
-                rays = rays[:4*h*w]
-                images = images[:4*h*w]
+                rays = rays[:10*h*w]
+                images = images[:10*h*w]
 
             print(f"\tComputing view dirs for {name}...")
             view_dirs = rays[..., 3:]
@@ -264,6 +277,11 @@ class NeRFDataset():
         directions = torch.stack([xx, -yy, -torch.ones_like(xx)], dim=-1)
         
         rays_d = torch.sum(directions[..., None, :] * R, dim=-1)
+        #print("raus shape", rays_d.shape)
+        norm = torch.norm(rays_d, dim=-1)
+        #print("norm shape data", norm[..., None].shape)
+        rays_d /= norm[..., None]
+        
         rays_o = t.expand(rays_d.shape)
         
         return rays_o, rays_d
@@ -303,6 +321,10 @@ class NeRFDataset():
     def get_normals(self, dataset="val", i=0, device=torch.device('cuda')):
         subdataset = [d for d in self.subdatasets if d.name == dataset][0]
         return subdataset.get_normals(i, device=device)
+
+    def get_points(self, dataset="val", i=0, device=torch.device('cuda')):
+        subdataset = [d for d in self.subdatasets if d.name == dataset][0]
+        return subdataset.get_points(i, device=device)
 
     def create_xnv_dataset(self, scene):
         for d in self.subdatasets:

@@ -11,6 +11,8 @@ import open3d as o3d
 import nerf
 import visualization as v
 
+import matplotlib.pyplot as plt
+
 import sys
 sys.path.append('../')
 
@@ -50,6 +52,7 @@ if __name__ == "__main__":
         sys.path.append(args.colab_path)
     import utils.data as data
     import utils.networks as net
+    import utils.utils as utils
    
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f'Using {device}')
@@ -62,20 +65,51 @@ if __name__ == "__main__":
     mesh = o3d.t.geometry.TriangleMesh.from_legacy(mesh)
     scene = o3d.t.geometry.RaycastingScene()
     scene.add_triangles(mesh)
-    #dataset.compute_depths(scene)
-    #dataset.compute_normals()
     dataset.create_xnv_dataset(scene)
 
-    '''if args.test:
-        for i in range(4):
+    if args.test:
+        points = dataset.get_points("train", 2, device=torch.device("cpu"))
+        pcd2 = o3d.t.geometry.PointCloud(utils.torch2open3d(points))
+        points = dataset.get_points("train", 6, device=torch.device("cpu"))
+        pcd6 = o3d.t.geometry.PointCloud(utils.torch2open3d(points))
+        points = dataset.get_points("train", 5, device=torch.device("cpu"))
+        pcd5 = o3d.t.geometry.PointCloud(utils.torch2open3d(points))
+        o3d.visualization.draw_geometries([pcd2.to_legacy(), pcd6.to_legacy(), pcd5.to_legacy()])
+
+        for i in range(2,3):
+            #depths = dataset.get_depths("train", i, device=torch.device("cpu"))
+            #normals = dataset.get_normals("train", i, device=torch.device("cpu"))
+            #img = dataset.get_image("train", i, device=torch.device("cpu"))
+            #v.print_depths(depths, img, dataset.hwf, args.out_path+f"/depths_{i}.png")
+            #v.print_normals(normals, img, dataset.hwf, args.out_path+f"/norms_{i}.png")
+            points = dataset.get_points("train", i, device=torch.device("cpu"))
+            pcd = o3d.t.geometry.PointCloud(utils.torch2open3d(points))
+
+            points = points.reshape(dataset.hwf[0], dataset.hwf[1], 3)
             depths = dataset.get_depths("train", i, device=torch.device("cpu"))
-            normals = dataset.get_normals("train", i, device=torch.device("cpu"))
+            depths = depths.reshape(dataset.hwf[0], dataset.hwf[1])
             img = dataset.get_image("train", i, device=torch.device("cpu"))
-            v.print_depths(depths, img, dataset.hwf, args.out_path+f"/depths_{i}.png")
-            v.print_normals(normals, img, dataset.hwf, args.out_path+f"/norms_{i}.png")'''
-    
+            img = img.reshape(dataset.hwf[0], dataset.hwf[1], 3)
+
+            plt.figure(figsize=(15, 4))
+            plt.subplot(131)
+            plt.imshow(img[20:35,60:80,...].numpy())
+            plt.title(f"Image")
+            plt.subplot(132)
+            plt.imshow(points[20:35,60:80,...].numpy()/10.0)
+            plt.title("3D points")
+            plt.subplot(133)
+            plt.imshow(depths[20:35,60:80,...].numpy())
+            plt.title("Depths")
+            plt.show()
+            plt.savefig(f"{args.out_path}/test.png")
+
     if args.resume:
-        run = wandb.init(id=args.run_id, resume="must")
+        run = wandb.init(project="controllable-neural-rendering", 
+                        entity="guillemgarrofe",
+                        id=args.run_id,
+                        resume=True)
+        
     else:
         run = wandb.init(project="controllable-neural-rendering", 
                 entity="guillemgarrofe",
@@ -99,15 +133,19 @@ if __name__ == "__main__":
     optimizer = torch.optim.Adam(rend_net.parameters(), lr=args.lrate)
 
     loss_fn = nn.MSELoss()
+    mse2psnr = lambda x : -10. * torch.log(x) / torch.log(torch.Tensor([10.]).to(device))
 
     iter = 0
     if wandb.run.resumed:
-        checkpoint = torch.load(wandb.restore(args.checkpoint_path))
+        wandb.restore(f"{args.checkpoint_path}/{args.run_id}.pt")
+        checkpoint = torch.load(f"{args.checkpoint_path}/{args.run_id}.tar")
         rend_net.load_state_dict(checkpoint['model_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         iter = checkpoint['iter']
+        print(f"Resuming {run.id} at iteration {iter}")
 
     pbar = tqdm(total=args.N_iters, unit="iteration")
+    pbar.update(iter)
     while iter < args.N_iters:
         # By default each batch will correspond to the rays of a single image
         batch_xnv_tr, target_rgb_tr = dataset.next_batch("train", device=device)
@@ -128,8 +166,9 @@ if __name__ == "__main__":
             param_group['lr'] = new_lrate
 
         wandb.log({
-                "loss": loss
-                })
+                "loss": loss,
+                "psnr": mse2psnr(loss)
+                }, step=iter)
 
         #  --------------- VALIDATION --------------
 
@@ -137,18 +176,15 @@ if __name__ == "__main__":
         batch_xnv_val, target_rgb_val = dataset.next_batch("val", device=device)
         pred_rgb = rend_net(batch_xnv_val[..., :3], batch_xnv_val[..., 3:6], batch_xnv_val[..., 6:])
 
-        loss = loss_fn(pred_rgb, target_rgb_val)
-
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        val_loss = loss_fn(pred_rgb, target_rgb_val)
 
         wandb.log({
-                "val_loss": loss
-                })
+                "val_loss": val_loss,
+                "val_psnr": mse2psnr(val_loss)
+                }, step=iter)
 
         # --------------- EVALUATION --------------
-        if iter%50 == 0:
+        if iter%2000 == 0:
             xnv, img, depths = dataset.get_X_target("train", 0, device=device)
             rgb_map = None
             for i in range(0, xnv.shape[0], args.batch_size):
@@ -233,12 +269,13 @@ if __name__ == "__main__":
                                       name="val_random_xnv")
 
         
-        torch.save({ # Save our checkpoint loc
-            'iter': iter,
-            'model_state_dict': rend_net.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict()
-            }, f"{args.checkpoint_path}/{run.id}.tar")
-        wandb.save(f"{args.checkpoint_path}/{run.id}.tar") # saves checkpoint to wandb    
+            torch.save({ # Save our checkpoint loc
+                'iter': iter,
+                'model_state_dict': rend_net.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'loss': loss
+                }, f"{args.checkpoint_path}/{run.id}.tar")
+            wandb.save(f"{args.checkpoint_path}/{run.id}.tar") # saves checkpoint to wandb    
 
         iter += 1
         pbar.update(1)

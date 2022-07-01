@@ -51,7 +51,7 @@ def validation_view(rgb_map, val_target, img_shape, it=0, out_path=None, name="v
     plt.imshow(val_target.numpy())
     plt.title("Target image")
 
-    wandb.log({f"{name}_view": fig})
+    wandb.log({f"{name}_view": fig}, step=it)
     if out_path is not None:
         plt.savefig(f"{out_path}/{name}_it{it}.png", bbox_inches='tight', dpi=150)
 
@@ -62,8 +62,9 @@ def validation_view_rgb_xndv(rgb_map, val_target, img_shape, points, normals, de
     points /= 7.0 # Keep the values lower than 1, constant so that all the views are scaled the same way
     normals = torch.reshape(normals, img_shape)
     viewdirs = torch.reshape(viewdirs, img_shape)
-    depths = torch.reshape(depths, img_shape)
-    depths /= torch.max(depths)
+    depths = torch.reshape(depths, list(img_shape)[0:2])
+    depths = torch.nan_to_num(depths, posinf=10.0, neginf=10.0, nan=0.0)
+    #depths /= torch.max(depths)
 
     fig = plt.figure(figsize=(25, 10))
     plt.subplot(231)
@@ -86,7 +87,7 @@ def validation_view_rgb_xndv(rgb_map, val_target, img_shape, points, normals, de
     plt.title("Depths")
 
     if save:
-        wandb.log({f"{name}_view": fig})
+        wandb.log({f"{name}_view": fig}, step=it)
         if out_path is not None:
             plt.savefig(f"{out_path}/{name}_it{it}.png", bbox_inches='tight', dpi=150)
 
