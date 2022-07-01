@@ -48,6 +48,6 @@ fi
 #     --output_path $WORKSPACE/dense/meshed-delaunay.ply
 
 
-/data/gg921/bin/colmap poisson_mesher \
-     --input_path $WORKSPACE/dense/fused.ply \
-     --output_path $WORKSPACE/dense/meshed-poisson.ply
+# /data/gg921/bin/colmap poisson_mesher \
+#      --input_path $WORKSPACE/dense/fused.ply \
+#      --output_path $WORKSPACE/dense/meshed-poisson.ply
