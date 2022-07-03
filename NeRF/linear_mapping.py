@@ -40,7 +40,7 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-def compute_inv(point, xnv, target, step, embed_fn, input_ch, sigma=0.01):
+def compute_inv(point, xnv, target, step, embed_fn, input_ch, sigma=0.05):
     mask = torch.norm(xnv[..., :3] - point, dim=-1) + sigma <= np.sqrt(2 * ((step/2)**2))
     if not torch.any(mask): return torch.zeros((input_ch,3))
 
@@ -51,7 +51,7 @@ def compute_inv(point, xnv, target, step, embed_fn, input_ch, sigma=0.01):
     rad_T = xnv_enc_inv @ target[mask]
     return rad_T
 
-def predict(point, xnv, pred, rad_T, step, embed_fn, input_ch, sigma=0.01):
+def predict(point, xnv, pred, rad_T, step, embed_fn, input_ch, sigma=0.05):
     mask = torch.norm(xnv[..., :3] - point, dim=-1) + sigma <= np.sqrt(2 * ((step/2)**2))
     if not torch.any(mask): return torch.zeros((input_ch,3))
 
