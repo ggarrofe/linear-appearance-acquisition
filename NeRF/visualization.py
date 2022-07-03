@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 import torch
 import wandb
+import numpy as np
 
 def plot_losses(training_losses, val_losses, it):
     plt.figure(figsize=(9, 4))
@@ -55,7 +56,7 @@ def validation_view(rgb_map, val_target, img_shape, it=0, out_path=None, name="v
     if out_path is not None:
         plt.savefig(f"{out_path}/{name}_it{it}.png", bbox_inches='tight', dpi=150)
 
-def validation_view_rgb_xndv(rgb_map, val_target, img_shape, points, normals, depths, viewdirs, it=0, out_path=None, name="validation_xnv", save=True):
+def validation_view_rgb_xndv(rgb_map, val_target, img_shape, points, normals, depths, viewdirs, it=0, out_path=None, name="validation_xnv", save=True, wandb_act=True):
     rgb_map = torch.reshape(rgb_map, img_shape)
     val_target = torch.reshape(val_target, img_shape)
     points = torch.reshape(points, img_shape)
@@ -87,9 +88,13 @@ def validation_view_rgb_xndv(rgb_map, val_target, img_shape, points, normals, de
     plt.title("Depths")
 
     if save:
-        wandb.log({f"{name}_view": fig}, step=it)
         if out_path is not None:
             plt.savefig(f"{out_path}/{name}_it{it}.png", bbox_inches='tight', dpi=150)
+        if wandb_act:
+            wandb.log({f"{name}_view": fig}, step=it)
+
+    
+    plt.show()
 
 def dataset_view_rgb_xnv(img, img_shape, points, normals, viewdirs):
     img = torch.reshape(img, img_shape)
@@ -136,3 +141,7 @@ def print_normals(normals, img, hwf, path="./norms.png"):
     plt.savefig(path)
     print(f"Saved {path}")
     plt.show()
+
+def plot_surface_clusters(pointclouds):
+    
+    return pointclouds
