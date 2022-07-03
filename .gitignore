@@ -5,3 +5,4 @@ __pycache__
 *.jar
 dense
 database.db
+out*

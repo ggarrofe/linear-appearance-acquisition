@@ -1,3 +1,4 @@
+from re import sub
 import numpy as np
 import os
 import json
@@ -88,7 +89,7 @@ class NeRFSubDataset():
         self.dataloader = DataLoader(self.dataset, batch_size=batch_size, shuffle=shuffle)
         self.iterator = iter(self.dataloader)
 
-        self.inf_value = 10.0
+        self.inf_value = -1.0
 
     def compute_depths(self, scene):
         h, w, f = self.hwf
@@ -97,10 +98,7 @@ class NeRFSubDataset():
         
         for i in range(0, self.dataset.tensors[0].shape[0], h*w):
             rays_od = self.dataset.tensors[0][i:i+h*w, :6]
-            #rays_od[..., 3:] /= torch.norm(rays_od[..., 3:])
-            norm=torch.norm(rays_od[..., 3:])
-            #print("norms shape depths", norm.shape, rays_od[..., :3].shape)
-            #print("norms depth", norm)
+            
             hit = utils.cast_rays(scene, rays_od)
             depths = torch.from_numpy(hit)
             hit = hit.reshape(h, w).T.flatten()
@@ -111,7 +109,7 @@ class NeRFSubDataset():
             points = points.reshape(h, w, points.shape[-1])
             self.points[i:i+h*w] = torch.transpose(points, 0, 1).flatten(end_dim=1)
 
-        self.points = torch.nan_to_num(self.points, posinf=self.inf_value, neginf=self.inf_value, nan=0.0)
+        self.points = torch.nan_to_num(self.points, posinf=self.inf_value, neginf=self.inf_value, nan=-1.0)
 
     def compute_normals(self):
         """
@@ -143,7 +141,7 @@ class NeRFSubDataset():
 
             magnitude = torch.sqrt(torch.pow(direction[..., 0], 2)+torch.pow(direction[..., 1], 2)+torch.pow(direction[..., 2], 2)).unsqueeze(-1)
             normals = direction/magnitude * 0.5 + 0.5
-            self.normals[i:i+h*w] = torch.nan_to_num(normals).reshape((h*w, 3))
+            self.normals[i:i+h*w] = torch.nan_to_num(normals, nan=-1.0).reshape((h*w, 3))
 
     def create_xnv_dataset(self, scene):
         self.compute_depths(scene)
@@ -200,6 +198,8 @@ class NeRFSubDataset():
         w = self.hwf[1]
         return self.points[i*h*w:(i+1)*h*w].to(device)
         
+    def get_tensors(self, device=torch.device('cuda')):
+        return self.dataset.tensors[0].float().to(device), self.dataset.tensors[1].float().to(device), self.depths
 class NeRFDataset():
 
     def __init__(self, 
@@ -325,6 +325,10 @@ class NeRFDataset():
     def get_points(self, dataset="val", i=0, device=torch.device('cuda')):
         subdataset = [d for d in self.subdatasets if d.name == dataset][0]
         return subdataset.get_points(i, device=device)
+
+    def get_tensors(self, dataset="train", device=torch.device('cuda')):
+        subdataset = [d for d in self.subdatasets if d.name == dataset][0]
+        return subdataset.get_tensors(device=device)
 
     def create_xnv_dataset(self, scene):
         for d in self.subdatasets:
