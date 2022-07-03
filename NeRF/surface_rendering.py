@@ -26,10 +26,6 @@ def parse_args():
     parser.add_argument('--factor', type=int, default=1)
     parser.add_argument('--batch_size', type=int, default=16384, help='number of images whose rays would be used at once')
     parser.add_argument('--shuffle', type=bool, default=False)
-    parser.add_argument('--N_samples', type=int, help='number of points to sample with the coarse network', default=64)
-    parser.add_argument('--D_c', type=int, help='Depth coarse network', default=8)
-    parser.add_argument('--W_c', type=int, help='Coarse network width', default=256)
-    parser.add_argument('--N_f', type=int, help='number of points to sample with the fine network', default=128)
     parser.add_argument("--lrate", type=float, default=5e-4, help='learning rate')
     parser.add_argument("--lrate_decay", type=int, default=250, help='exponential learning rate decay (in 1000 steps)')
     parser.add_argument('--N_iters', type=int, help='number of iterations to train the network', default=1000)
@@ -40,9 +36,8 @@ def parse_args():
     parser.add_argument("--resume", action='store_true', help='Resume the run from the last checkpoint')
     parser.add_argument("--run_id", type=str, help='Id of the run that must be resumed')
     parser.add_argument('--checkpoint_path', type=str, help='Path where checkpoints are saved')
-
-
     args = parser.parse_args()
+
     return args
 
 if __name__ == "__main__":
@@ -117,7 +112,6 @@ if __name__ == "__main__":
                         "learning_rate": args.lrate,
                         "num_iters": args.N_iters,
                         "batch_size": dataset.hwf[0]*dataset.hwf[1] if args.batch_size is None else args.batch_size,
-                        "n_f": args.N_f,
                         "dataset_type": args.dataset_type,
                         "dataset_path": args.dataset_path 
                     })
@@ -137,7 +131,7 @@ if __name__ == "__main__":
 
     iter = 0
     if wandb.run.resumed:
-        wandb.restore(f"{args.checkpoint_path}/{args.run_id}.pt")
+        wandb.restore(f"{args.checkpoint_path}/{args.run_id}.tar")
         checkpoint = torch.load(f"{args.checkpoint_path}/{args.run_id}.tar")
         rend_net.load_state_dict(checkpoint['model_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
