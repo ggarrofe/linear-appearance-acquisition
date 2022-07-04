@@ -9,7 +9,7 @@ import wandb
 
 import open3d as o3d
 
-import nerf
+from kmeans_pytorch import kmeans, kmeans_predict
 import visualization as v
 
 import matplotlib.pyplot as plt
@@ -30,6 +30,7 @@ def parse_args():
     parser.add_argument("--lrate", type=float, default=5e-4, help='learning rate')
     parser.add_argument("--lrate_decay", type=int, default=250, help='exponential learning rate decay (in 1000 steps)')
     parser.add_argument('--N_iters', type=int, help='number of iterations to train the network', default=1000)
+    parser.add_argument('--num_clusters', type=int, help='number of clusters of the surface points', default=10)
     parser.add_argument('--dataset_to_gpu', default=False, action="store_true")
     parser.add_argument('--colab', action="store_true")
     parser.add_argument('--colab_path', type=str, help='google colab base dir')
@@ -40,23 +41,21 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-def compute_inv(point, xnv, target, step, embed_fn, input_ch):
-    mask = torch.norm(xnv[..., :3] - point, dim=-1) <= np.sqrt(3 * ((step/2)**2))
-    if not torch.any(mask): return torch.zeros((input_ch,3)), False
-
-    xnv_enc = embed_fn(xnv)
-    
-    xnv_enc_inv = torch.linalg.pinv(xnv_enc[mask])
+def compute_inv(xnv, target, cluster_id, cluster_ids, embed_fn):
+    mask = cluster_ids == cluster_id
+    xnv_enc = embed_fn(xnv[mask])
+    xnv_enc_inv = torch.linalg.pinv(xnv_enc)
     rad_T = xnv_enc_inv @ target[mask]
-    return rad_T, True
+    return rad_T
 
-def predict(point, xnv, pred, rad_T, step, embed_fn, input_ch):
-    mask = torch.norm(xnv[..., :3] - point, dim=-1) <= np.sqrt(3 * ((step/2)**2))
-    if not torch.any(mask): return torch.zeros((input_ch,3))
+def predict(xnv, pred, mask_empty, rad_T, cluster_id, cluster_ids, embed_fn):
+    mask = torch.ones((len(xnv)), dtype=torch.bool)
+    mask[mask_empty] = False
+    mask[~mask_empty] = (cluster_ids == cluster_id)
+    if not torch.any(mask): return
 
-    xnv_enc = embed_fn(xnv)
-    pred[mask] = xnv_enc[mask] @ rad_T
-    return mask
+    xnv_enc = embed_fn(xnv[mask])
+    pred[mask] = xnv_enc @ rad_T
     
 
 if __name__ == "__main__":
@@ -89,19 +88,15 @@ if __name__ == "__main__":
     mse2psnr = lambda x : -10. * torch.log(x) / torch.log(torch.Tensor([10.]).to(device))
     embed_fn, input_ch = emb.get_embedder(in_dim=9, num_freqs=6)
     
-    vol_step = 0.5
-    
     xnv, target_rgb, depths = dataset.get_tensors("train", device=device)
     pred_rgb = torch.zeros_like(target_rgb)
 
-    range_x = torch.arange(torch.min(xnv[..., 0]), torch.max(xnv[..., 0]), vol_step)
-    range_y = torch.arange(torch.min(xnv[..., 1]), torch.max(xnv[..., 1]), vol_step)
-    range_z = torch.arange(torch.min(xnv[..., 2]), torch.max(xnv[..., 2]), vol_step)
-    inv_matrices = torch.zeros([len(list(range_x)), len(list(range_y)), len(list(range_z)), input_ch, 3]).to(xnv)
+    inv_matrices = torch.zeros([args.num_clusters, input_ch, 3]).to(xnv)
 
     xnv_tr, img_tr, depths_tr = dataset.get_X_target("train", 0, device=device)
-    colors_tr = torch.zeros_like(xnv_tr[..., :3])
     pred_rgb_tr = torch.zeros_like(img_tr)
+    colors_tr = torch.zeros_like(xnv_tr[..., :3])
+
     xnv_val, img_val, depths_val = dataset.get_X_target("val", 0, device=device)
     pred_rgb_val = torch.zeros_like(img_val)
 
@@ -109,35 +104,28 @@ if __name__ == "__main__":
     pcd_tr = []
     num_mats = 0
     
-    for i, x in enumerate(range_x):
-        for j, y in enumerate(range_y):
-            for k, z in enumerate(range_z):
-                point = torch.tensor([x, y, z]).to(xnv)
-                inv_matrices[i,j,k], mat = compute_inv(point=point,
-                                                  xnv=xnv,
-                                                  target=target_rgb,
-                                                  step=vol_step,
-                                                  embed_fn=embed_fn,
-                                                  input_ch=input_ch)
-                num_mats += 1 if mat else 0
-                predict(point, xnv, pred_rgb, inv_matrices[i,j,k], vol_step, embed_fn, input_ch)
-                mask = predict(point, xnv_tr, pred_rgb_tr, inv_matrices[i,j,k], vol_step, embed_fn, input_ch)
-                predict(point, xnv_val, pred_rgb_val, inv_matrices[i,j,k], vol_step, embed_fn, input_ch)
-                
-                # Visualization of surface clusters
-                if args.test and torch.any(mask):
-                    color = torch.rand(size=(3,))
-                    colors_tr[mask] = color.expand(xnv_tr[mask, :3].shape)
-
-                pbar.update(1)
-
-    if args.test:
-        pcd_tr = o3d.t.geometry.PointCloud(utils.torch2open3d(xnv_tr[..., :3]))
-        pcd_tr.point["colors"] = utils.torch2open3d(colors_tr)
-        o3d.visualization.draw_geometries([pcd_tr.to_legacy()])
+    mask = (xnv[:,0] == -1.) & (xnv[:,1] == -1.) & (xnv[:,2] == -1.)
     
-    # By default each batch will correspond to the rays of a single image
-    #
+    cluster_ids, cluster_centers = kmeans(
+        X=xnv[~mask, :3], num_clusters=args.num_clusters, distance='euclidean', device=device
+    )
+
+    mask_tr = (xnv_tr[:,0] == -1.) & (xnv_tr[:,1] == -1.) & (xnv_tr[:,2] == -1.)
+    cluster_ids_tr = kmeans_predict(
+        xnv_tr[~mask_tr, :3], cluster_centers, 'euclidean', device=device
+    )
+
+    mask_val = (xnv_val[:,0] == -1.) & (xnv_val[:,1] == -1.) & (xnv_val[:,2] == -1.)
+    cluster_ids_val = kmeans_predict(
+        xnv_val[~mask_val, :3], cluster_centers, 'euclidean', device=device
+    )
+
+    for cluster_id in range(args.num_clusters):
+        inv_matrices[cluster_id] = compute_inv(xnv[~mask], target_rgb[~mask], cluster_id, cluster_ids, embed_fn=embed_fn)
+        predict(xnv_tr, pred_rgb_tr, mask_tr, inv_matrices[cluster_id], cluster_id, cluster_ids_tr, embed_fn)
+        predict(xnv_val, pred_rgb_val, mask_val, inv_matrices[cluster_id], cluster_id, cluster_ids_val, embed_fn)
+
+    
     loss = loss_fn(pred_rgb, target_rgb)
     loss_tr = loss_fn(pred_rgb_tr, img_tr)
     loss_val = loss_fn(pred_rgb_val, img_val)
@@ -158,7 +146,7 @@ if __name__ == "__main__":
                                     depths=depths_tr,
                                     viewdirs=xnv_tr[..., 6:].detach().cpu(),
                                     img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
-                                    it=num_mats, 
+                                    it=args.num_clusters, 
                                     out_path=args.out_path,
                                     name="training_xnv",
                                     wandb_act=False)
@@ -170,9 +158,7 @@ if __name__ == "__main__":
                                     depths=depths_val,
                                     viewdirs=xnv_val[..., 6:].detach().cpu(),
                                     img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
-                                    it=num_mats, 
+                                    it=args.num_clusters, 
                                     out_path=args.out_path,
                                     name="val_xnv",
                                     wandb_act=False)
-
-        

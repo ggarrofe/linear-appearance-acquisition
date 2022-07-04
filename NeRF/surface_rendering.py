@@ -8,7 +8,6 @@ import wandb
 
 import open3d as o3d
 
-import nerf
 import visualization as v
 
 import matplotlib.pyplot as plt
