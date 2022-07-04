@@ -148,7 +148,6 @@ class NeRFSubDataset():
         self.compute_normals()
 
         viewdirs = self.dataset.tensors[0][..., 6:].to(device)
-        print(self.points.device, self.normals.device, viewdirs.device)
         X = torch.cat([self.points, self.normals, viewdirs], dim=-1)
         
         self.dataset = TensorDataset(X, self.dataset.tensors[1])
