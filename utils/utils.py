@@ -26,7 +26,7 @@ def summarize_diff(old_arr, new_arr):
 
 ####################       RAY CASTING       ####################
 def torch2open3d(torch_tensor):
-    return o3c.Tensor(torch_tensor.numpy())
+    return o3c.Tensor(torch_tensor.cpu().numpy())
 
 def cast_rays(scene, rays_od):
     ans = scene.cast_rays(torch2open3d(rays_od.float()))

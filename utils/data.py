@@ -91,23 +91,23 @@ class NeRFSubDataset():
 
         self.inf_value = -1.0
 
-    def compute_depths(self, scene):
+    def compute_depths(self, scene, device=torch.device("cpu")):
         h, w, f = self.hwf
-        self.depths = torch.zeros((self.dataset.tensors[0].shape[0]))
-        self.points = torch.zeros((self.dataset.tensors[0].shape[0], 3))
+        self.depths = torch.zeros((self.dataset.tensors[0].shape[0])).to(device)
+        self.points = torch.zeros((self.dataset.tensors[0].shape[0], 3)).to(device)
         
         for i in range(0, self.dataset.tensors[0].shape[0], h*w):
             rays_od = self.dataset.tensors[0][i:i+h*w, :6]
             
             hit = utils.cast_rays(scene, rays_od)
-            depths = torch.from_numpy(hit)
+            depths = torch.from_numpy(hit).to(device)
             hit = hit.reshape(h, w).T.flatten()
 
             # depths are inf if the ray does not hit the mesh
-            self.depths[i:i+h*w] = torch.from_numpy(hit) #* torch.norm(rays_od[..., 3:], dim=-1)
+            self.depths[i:i+h*w] = torch.from_numpy(hit).to(device)
             points = rays_od[..., :3] + rays_od[..., 3:] * depths[..., None] 
             points = points.reshape(h, w, points.shape[-1])
-            self.points[i:i+h*w] = torch.transpose(points, 0, 1).flatten(end_dim=1)
+            self.points[i:i+h*w] = torch.transpose(points, 0, 1).flatten(end_dim=1).to(device)
 
         self.points = torch.nan_to_num(self.points, posinf=self.inf_value, neginf=self.inf_value, nan=-1.0)
 
@@ -129,8 +129,8 @@ class NeRFSubDataset():
         h, w, f = self.hwf
         self.normals = torch.zeros_like(self.points, requires_grad=False, device=self.depths.device)
             
-        padding_h = torch.zeros((h,1))
-        padding_w = torch.zeros((1,w))
+        padding_h = torch.zeros((h,1)).to(self.depths)
+        padding_w = torch.zeros((1,w)).to(self.depths)
         
         for i in range(0, self.dataset.tensors[0].shape[0], h*w):
             depths = self.depths[i:i+h*w].reshape(h, w)
@@ -143,11 +143,12 @@ class NeRFSubDataset():
             normals = direction/magnitude * 0.5 + 0.5
             self.normals[i:i+h*w] = torch.nan_to_num(normals, nan=-1.0).reshape((h*w, 3))
 
-    def create_xnv_dataset(self, scene):
-        self.compute_depths(scene)
+    def create_xnv_dataset(self, scene, device=torch.device("cpu")):
+        self.compute_depths(scene, device=device)
         self.compute_normals()
 
-        viewdirs = self.dataset.tensors[0][..., 6:]
+        viewdirs = self.dataset.tensors[0][..., 6:].to(device)
+        print(self.points.device, self.normals.device, viewdirs.device)
         X = torch.cat([self.points, self.normals, viewdirs], dim=-1)
         
         self.dataset = TensorDataset(X, self.dataset.tensors[1])
@@ -330,9 +331,9 @@ class NeRFDataset():
         subdataset = [d for d in self.subdatasets if d.name == dataset][0]
         return subdataset.get_tensors(device=device)
 
-    def create_xnv_dataset(self, scene):
+    def create_xnv_dataset(self, scene, device=torch.device('cpu')):
         for d in self.subdatasets:
-            d.create_xnv_dataset(scene)
+            d.create_xnv_dataset(scene, device=device)
 
     def load_synthetic(self,  
                   dataset_path,
