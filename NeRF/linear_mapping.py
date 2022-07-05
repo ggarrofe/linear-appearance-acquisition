@@ -6,6 +6,7 @@ from tqdm import tqdm
 
 import configargparse
 import wandb
+import time
 
 import open3d as o3d
 
@@ -100,32 +101,67 @@ if __name__ == "__main__":
     xnv_val, img_val, depths_val = dataset.get_X_target("val", 0, device=device)
     pred_rgb_val = torch.zeros_like(img_val)
 
-    pbar = tqdm(total=inv_matrices.shape[0]*inv_matrices.shape[1]*inv_matrices.shape[2], unit="iteration")
     pcd_tr = []
     num_mats = 0
     
     mask = (xnv[:,0] == -1.) & (xnv[:,1] == -1.) & (xnv[:,2] == -1.)
-    
+
+    start = time.time()
     cluster_ids, cluster_centers = kmeans(
-        X=xnv[~mask, :3], num_clusters=args.num_clusters, distance='euclidean', device=device
+        X=xnv[~mask, :3], num_clusters=args.num_clusters, distance='euclidean', device=device, tol=1e-03
     )
 
+    for cluster_id in range(args.num_clusters):
+        inv_matrices[cluster_id] = compute_inv(xnv[~mask], target_rgb[~mask], cluster_id, cluster_ids, embed_fn=embed_fn)
+    end = time.time()
+    print(f"Training time: {end-start}")
+
+    start = time.time() 
     mask_tr = (xnv_tr[:,0] == -1.) & (xnv_tr[:,1] == -1.) & (xnv_tr[:,2] == -1.)
     cluster_ids_tr = kmeans_predict(
         xnv_tr[~mask_tr, :3], cluster_centers, 'euclidean', device=device
     )
-
+    
     mask_val = (xnv_val[:,0] == -1.) & (xnv_val[:,1] == -1.) & (xnv_val[:,2] == -1.)
     cluster_ids_val = kmeans_predict(
         xnv_val[~mask_val, :3], cluster_centers, 'euclidean', device=device
     )
 
-    for cluster_id in range(args.num_clusters):
-        inv_matrices[cluster_id] = compute_inv(xnv[~mask], target_rgb[~mask], cluster_id, cluster_ids, embed_fn=embed_fn)
-        predict(xnv_tr, pred_rgb_tr, mask_tr, inv_matrices[cluster_id], cluster_id, cluster_ids_tr, embed_fn)
-        predict(xnv_val, pred_rgb_val, mask_val, inv_matrices[cluster_id], cluster_id, cluster_ids_val, embed_fn)
 
-    
+    softmax = nn.Softmax(dim=-1)
+    cluster_centers = cluster_centers.to(xnv)
+
+    xnv_enc = embed_fn(xnv[~mask])
+    prediction = torch.transpose(xnv_enc @ inv_matrices, 0, 1)
+    dist2centroids = torch.norm(xnv[~mask, None, :3] - cluster_centers[None, ...], dim=-1)
+    print("dist2centroids",dist2centroids.shape)
+    print("prediction shape", prediction.shape)
+    softdist = softmax(dist2centroids)
+    prediction_w = torch.matmul(dist2centroids[..., None, :], prediction).squeeze(dim=1)
+    print("prediction_w", prediction_w.shape)
+    print("pred 0", prediction[0])
+    print("pred_w 0", prediction_w[0])
+    print("sum shape", torch.sum(dist2centroids, dim=-1).shape)
+    prediction_w /= torch.sum(dist2centroids, dim=-1)[..., None]
+    print("pred_w 0", prediction_w[0])
+    pred_rgb[~mask] = prediction_w
+
+    xnv_enc = embed_fn(xnv_tr[~mask_tr])
+    prediction = torch.transpose(xnv_enc @ inv_matrices, 0, 1)
+    dist2centroids = torch.norm(xnv_tr[~mask_tr, None, :3] - cluster_centers[None, ...], dim=-1)
+    softdist = softmax(dist2centroids)
+    prediction_w = torch.matmul(dist2centroids[..., None, :], prediction).squeeze(dim=1)
+    prediction_w /= torch.sum(dist2centroids, dim=-1)[..., None]
+    pred_rgb_tr[~mask_tr] = prediction_w
+     
+    xnv_enc = embed_fn(xnv_val[~mask_val])
+    prediction = torch.transpose(xnv_enc @ inv_matrices, 0, 1)
+    dist2centroids = torch.norm(xnv_val[~mask_val, None, :3] - cluster_centers[None, ...], dim=-1)
+    softdist = softmax(dist2centroids)
+    prediction_w = torch.matmul(dist2centroids[..., None, :], prediction).squeeze(dim=1)
+    prediction_w /= torch.sum(dist2centroids, dim=-1)[..., None]
+    pred_rgb_val[~mask_val] = prediction_w
+
     loss = loss_fn(pred_rgb, target_rgb)
     loss_tr = loss_fn(pred_rgb_tr, img_tr)
     loss_val = loss_fn(pred_rgb_val, img_val)
@@ -138,7 +174,7 @@ if __name__ == "__main__":
             "loss_val": loss_val,
             "psnr_val": mse2psnr(loss_val)
             })
-
+    
     v.validation_view_rgb_xndv(pred_rgb_tr.detach().cpu(), 
                                     img_tr.detach().cpu(), 
                                     points=xnv_tr[..., :3].detach().cpu(),
@@ -162,3 +198,26 @@ if __name__ == "__main__":
                                     out_path=args.out_path,
                                     name="val_xnv",
                                     wandb_act=False)
+    
+    '''for cluster_id in range(args.num_clusters):
+        predict(xnv_tr, pred_rgb_tr, mask_tr, inv_matrices[cluster_id], cluster_id, cluster_ids_tr, embed_fn)
+        predict(xnv_val, pred_rgb_val, mask_val, inv_matrices[cluster_id], cluster_id, cluster_ids_val, embed_fn)
+
+    end = time.time()
+    print(f"Inference time: {end-start}")
+
+    
+    loss = loss_fn(pred_rgb, target_rgb)
+    loss_tr = loss_fn(pred_rgb_tr, img_tr)
+    loss_val = loss_fn(pred_rgb_val, img_val)
+
+    print({
+            "loss": loss,
+            "psnr": mse2psnr(loss),
+            "loss_tr": loss_tr,
+            "psnr_tr": mse2psnr(loss_tr),
+            "loss_val": loss_val,
+            "psnr_val": mse2psnr(loss_val)
+            })
+
+    '''
