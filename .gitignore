@@ -6,5 +6,6 @@ __pycache__
 dense
 database.db
 out*
-**/data/**/*.png
-**/COLMAP/**/*.png
+*.png
+*.ply
+*.db
