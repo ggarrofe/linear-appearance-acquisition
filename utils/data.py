@@ -67,7 +67,7 @@ def get_images_size(basedir, subdirs, factor=1):
     img_size[-1] = 3
     images_size = [num_images]
     images_size.extend(img_size)
-    return tuple(images_size), num_images_list
+    return images_size, num_images_list
 
 class NeRFSubDataset():
     def __init__(self, rays, images, hwf, name, batch_size=None, shuffle=False):
@@ -204,7 +204,8 @@ class NeRFDataset():
 
     def __init__(self, 
                  args,
-                 device=torch.device('cuda')):
+                 device=torch.device('cuda'),
+                 val_images=100):
 
         self.device = device
         self.subdirs_indices = []
@@ -215,7 +216,7 @@ class NeRFDataset():
         elif args.dataset_type == "synthetic":
             self.load_synthetic(args.dataset_path, device=device)
         elif args.dataset_type == "llff":
-            self.load_llff(args.dataset_path, device=device, factor=args.factor)
+            self.load_llff(args.dataset_path, device=device, factor=args.factor, val_images=val_images)
         elif args.dataset_type == "meshroom":
             self.load_meshroom(args.dataset_path, device=device)
         elif args.dataset_type == "colmap":
@@ -413,11 +414,13 @@ class NeRFDataset():
 
         self.hwf = (height, width, focal_length)
        
-    def load_llff(self, dataset_path, device=torch.device('cuda'), factor=1):
+    def load_llff(self, dataset_path, device=torch.device('cuda'), factor=1, val_images=100):
         subdirs = get_subdirs(dataset_path)
         print(subdirs)
 
         imgs_size, num_images = get_images_size(dataset_path, subdirs, factor=factor)
+        num_images[subdirs.index("val")] = val_images
+        imgs_size[0] = np.array(num_images).sum()
         images = np.zeros(imgs_size)
         poses = np.zeros((imgs_size[0], 3, 4))
         i_imgs = 0
@@ -432,7 +435,8 @@ class NeRFDataset():
                                  factor=factor, 
                                  subdir=dir,
                                  i=i_imgs,
-                                 i_n=i_imgs+num_images[i_dir])
+                                 i_n=i_imgs+num_images[i_dir],
+                                 n_imgs=num_images[i_dir])
             
             utils.summarize_diff(poses_old, poses)
 

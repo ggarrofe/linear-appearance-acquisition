@@ -56,11 +56,15 @@ def _minify(basedir, subdir=None, factors=[], resolutions=[]):
         print('Done')
  
 
-def _load_data(basedir, poses, images, factor=None, width=None, height=None, load_imgs=True, subdir=None):
+def _load_data(basedir, poses, images, factor=None, width=None, height=None, load_imgs=True, subdir=None, n_imgs=-1):
     fileposes = 'poses_bounds.npy' if subdir is None else f'poses_bounds_{subdir}.npy'
     
     poses_arr = np.load(os.path.join(basedir, fileposes))
-    pos = poses_arr[:, :-2].reshape([-1, 3, 5])
+    if n_imgs == -1:
+        n_imgs = poses_arr.shape[0]
+        print("n_imgs", n_imgs)
+    
+    pos = poses_arr[:n_imgs, :-2].reshape([-1, 3, 5])
     hwf = pos[0, :3, -1]
     poses[:] = pos[:, :3, :4]
     poses = poses.transpose([1,2,0])
@@ -98,7 +102,7 @@ def _load_data(basedir, poses, images, factor=None, width=None, height=None, loa
         print( imgdir, 'does not exist, returning' )
         return
     
-    imgfiles = [os.path.join(imgdir, f) for f in sorted(os.listdir(imgdir)) if f.endswith('JPG') or f.endswith('jpg') or f.endswith('png')]
+    imgfiles = [os.path.join(imgdir, f) for f in sorted(os.listdir(imgdir)) if f.endswith('JPG') or f.endswith('jpg') or f.endswith('png')][:n_imgs]
     if poses.shape[-1] != len(imgfiles):
         print( 'Mismatch between imgs {} and poses {} !!!!'.format(len(imgfiles), poses.shape[-1]) )
         return
@@ -121,9 +125,9 @@ def _load_data(basedir, poses, images, factor=None, width=None, height=None, loa
     print('\tLoaded image data', images.shape, hwf)
     return hwf, poses
 
-def load_llff_data(basedir, poses, images, factor=8, subdir=None, i=0, i_n=1):
+def load_llff_data(basedir, poses, images, factor=8, subdir=None, i=0, i_n=1, n_imgs=-1):
     images = np.moveaxis(images, 0, -1)
-    hwf, poses = _load_data(basedir, poses, images, factor=factor, subdir=subdir) # factor=8 downsamples original imgs by 8x
+    hwf, poses = _load_data(basedir, poses, images, factor=factor, subdir=subdir, n_imgs=n_imgs) # factor=8 downsamples original imgs by 8x
     
     print('\tLoaded', basedir, subdir)
     
