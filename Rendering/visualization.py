@@ -4,6 +4,11 @@ import torch
 import wandb
 import numpy as np
 
+import sys
+sys.path.append('../')
+sys.path.append('drive/Othercomputers/MacBookPro/')
+from utils import utils
+
 def plot_losses(training_losses, val_losses, it):
     plt.figure(figsize=(9, 4))
     plt.plot(training_losses, label="Training")
@@ -142,6 +147,25 @@ def print_normals(normals, img, hwf, path="./norms.png"):
     print(f"Saved {path}")
     plt.show()
 
-def plot_surface_clusters(pointclouds):
-    
-    return pointclouds
+def plot_surface_clusters(points, cluster_ids, num_clusters, colab=False, out_path=None):
+    import open3d as o3d
+
+    colors = torch.zeros((points.shape[0], 3))
+    pcd = o3d.t.geometry.PointCloud(utils.torch2open3d(points))
+
+    for id in range(num_clusters):
+        color = torch.from_numpy(np.random.choice(range(256), size=3)).float()
+        colors[cluster_ids == id] = color
+
+    pcd.point["colors"] = utils.torch2open3d(colors)
+    if colab == True:
+        vis = o3d.visualization.Visualizer()
+        vis.create_window(visible=True) #works for me with False, on some systems needs to be true
+        vis.add_geometry(pcd.to_legacy())
+        #vis.update_geometry(pcd.to_legacy())
+        #vis.poll_events()
+        #vis.update_renderer()
+        vis.capture_screen_image(f"{out_path}/surface_clusters.png")
+        vis.destroy_window()
+    else:
+        o3d.visualization.draw_geometries([pcd.to_legacy()])

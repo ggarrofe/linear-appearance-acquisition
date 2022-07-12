@@ -1,16 +1,8 @@
-from ctypes import util
 import torch
 import torch.nn as nn
-import numpy as np
-from tqdm import tqdm
 
 import configargparse
-import wandb
-import time
-
 import open3d as o3d
-
-
 import visualization as v
 
 import matplotlib.pyplot as plt
@@ -26,10 +18,8 @@ def parse_args():
     parser.add_argument('--out_path', type=str, help='path to the output folder', default="./out")
     parser.add_argument('--dataset_type', type=str, help='type of dataset', choices=['synthetic', 'llff', 'tiny', 'meshroom', 'colmap'])
     parser.add_argument('--factor', type=int, default=1)
-    parser.add_argument('--batch_size', type=int, default=16384, help='number of images whose rays would be used at once')
+    parser.add_argument('--batch_size', type=int, default=200_000, help='number of points whose rays would be used at once')
     parser.add_argument('--shuffle', type=bool, default=False)
-    parser.add_argument("--lrate", type=float, default=5e-4, help='learning rate')
-    parser.add_argument("--lrate_decay", type=int, default=250, help='exponential learning rate decay (in 1000 steps)')
     parser.add_argument('--N_iters', type=int, help='number of iterations to train the network', default=1000)
     parser.add_argument('--num_clusters', type=int, help='number of clusters of the surface points', default=10)
     parser.add_argument('--dataset_to_gpu', default=False, action="store_true")
@@ -40,6 +30,7 @@ def parse_args():
     parser.add_argument("--run_id", type=str, help='Id of the run that must be resumed')
     parser.add_argument('--checkpoint_path', type=str, help='Path where checkpoints are saved')
     parser.add_argument('--val_images', type=int, help='number of validation images', default=100)
+    parser.add_argument('--kmeans_tol', type=float, help='number of validation images', default=1e-04)
     args = parser.parse_args()
     return args
 
@@ -70,6 +61,7 @@ if __name__ == "__main__":
     import utils.utils as utils
     import utils.embedder as emb
     from utils.kmeans import kmeans, kmeans_predict
+    
    
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f'Using {device}')
@@ -103,14 +95,16 @@ if __name__ == "__main__":
     cluster_ids = torch.zeros(X.shape[0])
     cluster_ids, centroids = kmeans(X=X,
                                     num_clusters=args.num_clusters, 
-                                    tol=1e-3,
+                                    tol=args.kmeans_tol,
                                     distance='euclidean', 
                                     device=device,
-                                    batch_size=10_000)
+                                    batch_size=args.batch_size)
 
     for cluster_id in range(args.num_clusters):
         inv_matrices[cluster_id] = compute_inv(xnv[~mask], target_rgb[~mask], cluster_id, cluster_ids, embed_fn=embed_fn)
-        
+    
+    #v.plot_surface_clusters(X, cluster_ids, args.num_clusters, colab=args.colab, out_path=args.out_path)
+
     # EVALUATION
     xnv_tr, img_tr, depths_tr = dataset.get_X_target("train", 0, device=device)
     pred_rgb_tr = torch.zeros_like(img_tr)
@@ -123,11 +117,15 @@ if __name__ == "__main__":
     cluster_ids_tr = kmeans_predict(
         xnv_tr[~mask_tr, :3], centroids, 'euclidean', device=device
     )
+    if not args.colab:
+        v.plot_surface_clusters(xnv_tr[~mask_tr, :3], cluster_ids_tr, args.num_clusters, colab=args.colab, out_path=args.out_path)
 
     mask_val = (xnv_val[:,0] == -1.) & (xnv_val[:,1] == -1.) & (xnv_val[:,2] == -1.)
     cluster_ids_val = kmeans_predict(
         xnv_val[~mask_val, :3], centroids, 'euclidean', device=device
     )
+    if not args.colab:
+        v.plot_surface_clusters(xnv_val[~mask_val, :3], cluster_ids_val, args.num_clusters, colab=args.colab, out_path=args.out_path)
 
     for cluster_id in range(args.num_clusters):
         predict(xnv_tr, pred_rgb_tr, mask_tr, inv_matrices[cluster_id], cluster_id, cluster_ids_tr, embed_fn)

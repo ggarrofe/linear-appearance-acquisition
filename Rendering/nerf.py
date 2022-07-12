@@ -22,12 +22,10 @@ def get_sampling_locations(rays_o, rays_d, near, far, n_samples, stratified=True
     return locations, depths
 
 def positional_encoding(input, L=6, log_sampling=False):
-    # freq_bands Size([L])
     if log_sampling:
         freq_bands = 2.**torch.linspace(0., L-1, L)
     else:
         freq_bands = torch.linspace(2.**0., 2.**(L-1), L)
-
 
     enc = [input]
     for f in freq_bands:
@@ -44,7 +42,6 @@ def volume_rendering(raw_radiance_density, depths, rays_d, raw_noise_std=0.):
     # last sample' distance is going to be infinity, we represent such distance 
     # with a symbolic high value (i.e., 1e10) dists Size([H*W, n_samples])
     inf = torch.tensor([1e10]).to(dists)
-    # dists Size([n_images, H*W, n_samples])
     dists = torch.concat([dists, torch.broadcast_to(inf, dists[..., :1].shape)], dim=-1).to(raw_radiance_density)
     
     

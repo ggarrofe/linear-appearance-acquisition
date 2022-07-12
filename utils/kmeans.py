@@ -21,112 +21,6 @@ def initialize(X, num_clusters, seed):
     centroids = X[indices]
     return centroids
 
-
-def kmeans_old(
-        X,
-        num_clusters,
-        distance='euclidean',
-        cluster_centers=[],
-        tol=1e-4,
-        tqdm_flag=True,
-        iter_limit=0,
-        device=torch.device('cpu'),
-        gamma_for_soft_dtw=0.001,
-        seed=None,
-):
-    """
-    perform kmeans
-    :param X: (torch.tensor) matrix
-    :param num_clusters: (int) number of clusters
-    :param distance: (str) distance [options: 'euclidean', 'cosine'] [default: 'euclidean']
-    :param seed: (int) seed for kmeans
-    :param tol: (float) threshold [default: 0.0001]
-    :param device: (torch.device) device [default: cpu]
-    :param tqdm_flag: Allows to turn logs on and off
-    :param iter_limit: hard limit for max number of iterations
-    :param gamma_for_soft_dtw: approaches to (hard) DTW as gamma -> 0
-    :return: (torch.tensor, torch.tensor) cluster ids, cluster centers
-    """
-    if tqdm_flag:
-        print(f'running k-means on {device}..')
-
-    if distance == 'euclidean':
-        pairwise_distance_function = partial(pairwise_distance, device=device, tqdm_flag=tqdm_flag)
-    elif distance == 'cosine':
-        pairwise_distance_function = partial(pairwise_cosine, device=device)
-    elif distance == 'soft_dtw':
-        sdtw = SoftDTW(use_cuda=device.type == 'cuda', gamma=gamma_for_soft_dtw)
-        pairwise_distance_function = partial(pairwise_soft_dtw, sdtw=sdtw, device=device)
-    else:
-        raise NotImplementedError
-
-    # convert to float
-    X = X.float()
-
-    # transfer to device
-    X = X.to(device)
-
-    # initialize
-    if type(cluster_centers) == list:  # ToDo: make this less annoyingly weird
-        initial_state = initialize(X, num_clusters, seed=seed)
-    else:
-        if tqdm_flag:
-            print('resuming')
-        # find data point closest to the initial cluster center
-        initial_state = cluster_centers
-        dis = pairwise_distance_function(X, initial_state)
-        choice_points = torch.argmin(dis, dim=0)
-        initial_state = X[choice_points]
-        initial_state = initial_state.to(device)
-
-    iteration = 0
-    if tqdm_flag:
-        tqdm_meter = tqdm(desc='[running kmeans]')
-    while True:
-
-        dis = pairwise_distance_function(X, initial_state)
-
-        choice_cluster = torch.argmin(dis, dim=1)
-
-        initial_state_pre = initial_state.clone()
-
-        for index in range(num_clusters):
-            selected = torch.nonzero(choice_cluster == index).squeeze().to(device)
-
-            selected = torch.index_select(X, 0, selected)
-
-            # https://github.com/subhadarship/kmeans_pytorch/issues/16
-            if selected.shape[0] == 0:
-                selected = X[torch.randint(len(X), (1,))]
-
-            initial_state[index] = selected.mean(dim=0)
-
-        print("old", initial_state)
-        center_shift = torch.sum(
-            torch.sqrt(
-                torch.sum((initial_state - initial_state_pre) ** 2, dim=1)
-            ))
-
-        # increment iteration
-        iteration = iteration + 1
-
-        # update tqdm meter
-        if tqdm_flag:
-            tqdm_meter.set_postfix(
-                iteration=f'{iteration}',
-                center_shift=f'{center_shift ** 2:0.6f}',
-                tol=f'{tol:0.6f}'
-            )
-            tqdm_meter.update()
-
-        break
-        if center_shift ** 2 < tol:
-            break
-        if iter_limit != 0 and iteration >= iter_limit:
-            break
-
-    return choice_cluster.cpu(), initial_state.cpu()
-
 def kmeans(
         X,
         num_clusters,
@@ -159,15 +53,14 @@ def kmeans(
 
     X = X.float().to(device)
 
-    # initialize
-    if centroids is None:  # ToDo: make this less annoyingly weird
+    if centroids is None:
         centroids = initialize(X, num_clusters, seed=seed)
 
     if batch_size > len(X):
         batch_size = len(X)
 
     iteration = 0
-    pbar = tqdm(desc='Running kmeans on {device}', unit="it", leave=False)
+    pbar = tqdm(desc=f'Running kmeans on {device}', unit="it")
     means = torch.zeros(num_clusters, X.shape[-1]).to(X)
     nearest_centroid = torch.zeros((X.shape[0],)).to(X)
     n_samples = torch.zeros(num_clusters, 1).to(X)
@@ -197,7 +90,8 @@ def kmeans(
         pbar.set_postfix(
             center_shift=f'{center_shift ** 2:0.6f}',
             tol=f'{tol:0.6f}',
-            device=f'{device}'
+            device=f'{device}',
+            num_clusters=f'{num_clusters}'
         )
         pbar.update(1)
 
@@ -238,10 +132,7 @@ def kmeans_predict(
         raise NotImplementedError
 
     # convert to float
-    X = X.float()
-
-    # transfer to device
-    X = X.to(device)
+    X = X.float().to(device)
 
     dis = pairwise_distance_function(X, cluster_centers)
     choice_cluster = torch.argmin(dis, dim=1)
@@ -263,7 +154,6 @@ def pairwise_distance(data1, data2, device=torch.device('cpu')):
     # return N*N matrix for pairwise distance
     dis = dis.sum(dim=-1).squeeze()
     return dis
-
 
 def pairwise_cosine(data1, data2, device=torch.device('cpu')):
     # transfer to device
