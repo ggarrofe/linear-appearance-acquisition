@@ -154,10 +154,11 @@ def plot_surface_clusters(points, cluster_ids, num_clusters, colab=False, out_pa
     pcd = o3d.t.geometry.PointCloud(utils.torch2open3d(points))
 
     for id in range(num_clusters):
-        color = torch.from_numpy(np.random.choice(range(256), size=3)).float()
+        color = torch.rand((3,))
         colors[cluster_ids == id] = color
-
+    
     pcd.point["colors"] = utils.torch2open3d(colors)
+
     if colab == True:
         vis = o3d.visualization.Visualizer()
         vis.create_window(visible=True) #works for me with False, on some systems needs to be true

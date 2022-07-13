@@ -55,6 +55,7 @@ def kmeans(
 
     if centroids is None:
         centroids = initialize(X, num_clusters, seed=seed)
+        initial_state = centroids.clone()
 
     if batch_size > len(X):
         batch_size = len(X)
@@ -68,8 +69,9 @@ def kmeans(
     while True:
         centroids_pre = centroids.clone()
         means[:,:] = 0.0
+        n_samples[:] = 0
         
-        for i in range(0, len(X), batch_size):#, leave=False, unit="batch", desc=f"Running iteration {iteration}"):
+        for i in range(0, len(X), batch_size):
             # Assign each training example to the nearest centroid
             dis = pairwise_distance_function(X[i:i+batch_size], centroids)
             nearest_centroid[i:i+batch_size] = torch.argmin(dis, dim=1)
@@ -83,14 +85,38 @@ def kmeans(
                     n_samples[cluster] += new_samples
                     means[cluster] += (sum - new_samples*means[cluster])/n_samples[cluster]
 
-        centroids = means
+        # Avoids having only one cluster
+        for cluster in range(num_clusters):
+            randint = torch.randint(len(X), (1,))
+            if n_samples[cluster] == 0:
+                means[cluster] = X[randint]
+            
+        '''dis = pairwise_distance_function(X, initial_state)
+
+        choice_cluster = torch.argmin(dis, dim=1)
+
+        for index in range(num_clusters):
+            #move this outside
+            randint = torch.randint(len(X), (1,))
+            if n_samples[index] == 0:
+                means[index] = X[randint]
+
+            selected = torch.nonzero(choice_cluster == index).squeeze().to(device)
+            selected = torch.index_select(X, 0, selected)
+
+            # https://github.com/subhadarship/kmeans_pytorch/issues/16
+            if selected.shape[0] == 0:
+                selected = X[randint]
+
+            initial_state[index] = selected.mean(dim=0)'''
+
+        centroids = means.clone()
         center_shift = torch.norm(centroids-centroids_pre, dim=1).sum()
         iteration += 1
 
         pbar.set_postfix(
             center_shift=f'{center_shift ** 2:0.6f}',
             tol=f'{tol:0.6f}',
-            device=f'{device}',
             num_clusters=f'{num_clusters}'
         )
         pbar.update(1)
