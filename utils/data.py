@@ -71,7 +71,7 @@ def get_images_size(basedir, subdirs, factor=1):
 
 class NeRFSubDataset():
     def __init__(self, rays, images, hwf, name, batch_size=None, shuffle=False):
-        print(f"\tCreating {name} dataset with rays ({rays.shape}) and images ({images.shape})")
+        print(f"\tCreating {name} dataset with rays ({rays.shape}) and images ({images.shape}) - shuffle {shuffle}")
         rays[..., 3:6] /= torch.norm(rays[..., 3:6])
         self.dataset = TensorDataset(rays, images)
         self.name = name
@@ -154,6 +154,13 @@ class NeRFSubDataset():
         self.dataloader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=self.shuffle)
         self.iterator = iter(self.dataloader)
 
+    def sort_clusters(self, clusters_id):
+        order = torch.argsort(clusters_id)
+        self.sorted_dataset = TensorDataset(self.dataset.tensors[0][order], self.dataset.tensors[1][order])
+        self.clusters_id = clusters_id[order]
+        self.dataloader = DataLoader(self.sorted_dataset, batch_size=self.batch_size)
+        self.iterator = iter(self.dataloader)
+
     def next_batch(self, device=torch.device('cuda')):
         try:
             batch_rays, target_rgb = next(self.iterator)
@@ -200,6 +207,10 @@ class NeRFSubDataset():
         
     def get_tensors(self, device=torch.device('cuda')):
         return self.dataset.tensors[0].float().to(device), self.dataset.tensors[1].float().to(device), self.depths
+
+    def get_sorted_tensors(self, device=torch.device('cuda')):
+        return self.sorted_dataset.tensors[0].float().to(device), self.sorted_dataset.tensors[1].float().to(device)
+
 class NeRFDataset():
 
     def __init__(self, 
@@ -331,9 +342,17 @@ class NeRFDataset():
         subdataset = [d for d in self.subdatasets if d.name == dataset][0]
         return subdataset.get_tensors(device=device)
 
+    def get_sorted_tensors(self, dataset="train", device=torch.device('cuda')):
+        subdataset = [d for d in self.subdatasets if d.name == dataset][0]
+        return subdataset.get_sorted_tensors(device=device)
+
     def create_xnv_dataset(self, scene, device=torch.device('cpu')):
         for d in self.subdatasets:
             d.create_xnv_dataset(scene, device=device)
+
+    def sort_clusters(self, cluster_ids):
+        subdataset = [d for d in self.subdatasets if d.name == "train"][0]
+        subdataset.sort_clusters(cluster_ids)
 
     def load_synthetic(self,  
                   dataset_path,

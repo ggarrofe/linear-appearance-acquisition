@@ -78,33 +78,28 @@ if __name__ == "__main__":
     
     loss_fn = nn.MSELoss()
     mse2psnr = lambda x : -10. * torch.log(x) / torch.log(torch.Tensor([10.]).to(device))
-    embed_fn, input_ch = emb.get_embedder(in_dim=9, num_freqs=6)
-    
-    xnv, target_rgb, depths = dataset.get_tensors("train", device=device)
-    pred_rgb = torch.zeros_like(target_rgb)
-
-    inv_matrices = torch.zeros([args.num_clusters, input_ch, 3]).to(xnv)
-
-    pcd_tr = []
-    num_mats = 0
     
     # TRAINING
-    mask = (xnv[:,0] == -1.) & (xnv[:,1] == -1.) & (xnv[:,2] == -1.)
-    X = xnv[~mask, :3]
+    embed_fn, input_ch = emb.get_embedder(in_dim=9, num_freqs=6)
+    xnv, target_rgb, depths = dataset.get_tensors("train", device=device)
+    
+    linear_mappings = torch.zeros([args.num_clusters, input_ch, 3]).to(xnv)
+    cluster_ids = torch.zeros((xnv.shape[0],)).to(xnv)
+    centroids = torch.zeros((args.num_clusters, 3)).to(xnv)
 
-    cluster_ids = torch.zeros(X.shape[0])
-    cluster_ids, centroids = kmeans(X=X,
-                                    num_clusters=args.num_clusters, 
-                                    tol=args.kmeans_tol,
-                                    distance='euclidean', 
-                                    device=device,
-                                    batch_size=args.batch_size)
+    mask = (xnv[:,0] == -1.) & (xnv[:,1] == -1.) & (xnv[:,2] == -1.) #not masking takes too much time
+    
+    cluster_ids[~mask], centroids[:args.num_clusters-1] = kmeans(X=xnv[~mask, :3],
+                                                                 num_clusters=args.num_clusters-1, 
+                                                                 tol=args.kmeans_tol,
+                                                                 device=device,
+                                                                 batch_size=args.batch_size)
+    cluster_ids.masked_fill_(mask, args.num_clusters-1)
+    centroids[args.num_clusters-1] = torch.tensor([-1., -1., -1.]).to(xnv)
 
     for cluster_id in range(args.num_clusters):
-        inv_matrices[cluster_id] = compute_inv(xnv[~mask], target_rgb[~mask], cluster_id, cluster_ids, embed_fn=embed_fn)
+        linear_mappings[cluster_id] = compute_inv(xnv, target_rgb, cluster_id, cluster_ids, embed_fn=embed_fn)
     
-    #v.plot_surface_clusters(X, cluster_ids, args.num_clusters, colab=args.colab, out_path=args.out_path)
-
     # EVALUATION
     xnv_tr, img_tr, depths_tr = dataset.get_X_target("train", 0, device=device)
     pred_rgb_tr = torch.zeros_like(img_tr)
@@ -114,30 +109,21 @@ if __name__ == "__main__":
     pred_rgb_val = torch.zeros_like(img_val)
 
     mask_tr = (xnv_tr[:,0] == -1.) & (xnv_tr[:,1] == -1.) & (xnv_tr[:,2] == -1.)
-    cluster_ids_tr = kmeans_predict(
-        xnv_tr[~mask_tr, :3], centroids, 'euclidean', device=device
-    )
-    if not args.colab:
-        v.plot_surface_clusters(xnv_tr[~mask_tr, :3], cluster_ids_tr, args.num_clusters, colab=args.colab, out_path=args.out_path)
+    cluster_ids_tr = kmeans_predict(xnv_tr[~mask_tr, :3], centroids, device=device)
+    v.plot_clusters_3Dpoints(xnv_tr[~mask_tr, :3], cluster_ids_tr, args.num_clusters, colab=args.colab, out_path=args.out_path, filename="train_clusters.png")
 
     mask_val = (xnv_val[:,0] == -1.) & (xnv_val[:,1] == -1.) & (xnv_val[:,2] == -1.)
-    cluster_ids_val = kmeans_predict(
-        xnv_val[~mask_val, :3], centroids, 'euclidean', device=device
-    )
-    if not args.colab:
-        v.plot_surface_clusters(xnv_val[~mask_val, :3], cluster_ids_val, args.num_clusters, colab=args.colab, out_path=args.out_path)
+    cluster_ids_val = kmeans_predict(xnv_val[~mask_val, :3], centroids, device=device)
+    v.plot_clusters_3Dpoints(xnv_val[~mask_val, :3], cluster_ids_val, args.num_clusters, colab=args.colab, out_path=args.out_path, filename="val_clusters.png")
 
     for cluster_id in range(args.num_clusters):
-        predict(xnv_tr, pred_rgb_tr, mask_tr, inv_matrices[cluster_id], cluster_id, cluster_ids_tr, embed_fn)
-        predict(xnv_val, pred_rgb_val, mask_val, inv_matrices[cluster_id], cluster_id, cluster_ids_val, embed_fn)
+        predict(xnv_tr, pred_rgb_tr, mask_tr, linear_mappings[cluster_id], cluster_id, cluster_ids_tr, embed_fn)
+        predict(xnv_val, pred_rgb_val, mask_val, linear_mappings[cluster_id], cluster_id, cluster_ids_val, embed_fn)
     
-    loss = loss_fn(pred_rgb, target_rgb)
     loss_tr = loss_fn(pred_rgb_tr, img_tr)
     loss_val = loss_fn(pred_rgb_val, img_val)
 
     print({
-            "loss": loss,
-            "psnr": mse2psnr(loss),
             "loss_tr": loss_tr,
             "psnr_tr": mse2psnr(loss_tr),
             "loss_val": loss_val,

@@ -2,62 +2,44 @@ from functools import partial
 
 import numpy as np
 import torch
+import torch.nn as nn
 from tqdm import tqdm
 
 
-def initialize(X, num_clusters, seed):
+def init(X, num_clusters, seed):
+    """Initializes the centroids for the first kmeans iteration.
+
+    Args:
+        X (torch.tensor): data from where we will create the clusters
+        num_clusters (int): number of clusters that we will divide the data into
+        seed (int or 1-d array_like): random seed
+
+    Returns:
+        torch.tensor: cluster centroids
     """
-    initialize cluster centers
-    :param X: (torch.tensor) matrix
-    :param num_clusters: (int) number of clusters
-    :param seed: (int) seed for kmeans
-    :return: (np.array) initial state
-    """
-    num_samples = len(X)
     if seed is not None:
         np.random.seed(seed)
         
-    indices = np.random.choice(num_samples, num_clusters, replace=False)
+    indices = np.random.choice(X.shape[0], num_clusters, replace=False)
     centroids = X[indices]
     return centroids
 
 def kmeans(
         X,
         num_clusters,
-        distance='euclidean',
         centroids=None,
         tol=1e-4,
         iter_limit=0,
         device=torch.device('cpu'),
         seed=None,
-        batch_size=200000
+        batch_size=None
 ):
-    """
-    perform kmeans
-    :param X: (torch.tensor) matrix
-    :param num_clusters: (int) number of clusters
-    :param distance: (str) distance [options: 'euclidean', 'cosine'] [default: 'euclidean']
-    :param seed: (int) seed for kmeans
-    :param tol: (float) threshold [default: 0.0001]
-    :param device: (torch.device) device [default: cpu]
-    :param iter_limit: hard limit for max number of iterations
-    :param gamma_for_soft_dtw: approaches to (hard) DTW as gamma -> 0
-    :return: (torch.tensor, torch.tensor) cluster ids, cluster centers
-    """
-    if distance == 'euclidean':
-        pairwise_distance_function = partial(pairwise_distance, device=device)
-    elif distance == 'cosine':
-        pairwise_distance_function = partial(pairwise_cosine, device=device)
-    else:
-        raise NotImplementedError
-
     X = X.float().to(device)
 
     if centroids is None:
-        centroids = initialize(X, num_clusters, seed=seed)
-        initial_state = centroids.clone()
+        centroids = init(X, num_clusters, seed=seed)
 
-    if batch_size > len(X):
+    if batch_size is None or batch_size > len(X):
         batch_size = len(X)
 
     iteration = 0
@@ -65,7 +47,7 @@ def kmeans(
     means = torch.zeros(num_clusters, X.shape[-1]).to(X)
     nearest_centroid = torch.zeros((X.shape[0],)).to(X)
     n_samples = torch.zeros(num_clusters, 1).to(X)
-
+    
     while True:
         centroids_pre = centroids.clone()
         means[:,:] = 0.0
@@ -73,7 +55,7 @@ def kmeans(
         
         for i in range(0, len(X), batch_size):
             # Assign each training example to the nearest centroid
-            dis = pairwise_distance_function(X[i:i+batch_size], centroids)
+            dis = distance(X[i:i+batch_size], centroids)
             nearest_centroid[i:i+batch_size] = torch.argmin(dis, dim=1)
 
             # Update the online mean value
@@ -85,30 +67,11 @@ def kmeans(
                     n_samples[cluster] += new_samples
                     means[cluster] += (sum - new_samples*means[cluster])/n_samples[cluster]
 
-        # Avoids having only one cluster
+        # Avoids converging to only one cluster
         for cluster in range(num_clusters):
             randint = torch.randint(len(X), (1,))
             if n_samples[cluster] == 0:
                 means[cluster] = X[randint]
-            
-        '''dis = pairwise_distance_function(X, initial_state)
-
-        choice_cluster = torch.argmin(dis, dim=1)
-
-        for index in range(num_clusters):
-            #move this outside
-            randint = torch.randint(len(X), (1,))
-            if n_samples[index] == 0:
-                means[index] = X[randint]
-
-            selected = torch.nonzero(choice_cluster == index).squeeze().to(device)
-            selected = torch.index_select(X, 0, selected)
-
-            # https://github.com/subhadarship/kmeans_pytorch/issues/16
-            if selected.shape[0] == 0:
-                selected = X[randint]
-
-            initial_state[index] = selected.mean(dim=0)'''
 
         centroids = means.clone()
         center_shift = torch.norm(centroids-centroids_pre, dim=1).sum()
@@ -129,73 +92,28 @@ def kmeans(
             break
 
     pbar.close()
-    return nearest_centroid.cpu(), centroids.cpu()
+    return nearest_centroid, centroids
 
 
 def kmeans_predict(
         X,
-        cluster_centers,
-        distance='euclidean',
-        device=torch.device('cpu'),
-        gamma_for_soft_dtw=0.001
+        centroids,
+        device=torch.device('cpu')
 ):
-    """
-    predict using cluster centers
-    :param X: (torch.tensor) matrix
-    :param cluster_centers: (torch.tensor) cluster centers
-    :param distance: (str) distance [options: 'euclidean', 'cosine'] [default: 'euclidean']
-    :param device: (torch.device) device [default: 'cpu']
-    :param gamma_for_soft_dtw: approaches to (hard) DTW as gamma -> 0
-    :return: (torch.tensor) cluster ids
-    """
-    print(f'predicting on {device}..')
-
-    if distance == 'euclidean':
-        pairwise_distance_function = partial(pairwise_distance, device=device)
-    elif distance == 'cosine':
-        pairwise_distance_function = partial(pairwise_cosine, device=device)
-    else:
-        raise NotImplementedError
-
-    # convert to float
     X = X.float().to(device)
-
-    dis = pairwise_distance_function(X, cluster_centers)
-    choice_cluster = torch.argmin(dis, dim=1)
-
-    return choice_cluster.cpu()
+    dis = distance(X, centroids)
+    return torch.argmin(dis, dim=1).cpu()
 
 
-def pairwise_distance(data1, data2, device=torch.device('cpu')):
-    # transfer to device
-    data1, data2 = data1.to(device), data2.to(device)
+def distance(points, centroids, device=torch.device('cpu')):
+    # batch_size x 1 x N
+    points = points.to(device).unsqueeze(dim=1)
 
-    # N*1*M
-    A = data1.unsqueeze(dim=1)
+    # 1 x num_clusters x N
+    centroids = centroids.to(device).unsqueeze(dim=0)
 
-    # 1*N*M
-    B = data2.unsqueeze(dim=0)
+    # broadcasted subtract
+    dis = (points - centroids) ** 2.0
 
-    dis = (A - B) ** 2.0
-    # return N*N matrix for pairwise distance
-    dis = dis.sum(dim=-1).squeeze()
-    return dis
-
-def pairwise_cosine(data1, data2, device=torch.device('cpu')):
-    # transfer to device
-    data1, data2 = data1.to(device), data2.to(device)
-
-    # N*1*M
-    A = data1.unsqueeze(dim=1)
-
-    # 1*N*M
-    B = data2.unsqueeze(dim=0)
-
-    A_normalized = A / A.norm(dim=-1, keepdim=True)
-    B_normalized = B / B.norm(dim=-1, keepdim=True)
-
-    cosine = A_normalized * B_normalized
-
-    # return N*N matrix for pairwise distance
-    cosine_dis = 1 - cosine.sum(dim=-1).squeeze()
-    return cosine_dis
+    # batch_size x num_clusters matrix 
+    return dis.sum(dim=-1).squeeze()
