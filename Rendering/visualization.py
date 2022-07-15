@@ -101,6 +101,47 @@ def validation_view_rgb_xndv(rgb_map, val_target, img_shape, points, normals, de
     
     plt.show()
 
+def validation_view_reflectance(reflectance, specular, target, img_shape, points, normals, depths, it=0, out_path=None, name="val_reflectance", save=True, wandb_act=True):
+    reflectance = torch.reshape(reflectance, img_shape)
+    specular = torch.reshape(specular, img_shape)
+    diffuse = reflectance-specular
+    target = torch.reshape(target, img_shape)
+    points = torch.reshape(points, img_shape)
+    points /= 7.0 # Keep the values lower than 1, constant so that all the views are scaled the same way
+    normals = torch.reshape(normals, img_shape)
+    depths = torch.reshape(depths, list(img_shape)[0:2])
+    depths = torch.nan_to_num(depths, posinf=10.0, neginf=10.0, nan=0.0)
+
+    fig = plt.figure(figsize=(25, 10))
+    plt.subplot(231)
+    plt.imshow(diffuse.cpu().numpy())
+    plt.title(f"Diffuse - it {it}")
+    plt.subplot(232)
+    plt.imshow(specular.cpu().numpy())
+    plt.title(f"Specular - it {it}")
+    plt.subplot(233)
+    plt.imshow(reflectance.cpu().numpy())
+    plt.title("Predicted reflectance")
+    plt.subplot(234)
+    plt.imshow(normals.cpu().numpy())
+    plt.title("Normals")
+    plt.subplot(235)
+    plt.imshow(depths.cpu().numpy())
+    plt.title("Depths")
+    plt.subplot(236)
+    plt.imshow(target.cpu().numpy())
+    plt.title("Target reflectance")
+
+    if save:
+        if out_path is not None:
+            plt.savefig(f"{out_path}/{name}_it{it}.png", bbox_inches='tight', dpi=150)
+        if wandb_act:
+            wandb.log({f"{name}_view": fig}, step=it)
+
+    
+    plt.show()
+
+
 def dataset_view_rgb_xnv(img, img_shape, points, normals, viewdirs):
     img = torch.reshape(img, img_shape)
     points = torch.reshape(points, img_shape)
@@ -147,26 +188,91 @@ def print_normals(normals, img, hwf, path="./norms.png"):
     print(f"Saved {path}")
     plt.show()
 
-def plot_surface_clusters(points, cluster_ids, num_clusters, colab=False, out_path=None):
-    import open3d as o3d
-
+def plot_clusters_3Dpoints(points, cluster_ids, num_clusters, colab=False, out_path=None, filename=None):
     colors = torch.zeros((points.shape[0], 3))
-    pcd = o3d.t.geometry.PointCloud(utils.torch2open3d(points))
-
+    
     for id in range(num_clusters):
         color = torch.rand((3,))
         colors[cluster_ids == id] = color
     
-    pcd.point["colors"] = utils.torch2open3d(colors)
+    if colab == True:
+        points = points.cpu().numpy()
+        colors = colors.cpu().numpy()
+        ax = plt.axes(projection='3d')
+        ax.view_init(90, -90)
+        ax.axis("off")
+        ax.scatter(points[:,0], points[:,1], points[:,2], s=1, c=colors)
+
+        if out_path is not None:
+            filename = "surface_clusters_3D.png" if filename is None else filename
+            plt.savefig(f"{out_path}/{filename}", dpi=300)
+
+        plt.show()
+    else:
+        import open3d as o3d
+
+        pcd = o3d.t.geometry.PointCloud(utils.torch2open3d(points))
+        pcd.point["colors"] = utils.torch2open3d(colors)
+        o3d.visualization.draw_geometries([pcd.to_legacy()])
+
+def closepoints_pointcloud(points_pairs, points, colab=False, out_path="./out", filename=None):
+    points_pcl = []
+    colors_pcl = []
+
+    for i in range(len(points_pairs)):
+        color = np.random.uniform(size=(3,))
+        points_pcl.append(points[points_pairs[i,0]].cpu().numpy())
+        colors_pcl.append(color)
+        points_pcl.append(points[points_pairs[i,1]].cpu().numpy())
+        colors_pcl.append(color)
+
+    points_pcl = np.stack(points_pcl)
+    colors_pcl = np.stack(colors_pcl)
 
     if colab == True:
-        vis = o3d.visualization.Visualizer()
-        vis.create_window(visible=True) #works for me with False, on some systems needs to be true
-        vis.add_geometry(pcd.to_legacy())
-        #vis.update_geometry(pcd.to_legacy())
-        #vis.poll_events()
-        #vis.update_renderer()
-        vis.capture_screen_image(f"{out_path}/surface_clusters.png")
-        vis.destroy_window()
+        ax = plt.axes(projection='3d')
+        ax.view_init(90, -90)
+        ax.axis("off")
+        ax.scatter(points_pcl[:,0], points_pcl[:,1], points_pcl[:,2], s=1, c=colors_pcl)
+
+        if out_path is not None:
+            fname = "surface_clusters_3D_90_-90.png" if filename is None else filename
+            plt.savefig(f"{out_path}/{fname}", dpi=300)
+
+        plt.show()
+        ax = plt.axes(projection='3d')
+        ax.view_init(90, 0)
+        ax.axis("off")
+        ax.scatter(points_pcl[:,0], points_pcl[:,1], points_pcl[:,2], s=1, c=colors_pcl)
+
+        if out_path is not None:
+            fname = "surface_clusters_3D_90_0.png" if filename is None else filename
+            plt.savefig(f"{out_path}/{fname}", dpi=300)
+
+        plt.show()
+        ax = plt.axes(projection='3d')
+        ax.view_init(90, 180)
+        ax.axis("off")
+        ax.scatter(points_pcl[:,0], points_pcl[:,1], points_pcl[:,2], s=1, c=colors_pcl)
+
+        if out_path is not None:
+            fname = "surface_clusters_3D_90_180.png" if filename is None else filename
+            plt.savefig(f"{out_path}/{fname}", dpi=300)
+
+        plt.show()
+        ax = plt.axes(projection='3d')
+        ax.view_init(0, 90)
+        ax.axis("off")
+        ax.scatter(points_pcl[:,0], points_pcl[:,1], points_pcl[:,2], s=1, c=colors_pcl)
+
+        if out_path is not None:
+            fname = "surface_clusters_3D_0_90.png" if filename is None else filename
+            plt.savefig(f"{out_path}/{fname}", dpi=300)
+
+        plt.show()
     else:
+        import open3d as o3d
+        import open3d.core as o3c
+        pcd = o3d.t.geometry.PointCloud(o3c.Tensor(points_pcl))
+        pcd.point["colors"] = o3c.Tensor(colors_pcl)
         o3d.visualization.draw_geometries([pcd.to_legacy()])

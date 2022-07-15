@@ -602,3 +602,4 @@ class NeRFDataset():
     def get_val_pose_img_hwf(self, val_image=0):
         i_train, i_val, i_test = self.i_split
         return self.poses[i_val[val_image]], self.images[i_val[val_image]], self.hwf
+

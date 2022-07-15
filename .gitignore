@@ -9,3 +9,5 @@ out*
 *.png
 *.ply
 *.db
+checkpoints
+wandb

@@ -38,17 +38,15 @@ def compute_inv(xnv, target, cluster_id, cluster_ids, embed_fn):
     mask = cluster_ids == cluster_id
     xnv_enc = embed_fn(xnv[mask])
     xnv_enc_inv = torch.linalg.pinv(xnv_enc)
-    rad_T = xnv_enc_inv @ target[mask]
-    return rad_T
+    linear_mapping = xnv_enc_inv @ target[mask]
+    return linear_mapping
 
-def predict(xnv, pred, mask_empty, rad_T, cluster_id, cluster_ids, embed_fn):
-    mask = torch.ones((len(xnv)), dtype=torch.bool)
-    mask[mask_empty] = False
-    mask[~mask_empty] = (cluster_ids == cluster_id)
+def predict(xnv, pred, linear_mapping, cluster_id, cluster_ids, embed_fn):
+    mask = (cluster_ids == cluster_id)
     if not torch.any(mask): return
 
     xnv_enc = embed_fn(xnv[mask])
-    pred[mask] = xnv_enc @ rad_T
+    pred[mask] = xnv_enc @ linear_mapping
     
 
 if __name__ == "__main__":
@@ -108,17 +106,15 @@ if __name__ == "__main__":
     xnv_val, img_val, depths_val = dataset.get_X_target("val", 0, device=device)
     pred_rgb_val = torch.zeros_like(img_val)
 
-    mask_tr = (xnv_tr[:,0] == -1.) & (xnv_tr[:,1] == -1.) & (xnv_tr[:,2] == -1.)
-    cluster_ids_tr = kmeans_predict(xnv_tr[~mask_tr, :3], centroids, device=device)
-    v.plot_clusters_3Dpoints(xnv_tr[~mask_tr, :3], cluster_ids_tr, args.num_clusters, colab=args.colab, out_path=args.out_path, filename="train_clusters.png")
+    cluster_ids_tr = kmeans_predict(xnv_tr[..., :3], centroids, device=device)
+    v.plot_clusters_3Dpoints(xnv_tr[..., :3], cluster_ids_tr, args.num_clusters, colab=args.colab, out_path=args.out_path, filename="train_clusters.png")
 
-    mask_val = (xnv_val[:,0] == -1.) & (xnv_val[:,1] == -1.) & (xnv_val[:,2] == -1.)
-    cluster_ids_val = kmeans_predict(xnv_val[~mask_val, :3], centroids, device=device)
-    v.plot_clusters_3Dpoints(xnv_val[~mask_val, :3], cluster_ids_val, args.num_clusters, colab=args.colab, out_path=args.out_path, filename="val_clusters.png")
+    cluster_ids_val = kmeans_predict(xnv_val[..., :3], centroids, device=device)
+    v.plot_clusters_3Dpoints(xnv_val[..., :3], cluster_ids_val, args.num_clusters, colab=args.colab, out_path=args.out_path, filename="val_clusters.png")
 
     for cluster_id in range(args.num_clusters):
-        predict(xnv_tr, pred_rgb_tr, mask_tr, linear_mappings[cluster_id], cluster_id, cluster_ids_tr, embed_fn)
-        predict(xnv_val, pred_rgb_val, mask_val, linear_mappings[cluster_id], cluster_id, cluster_ids_val, embed_fn)
+        predict(xnv_tr, pred_rgb_tr, linear_mappings[cluster_id], cluster_id, cluster_ids_tr, embed_fn)
+        predict(xnv_val, pred_rgb_val, linear_mappings[cluster_id], cluster_id, cluster_ids_val, embed_fn)
     
     loss_tr = loss_fn(pred_rgb_tr, img_tr)
     loss_val = loss_fn(pred_rgb_val, img_val)
