@@ -4,19 +4,25 @@
 
 WORKSPACE=$1
 
+COLMAP_CMD=/Applications/COLMAP.app/Contents/MacOS/colmap
+COLMAP_CMD=colmap
+COLMAP_CMD=/data/gg921/bin/colmap
+
 # Recompute features from the images of the known camera poses
-/data/gg921/bin/colmap feature_extractor \
+$COLMAP_CMD feature_extractor \
     --database_path $WORKSPACE/database.db \
     --image_path $WORKSPACE/images
 
 # Feature matching
-/data/gg921/bin/colmap exhaustive_matcher \
+$COLMAP_CMD exhaustive_matcher \
     --database_path $WORKSPACE/database.db
 
 # Create sparse map
 mkdir -p $WORKSPACE/sparse
 
-/data/gg921/bin/colmap mapper \
+$COLMAP_CMD mapper \
     --database_path $WORKSPACE/database.db \
     --image_path $WORKSPACE/images \
     --output_path $WORKSPACE/sparse
+
+#/usr/local/opt/qt5/lib/cmake/Qt5

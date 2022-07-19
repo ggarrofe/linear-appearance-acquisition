@@ -215,8 +215,7 @@ class NeRFDataset():
 
     def __init__(self, 
                  args,
-                 device=torch.device('cuda'),
-                 val_images=100):
+                 device=torch.device('cuda')):
 
         self.device = device
         self.subdirs_indices = []
@@ -227,7 +226,12 @@ class NeRFDataset():
         elif args.dataset_type == "synthetic":
             self.load_synthetic(args.dataset_path, device=device)
         elif args.dataset_type == "llff":
-            self.load_llff(args.dataset_path, device=device, factor=args.factor, val_images=val_images)
+            self.load_llff(args.dataset_path, 
+                           device=device, 
+                           factor=args.factor, 
+                           train_images=args.train_images, 
+                           val_images=args.val_images,
+                           test_images=args.test_images)
         elif args.dataset_type == "meshroom":
             self.load_meshroom(args.dataset_path, device=device)
         elif args.dataset_type == "colmap":
@@ -357,61 +361,53 @@ class NeRFDataset():
     def load_synthetic(self,  
                   dataset_path,
                   device=torch.device('cuda'), 
-                  save_to=None):
+                  save_to=None, 
+                  train_images=100, 
+                  val_images=100, 
+                  test_images=100):
+
         if dataset_path[-1] == '/':
             dataset_path = dataset_path[:-1]
         
-        poses = None
-        images = None
         subdirs = get_subdirs(dataset_path)
+        print(subdirs)
+
+        imgs_size, num_images = get_images_size(dataset_path, subdirs)
+        if "train" in subdirs: num_images[subdirs.index("train")] = train_images
+        if "val" in subdirs: num_images[subdirs.index("val")] = val_images
+        if "test" in subdirs: num_images[subdirs.index("test")] = test_images
+        imgs_size[0] = np.array(num_images).sum()
+        images = np.zeros(imgs_size)
+        poses = np.zeros((imgs_size[0], 3, 4))
+        i_imgs = 0
         
         for i_dir, dir in enumerate(subdirs):
+            poses_old = poses.copy()
+            print(f"Loading {dir} - {num_images[i_dir]} images...")
+
             with open(f"{dataset_path}/transforms_{dir}.json") as json_file:
                 data = json.load(json_file)
-
                 camera_angle_x = data["camera_angle_x"]
-                i = 0
-                for frame in tqdm(data["frames"], unit="frame", leave=False, desc="Loading frames" if len(subdirs)==1 else f"Loading {dir} frames"):
+
+                for i, frame in tqdm(enumerate(data["frames"]), unit="frame", leave=False, desc="Loading frames" if len(subdirs)==1 else f"Loading {dir} frames"):
                     # Load poses
-                    pose = np.asarray(frame["transform_matrix"])
-                    if poses is None:
-                        poses = pose[None, ...]
-                    else:
-                        poses = np.concatenate((poses, pose[None, ...]))
+                    poses[i_imgs+i:i_imgs+i+1] = np.asarray(frame["transform_matrix"])[None, :3, ...]
 
-                    file = frame["file_path"].split('/')[-1]
-                    
                     # Load images
-                    img = cv2.imread(f'{dataset_path}/{dir}/{file}')[..., [2, 1, 0]] #bgr to rgb
-                
-                    if images is None:
-                        images = img[None, ...]
-                    else:
-                        images = np.concatenate((images, img[None, ...]))
+                    file = frame["file_path"].split('/')[-1]
+                    images[i_imgs+i:i_imgs+i+1] = cv2.imread(f'{dataset_path}/{dir}/{file}.png')[..., [2, 1, 0]] #bgr to rgb
 
-                    i += 1
-                    if i >= 5:
-                        break
+            utils.summarize_diff(poses_old, poses)
 
-            self.subdirs_indices[i_dir] = list(range(self.subdirs_indices[i_dir][0], images.shape[0]))
-            self.subdirs_indices.append([images.shape[0]])
+            self.subdirs_indices.append(list(range(i_imgs, i_imgs+num_images[i_dir])))
             self.subdirs.append(dir)
-
-        self.subdirs_indices = self.subdirs_indices[:-1]
+            i_imgs += num_images[i_dir]
 
         num_images, height, width, num_channels = images.shape
-        #focal_length = 138.8889
         focal_length = width/(2 * np.tan(camera_angle_x/2))
-
-        if save_to is not None:
-            with open(save_to, 'wb') as f:
-                np.savez(f, images=images, poses=poses, focal=focal_length)
-        
-        self.images = torch.from_numpy(images).to(device)
-        #poses[:,2,:] *= -1
-        self.poses = torch.from_numpy(poses).to(device)
         focal_length = torch.from_numpy(np.array([focal_length])).to(device)
-        print("Focal", focal_length)
+        self.images = torch.from_numpy(images).to(device)
+        self.poses = torch.from_numpy(poses).to(device)
         self.hwf = (height, width, focal_length)
 
     def load_tiny(self, dataset_path, device=torch.device('cuda')):
@@ -433,12 +429,14 @@ class NeRFDataset():
 
         self.hwf = (height, width, focal_length)
        
-    def load_llff(self, dataset_path, device=torch.device('cuda'), factor=1, val_images=100):
+    def load_llff(self, dataset_path, device=torch.device('cuda'), factor=1, train_images=100, val_images=100, test_images=100):
         subdirs = get_subdirs(dataset_path)
         print(subdirs)
 
         imgs_size, num_images = get_images_size(dataset_path, subdirs, factor=factor)
-        num_images[subdirs.index("val")] = val_images
+        if "train" in subdirs: num_images[subdirs.index("train")] = train_images
+        if "val" in subdirs: num_images[subdirs.index("val")] = val_images
+        if "test" in subdirs: num_images[subdirs.index("test")] = test_images
         imgs_size[0] = np.array(num_images).sum()
         images = np.zeros(imgs_size)
         poses = np.zeros((imgs_size[0], 3, 4))

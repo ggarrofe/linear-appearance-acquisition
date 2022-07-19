@@ -3,9 +3,10 @@ from matplotlib.patches import Rectangle
 import torch
 
 import open3d as o3d
+import open3d.core as o3c
 import copy
 import numpy as np
-    
+
 def plot_mesh(mesh, mesh_path=None):
     if mesh_path is not None:
         mesh = o3d.io.read_triangle_mesh(mesh_path)
@@ -14,7 +15,7 @@ def plot_mesh(mesh, mesh_path=None):
     mesh_frame = o3d.geometry.TriangleMesh.create_mesh_coordinate_frame(size=1.0, origin=[0., 0., 0.])
     o3d.visualization.draw_geometries([mesh, mesh_frame])
 
-def plot_rays_and_mesh(rays_od, mesh, hwf, near=2, far=6, rgb=None):
+def plot_rays_and_mesh(rays_od, mesh, hwf, near=2, far=6, rgb=None, rot_matrix=None, light_source=None):
     points_n = rays_od[::100, :3] + near * rays_od[::100, 3:]
     points_f = rays_od[::100, :3] + far * rays_od[::100, 3:]
     points = torch.concat([points_n, points_f])
@@ -30,13 +31,32 @@ def plot_rays_and_mesh(rays_od, mesh, hwf, near=2, far=6, rgb=None):
     line_set.points = o3d.utility.Vector3dVector(points)
     line_set.lines = o3d.utility.Vector2iVector(lines)
     line_set.colors = o3d.utility.Vector3dVector(colors)
-
+    
     camera = o3d.geometry.TriangleMesh.create_sphere(radius=0.1)
     camera.translate(rays_od[0, :3])
-    mesh.compute_vertex_normals()
 
-    mesh_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1.0, origin=[0., 0., 0.])
-    o3d.visualization.draw_geometries([line_set, camera, mesh, mesh_frame])
+    mesh.compute_vertex_normals()
+    o3d.visualization.draw_geometries([line_set, camera])
+    return
+    geometries = [line_set, camera, mesh]
+
+    if rot_matrix is not None:
+        coord_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1.0, origin=[0., 0., 0.])
+        coord_frame_rot = copy.deepcopy(coord_frame)
+        coord_frame_rot.rotate(rot_matrix[:3,:3].numpy())
+        geometries.append(coord_frame_rot)
+
+        print(rot_matrix[:, 3:])
+
+    if light_source is not None:
+        light = o3d.geometry.TriangleMesh.create_sphere(radius=0.1)
+        light.paint_uniform_color([1, 0.706, 0])
+        light_source = rot_matrix[:3,:3] @ light_source
+        light_source += rot_matrix[:, 3:]
+        light.translate(light_source, relative=False)
+        #geometries.append(light)
+
+    o3d.visualization.draw_geometries(geometries)
 
 
 def get_lines_camera(rays_od, rgb, near=2, far=6):

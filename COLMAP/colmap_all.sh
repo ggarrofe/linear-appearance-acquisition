@@ -5,21 +5,21 @@
 WORKSPACE=$1
 
 # Recompute features from the images of the known camera poses
-# /data/gg921/bin/colmap feature_extractor \
-#     --database_path $WORKSPACE/database.db \
-#     --image_path $WORKSPACE/images
-# 
-# # Feature matching
-# /data/gg921/bin/colmap exhaustive_matcher \
-#     --database_path $WORKSPACE/database.db
-# 
-# # Create sparse map
-# mkdir -p $WORKSPACE/sparse
-# 
-# /data/gg921/bin/colmap mapper \
-#     --database_path $WORKSPACE/database.db \
-#     --image_path $WORKSPACE/images \
-#     --output_path $WORKSPACE/sparse
+/data/gg921/bin/colmap feature_extractor \
+    --database_path $WORKSPACE/database.db \
+    --image_path $WORKSPACE/images
+
+# Feature matching
+/data/gg921/bin/colmap exhaustive_matcher \
+    --database_path $WORKSPACE/database.db
+
+# Create sparse map
+mkdir -p $WORKSPACE/sparse
+
+/data/gg921/bin/colmap mapper \
+    --database_path $WORKSPACE/database.db \
+    --image_path $WORKSPACE/images \
+    --output_path $WORKSPACE/sparse
 
 /data/gg921/bin/colmap model_converter \
     --input_path $WORKSPACE/sparse/0 \
@@ -63,17 +63,3 @@ if [ $retval -ne 0 ]; then
     echo "Return code was not zero but $retval"
     exit $retval
 fi
-
-# /data/gg921/bin/colmap poisson_mesher \
-#     --input_path $WORKSPACE/dense/fused.ply \
-#     --output_path $WORKSPACE/dense/meshed-poisson.ply
-# 
-# retval=$?
-# if [ $retval -ne 0 ]; then
-#     echo "Return code was not zero but $retval"
-#     exit $retval
-# fi
-
-/data/gg921/bin/colmap delaunay_mesher \
-    --input_path $WORKSPACE/dense \
-    --output_path $WORKSPACE/dense/meshed-delaunay.ply

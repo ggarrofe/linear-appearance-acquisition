@@ -1,3 +1,4 @@
+from xmlrpc.client import Transport
 from scipy.spatial.transform import Rotation as R
 import json
 import numpy as np
@@ -6,6 +7,27 @@ import sys
 import shutil
 
 from tqdm import tqdm
+
+def get_pose(transform_matrix):
+    blender_to_colmap_rotation = np.diag([1,-1,-1])
+    # Convert from blender world space to view space
+    blender_world_translation = transform_matrix[:3, 3]
+    blender_world_rotation = transform_matrix[:3, :3]
+    blender_view_rotation = blender_world_rotation.T
+    blender_view_translation = -1.0 * blender_view_rotation @ blender_world_translation
+    # Convert from blender view space to colmap view space
+    colmap_view_rotation = blender_to_colmap_rotation @ blender_view_rotation
+    colmap_view_rotation_quaternion = R.from_matrix(colmap_view_rotation).as_quat()
+    colmap_view_translation = blender_to_colmap_rotation @ blender_view_translation
+    return [
+        str(colmap_view_rotation_quaternion[3]),
+        str(colmap_view_rotation_quaternion[0]),
+        str(colmap_view_rotation_quaternion[1]),
+        str(colmap_view_rotation_quaternion[2]),
+        str(colmap_view_translation[0]),
+        str(colmap_view_translation[1]),
+        str(colmap_view_translation[2])
+    ]
 
 def prepare_images(workspace, transforms_file="transforms.json", i_model=0):
     workspace = workspace if workspace[-1] != '/' else workspace[:-1]
@@ -41,42 +63,25 @@ def prepare_images(workspace, transforms_file="transforms.json", i_model=0):
                                         if transforms["frames"][j]["file_path"].split("/")[-1] == file]
                 assert len(transform_matrix)>0, f"No transform matrix found for {file}"
                 
-                pose = np.array(transform_matrix[0])
-                if poses is None:
-                    poses = pose[None, ...]
-                else:
-                    poses = np.concatenate((poses, pose[None, ...]))
+                transform_matrix = np.array(transform_matrix[0])
+                print(transform_matrix.shape)
+                #pose = get_pose(transform_matrix)
+                #print(pose)
 
-                # Invert process in https://github.com/NVlabs/instant-ngp/blob/de507662d4b3398163e426fd426d48ff8f2895f6/scripts/colmap2nerf.py#L260
-                '''pose[2,:] *= -1 # flip whole world upside down
-                c2w=pose[[1,0,2,3],:] # swap y and z'''
-                c2w = pose
-                c2w[0:3,2] *= -1 # flip the y and z axis
-                c2w[0:3,1] *= -1
-                w2c = np.linalg.inv(c2w)
-                
+                pose_json = [transforms["frames"][j]["COLMAP_transform_matrix"] 
+                                    for j in range(len(transforms["frames"])) 
+                                        if transforms["frames"][j]["file_path"].split("/")[-1] == file]
+                assert len(transform_matrix)>0, f"No COLMAP transform matrix found for {file}"
+                pose_json = pose_json[0]
 
-                # Invert process in https://github.com/Fyusion/LLFF/blob/c6e27b1ee59cb18f054ccb0f87a90214dbe70482/llff/poses/pose_utils.py
-                # must switch to [-u, r, -t] from [r, -u, t]
-                # pose[2,:] *= -1
-                # c2w = pose[[1,0,2,3],:] 
-                # w2c = np.linalg.inv(c2w)
-                
-                rot = w2c[:3,:3]
-                t = w2c[:3, 3]
-
-                r = R.from_matrix(rot)
-                quat = r.as_quat()
-                #quat = -quat
-
-                line_parts[1] = str(quat[0])
-                line_parts[2] = str(quat[1])
-                line_parts[3] = str(quat[2])
-                line_parts[4] = str(quat[3])
-                line_parts[5] = str(t[0])
-                line_parts[6] = str(t[1])
-                line_parts[7] = str(t[2])
-
+                #print(pose_json)
+                line_parts[1]=str(pose_json['w_rotation'])
+                line_parts[2]=str(pose_json['x_rotation'])
+                line_parts[3]=str(pose_json['y_rotation'])
+                line_parts[4]=str(pose_json['z_rotation'])
+                line_parts[5]=str(pose_json['x_pos'])
+                line_parts[6]=str(pose_json['y_pos'])
+                line_parts[7]=str(pose_json['z_pos'])
                 out_file.write(" ".join(line_parts))
 
     in_file.close()

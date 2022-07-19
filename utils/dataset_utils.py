@@ -1,3 +1,4 @@
+from fileinput import filename
 import numpy as np
 import os
 import shutil
@@ -68,7 +69,6 @@ def clean_dataset(basedir="../COLMAP/lego_llff"):
     images = [[], [], []] #imgs to be removed
 
     
-    
     for i_dir, subdir in enumerate(subdirs):
         poses_arr = np.load(os.path.join(basedir, f"poses_bounds_{subdir}.npy"))
 
@@ -90,5 +90,60 @@ def clean_dataset(basedir="../COLMAP/lego_llff"):
             
         np.save(os.path.join(basedir, f"poses_bounds_{subdir}.npy"), smallposes)
 
+def convert_nerfactor(basedir="../data/lego_llff", nerfactor_dir="../data/lego_nerfactor", destdir="../data/lego_lighting", light_id=None):
+    import PIL.Image
+    subdirs = ["train", "val", "test"]
+    if light_id is None:
+        light_ids = ["0000-0000", "0000-0008", "0000-0016", "0000-0024", "0004-0000", "0004-0008", "0004-0016", "0004-0024"] 
+    else:
+        light_ids = [light_id]
+
+    for i_dir, subdir in enumerate(subdirs):
+        poses_arr = np.load(os.path.join(basedir, f"poses_bounds_{subdir}.npy"))
+        imgfiles = [os.path.join(basedir, subdir, f) for f in sorted(os.listdir(os.path.join(basedir, subdir))) if f.endswith('JPG') or f.endswith('jpg') or f.endswith('png')]
+        
+        newposes = None
+
+        if not os.path.exists(os.path.join(destdir, subdir)):
+            print("Creating ", os.path.join(destdir, subdir))
+            os.makedirs(os.path.join(destdir, subdir))
+
+        for i, f in enumerate(imgfiles):
+            f = f.split('/')[-1]
+            id = int(f.split('_')[1].split(".png")[0])
+
+            for light in light_ids:
+                origin_path = os.path.join(nerfactor_dir, f"{subdir}_{id:03}", f"rgba_olat-{light}.png")
+                dest_path = os.path.join(destdir, subdir, f"{id}_rgba_olat-{light}.png")
+
+                if not os.path.exists(origin_path):
+                    continue
+
+                print(f"Copying {origin_path} - {i} to {dest_path}")
+
+                if newposes is None:
+                    newposes = poses_arr[None, i, ...]
+                else:
+                    newposes = np.concatenate((newposes, poses_arr[None, i, ...]))
+
+
+                rgba_image = PIL.Image.open(origin_path)
+                rgb_image = rgba_image.convert('RGB')
+                rgb_image.save(dest_path)
+                #shutil.copyfile(origin_path, dest_path)
+
+def add_to_id(basedir="../data/lego_lighting/val", offset=300):
+    for f in os.listdir(os.path.join(basedir)):
+        print(f)
+        parts = f.split("_")
+        id = int(parts[0])
+        name = '_'.join(parts[1:])
+        id += offset
+        filename = f"{str(id)}_{name}"
+        print(f"\t{filename}")
+        shutil.copyfile(f"{basedir}/{f}", f"../COLMAP/lego_lighting/images/{filename}")
+
+
 if __name__ == "__main__":
-    split_dataset()
+    #convert_nerfactor(light_id="0000-0000")
+    add_to_id()

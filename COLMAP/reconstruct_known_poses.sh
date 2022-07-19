@@ -4,8 +4,13 @@
 WORKSPACE=$1
 POSES=$2
 
+COLMAP_CMD=/Applications/COLMAP.app/Contents/MacOS/colmap
+COLMAP_CMD=colmap
+COLMAP_CMD=/data/gg921/bin/colmap
+
 for dir in $WORKSPACE/*; do
-    [ "$dir" = $WORKSPACE"/images" ] && continue 
+    [ "$dir" = $WORKSPACE"/images" ] && continue
+    [ "$dir" = $WORKSPACE"/transforms.json" ] && continue 
     rm -rf "$dir"
     echo "Deleting "$dir
 
@@ -24,7 +29,7 @@ if [ $retval -ne 0 ]; then
     exit $retval
 fi
 
-/data/gg921/bin/colmap model_converter \
+$COLMAP_CMD model_converter \
     --input_path $WORKSPACE/sparse/0 \
     --output_path $WORKSPACE/sparse/0 \
     --output_type TXT
@@ -44,7 +49,7 @@ if [ $retval -ne 0 ]; then
 fi
 
 # Recompute features from the images of the known camera poses
-/data/gg921/bin/colmap feature_extractor \
+$COLMAP_CMD feature_extractor \
     --database_path $WORKSPACE/database.db \
     --image_path $WORKSPACE/images
 
@@ -55,7 +60,7 @@ if [ $retval -ne 0 ]; then
 fi
 
 # Feature matching
-/data/gg921/bin/colmap exhaustive_matcher \
+$COLMAP_CMD exhaustive_matcher \
     --database_path $WORKSPACE/database.db
 
 retval=$?
@@ -64,7 +69,7 @@ if [ $retval -ne 0 ]; then
     exit $retval
 fi
 
-/data/gg921/bin/colmap point_triangulator \
+$COLMAP_CMD point_triangulator \
     --database_path $WORKSPACE/database.db \
     --image_path $WORKSPACE/images \
     --input_path $WORKSPACE/sparse_known_poses_manual \
@@ -76,10 +81,10 @@ if [ $retval -ne 0 ]; then
     exit $retval
 fi
 
-# Compute a dense model
+Compute a dense model
 mkdir -p $WORKSPACE/dense
 
-/data/gg921/bin/colmap image_undistorter \
+$COLMAP_CMD image_undistorter \
     --image_path $WORKSPACE/images \
     --input_path $WORKSPACE/sparse_known_poses_triangulated \
     --output_path $WORKSPACE/dense \
@@ -92,7 +97,7 @@ if [ $retval -ne 0 ]; then
     exit $retval
 fi
 
-/data/gg921/bin/colmap patch_match_stereo \
+$COLMAP_CMD patch_match_stereo \
     --workspace_path $WORKSPACE/dense \
     --workspace_format COLMAP \
     --PatchMatchStereo.geom_consistency true
@@ -103,7 +108,7 @@ if [ $retval -ne 0 ]; then
     exit $retval
 fi
 
-/data/gg921/bin/colmap stereo_fusion \
+$COLMAP_CMD stereo_fusion \
     --workspace_path $WORKSPACE/dense \
     --workspace_format COLMAP \
     --input_type geometric \
@@ -115,7 +120,7 @@ if [ $retval -ne 0 ]; then
     exit $retval
 fi
 
-/data/gg921/bin/colmap poisson_mesher \
+$COLMAP_CMD poisson_mesher \
     --input_path $WORKSPACE/dense/fused.ply \
     --output_path $WORKSPACE/dense/meshed-poisson.ply
 
@@ -125,12 +130,12 @@ if [ $retval -ne 0 ]; then
     exit $retval
 fi
 
-/data/gg921/bin/colmap delaunay_mesher \
-    --input_path $WORKSPACE/dense \
-    --output_path $WORKSPACE/dense/meshed-delaunay.ply
-
-retval=$?
-if [ $retval -ne 0 ]; then
-    echo "Return code was not zero but $retval"
-    exit $retval
-fi
+# /data/gg921/bin/colmap delaunay_mesher \
+#     --input_path $WORKSPACE/dense \
+#     --output_path $WORKSPACE/dense/meshed-delaunay.ply
+# 
+# retval=$?
+# if [ $retval -ne 0 ]; then
+#     echo "Return code was not zero but $retval"
+#     exit $retval
+# fi

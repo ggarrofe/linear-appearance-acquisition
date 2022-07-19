@@ -141,7 +141,6 @@ def validation_view_reflectance(reflectance, specular, target, img_shape, points
     
     plt.show()
 
-
 def dataset_view_rgb_xnv(img, img_shape, points, normals, viewdirs):
     img = torch.reshape(img, img_shape)
     points = torch.reshape(points, img_shape)

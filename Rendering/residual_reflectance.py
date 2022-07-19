@@ -57,7 +57,7 @@ def predict(xnv, pred, linear_mapping, cluster_id, cluster_ids, embed_fn):
     xnv_enc = embed_fn(xnv[mask])
     pred[mask] = xnv_enc @ linear_mapping
 
-def diffuse_loss(points, specular, rgb, dist_th=0.01, args=None):
+def diffuse_loss(points, specular, rgb, dist_th=0.03, args=None):
     diffuse_tr = rgb - specular
 
     points_orig = points.unsqueeze(1)

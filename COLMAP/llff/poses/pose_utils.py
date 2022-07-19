@@ -19,7 +19,6 @@ def load_colmap_data(realdir, test_path=None):
     print( 'Cameras', len(cam))
 
     h, w, f = cam.height, cam.width, cam.params[0]
-    # w, h, f = factor * w, factor * h, factor * f
     hwf = np.array([h,w,f]).reshape([3,1])
     
     imagesfile = os.path.join(realdir, 'sparse/0/images.bin')
