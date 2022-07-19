@@ -6,9 +6,9 @@ import numpy as np
 
 DEBUG = False
 
-VIEWS = 100
+VIEWS = 1
 RESOLUTION = 800
-RESULTS_PATH = 'train'
+RESULTS_PATH = 'results'
 DEPTH_SCALE = 1.4
 COLOR_DEPTH = 8
 FORMAT = 'PNG'
@@ -120,7 +120,7 @@ scene.render.resolution_y = RESOLUTION
 scene.render.resolution_percentage = 100
 
 cam = scene.objects['Camera']
-#cam.location = (0, 4.0, 0.5)
+light = scene.objects['Light']
 cam_constraint = cam.constraints.new(type='TRACK_TO')
 cam_constraint.track_axis = 'TRACK_NEGATIVE_Z'
 cam_constraint.up_axis = 'UP_Y'
@@ -171,7 +171,9 @@ for i in range(0, VIEWS):
         'file_path': scene.render.filepath,
         'rotation': radians(stepsize),
         'transform_matrix': listify_matrix(cam.matrix_world),
-        'COLMAP_transform_matrix': get_position_colmap(cam.matrix_world)
+        'COLMAP_transform_matrix': get_position_colmap(cam.matrix_world),
+        'light_transform_matrix': listify_matrix(light.matrix_world),
+        'light_COLMAP_transform_matrix': get_position_colmap(light.matrix_world)
     }
     out_data['frames'].append(frame_data)
 

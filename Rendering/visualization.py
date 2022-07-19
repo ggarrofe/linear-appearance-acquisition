@@ -65,7 +65,7 @@ def validation_view_rgb_xndv(rgb_map, val_target, img_shape, points, normals, de
     rgb_map = torch.reshape(rgb_map, img_shape)
     val_target = torch.reshape(val_target, img_shape)
     points = torch.reshape(points, img_shape)
-    points /= 7.0 # Keep the values lower than 1, constant so that all the views are scaled the same way
+    #points /= 7.0 # Keep the values lower than 1, constant so that all the views are scaled the same way
     normals = torch.reshape(normals, img_shape)
     viewdirs = torch.reshape(viewdirs, img_shape)
     depths = torch.reshape(depths, list(img_shape)[0:2])

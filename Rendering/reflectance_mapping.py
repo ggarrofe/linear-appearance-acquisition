@@ -31,6 +31,7 @@ def parse_args():
     parser.add_argument('--checkpoint_path', type=str, help='Path where checkpoints are saved')
     parser.add_argument('--val_images', type=int, help='number of validation images', default=100)
     parser.add_argument('--train_images', type=int, help='number of training images', default=100)
+    parser.add_argument('--test_images', type=int, help='number of test images', default=100)
     parser.add_argument('--kmeans_tol', type=float, help='threshold to stop iterating the kmeans algorithm', default=1e-04)
     args = parser.parse_args()
     return args
@@ -78,15 +79,17 @@ if __name__ == "__main__":
     loss_fn = nn.MSELoss()
     mse2psnr = lambda x : -10. * torch.log(x) / torch.log(torch.Tensor([10.]).to(device))
 
-    xnv, img, depths = dataset.get_X_target("train", 0, device=device)
-    v.validation_view_rgb_xndv(image_types.detach().cpu(), 
-                                img.detach().cpu(), 
-                                points=xnv[..., :3].detach().cpu(),
-                                normals=xnv[..., 3:6].detach().cpu(),
-                                depths=depths,
-                                viewdirs=xnv[..., 6:].detach().cpu(),
-                                img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
-                                it=iter)
+    for i in range(dataset.get_n_images()):
+        xnv, img, depths = dataset.get_X_target("train", i, device=device)
+        v.validation_view_rgb_xndv(img.detach().cpu(), 
+                                    img.detach().cpu(), 
+                                    points=xnv[..., :3].detach().cpu(),
+                                    normals=xnv[..., 3:6].detach().cpu(),
+                                    depths=depths,
+                                    viewdirs=xnv[..., 6:].detach().cpu(),
+                                    img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
+                                    it=iter,
+                                    wandb_act=False)
     sys.exit()
     # TRAINING
     embed_fn, input_ch = emb.get_embedder(in_dim=9, num_freqs=6)

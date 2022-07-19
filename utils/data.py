@@ -224,7 +224,11 @@ class NeRFDataset():
         if args.dataset_type == "tiny":
             self.load_tiny(args.dataset_path, device=device)
         elif args.dataset_type == "synthetic":
-            self.load_synthetic(args.dataset_path, device=device)
+            self.load_synthetic(args.dataset_path, 
+                                device=device, 
+                                train_images=args.train_images, 
+                                val_images=args.val_images,
+                                test_images=args.test_images)
         elif args.dataset_type == "llff":
             self.load_llff(args.dataset_path, 
                            device=device, 
@@ -358,6 +362,12 @@ class NeRFDataset():
         subdataset = [d for d in self.subdatasets if d.name == "train"][0]
         subdataset.sort_clusters(cluster_ids)
 
+    def imread(self, f):
+        if f.endswith('png'):
+            return imageio.imread(f, ignoregamma=True)[...,:3]/255.
+        else:
+            return imageio.imread(f)/255.
+
     def load_synthetic(self,  
                   dataset_path,
                   device=torch.device('cuda'), 
@@ -395,7 +405,7 @@ class NeRFDataset():
 
                     # Load images
                     file = frame["file_path"].split('/')[-1]
-                    images[i_imgs+i:i_imgs+i+1] = cv2.imread(f'{dataset_path}/{dir}/{file}.png')[..., [2, 1, 0]] #bgr to rgb
+                    images[i_imgs+i:i_imgs+i+1] = self.imread(f'{dataset_path}/{dir}/{file}.png')[None, ...] 
 
             utils.summarize_diff(poses_old, poses)
 
@@ -428,7 +438,7 @@ class NeRFDataset():
         print("Focal", focal_length)
 
         self.hwf = (height, width, focal_length)
-       
+    
     def load_llff(self, dataset_path, device=torch.device('cuda'), factor=1, train_images=100, val_images=100, test_images=100):
         subdirs = get_subdirs(dataset_path)
         print(subdirs)
