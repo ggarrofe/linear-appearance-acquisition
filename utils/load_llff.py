@@ -5,12 +5,14 @@ import utils.utils as utils
 def _minify(basedir, subdir=None, factors=[], resolutions=[]):
     needtoload = False
     for r in factors:
-        imgdir = os.path.join(basedir, 'images_{}'.format(r))
+        imgdir = os.path.join(basedir, f'{subdir}_{r}')
         if not os.path.exists(imgdir):
+            print("needtoload")
             needtoload = True
     for r in resolutions:
-        imgdir = os.path.join(basedir, 'images_{}x{}'.format(r[1], r[0]))
+        imgdir = os.path.join(basedir, f'{subdir}_{r[1]}x{r[0]}')
         if not os.path.exists(imgdir):
+            print("needtoload")
             needtoload = True
     if not needtoload:
         return
@@ -38,7 +40,7 @@ def _minify(basedir, subdir=None, factors=[], resolutions=[]):
         if os.path.exists(imgdir):
             continue
             
-        print('Minifying', r, basedir+name)
+        print('Minifying', r, imgdir)
         
         os.makedirs(imgdir)
         check_output('cp {}/* {}'.format(imgdir_orig, imgdir), shell=True)

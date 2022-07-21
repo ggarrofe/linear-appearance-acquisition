@@ -13,6 +13,62 @@ from scipy.spatial.transform import Rotation as R
 
 from pprint import pprint
 
+def _minify(basedir, subdir=None, factors=[], resolutions=[]):
+    needtoload = False
+    for r in factors:
+        imgdir = os.path.join(basedir, f'{subdir}_{r}')
+        if not os.path.exists(imgdir):
+            print("needtoload")
+            needtoload = True
+    for r in resolutions:
+        imgdir = os.path.join(basedir, f'{subdir}_{r[1]}x{r[0]}')
+        if not os.path.exists(imgdir):
+            print("needtoload")
+            needtoload = True
+    if not needtoload:
+        return
+    
+    from shutil import copy
+    from subprocess import check_output
+    
+    imgdir = basedir if subdir is None else os.path.join(basedir, subdir)
+    imgs = [os.path.join(imgdir, f) for f in sorted(os.listdir(imgdir))]
+    imgs = [f for f in imgs if any([f.endswith(ex) for ex in ['JPG', 'jpg', 'png', 'jpeg', 'PNG']])]
+    imgdir_orig = imgdir
+    
+    wd = os.getcwd()
+    if subdir is None:
+        subdir = 'images'
+
+    for r in factors + resolutions:
+        if isinstance(r, int):
+            name = '{}_{}'.format(subdir, r)
+            resizearg = '{}%'.format(100./r)
+        else:
+            name = '{}_{}x{}'.format(subdir, r[1], r[0])
+            resizearg = '{}x{}'.format(r[1], r[0])
+        imgdir = os.path.join(basedir, name)
+        if os.path.exists(imgdir):
+            continue
+            
+        print('Minifying', r, imgdir)
+        
+        os.makedirs(imgdir)
+        check_output('cp {}/* {}'.format(imgdir_orig, imgdir), shell=True)
+        
+        ext = imgs[0].split('.')[-1]
+        args = ' '.join(['mogrify', '-resize', resizearg, '-format', 'png', '*.{}'.format(ext)])
+        print(args)
+        os.chdir(imgdir)
+        check_output(args, shell=True)
+        os.chdir(wd)
+        
+        if ext != 'png':
+            check_output('rm {}/*.{}'.format(imgdir, ext), shell=True)
+            print('Removed duplicates')
+        print('Done')
+ 
+
 def get_subdirs(path) -> list:
     """ Check if the provided path contains the images or has other inner directories that 
         contain the images. Ommits the resized folders that end with a number.
@@ -284,6 +340,7 @@ class NeRFDataset():
         elif args.dataset_type == "synthetic":
             self.load_synthetic(args.dataset_path, 
                                 device=device, 
+                                factor=args.factor,
                                 train_images=args.train_images, 
                                 val_images=args.val_images,
                                 test_images=args.test_images,
@@ -440,21 +497,27 @@ class NeRFDataset():
             return imageio.imread(f)/255.
 
     def load_synthetic(self,  
-                  dataset_path,
+                  basedir,
                   device=torch.device('cuda'), 
-                  save_to=None, 
+                  factor=None, 
                   train_images=100, 
                   val_images=100, 
                   test_images=100,
                   load_light=False):
 
-        if dataset_path[-1] == '/':
-            dataset_path = dataset_path[:-1]
+        if basedir[-1] == '/':
+            basedir = basedir[:-1]
         
-        subdirs = get_subdirs(dataset_path)
+        subdirs = get_subdirs(basedir)
         print(subdirs)
-
-        imgs_size, num_images = get_images_size(dataset_path, subdirs)
+        sfx=''
+        if factor is not None and factor > 1:
+            sfx = '_{}'.format(factor)
+            factor = factor
+            for subdir in subdirs:
+                _minify(basedir, subdir=subdir, factors=[factor])
+            
+        imgs_size, num_images = get_images_size(basedir, subdirs, factor=factor)
         if "train" in subdirs: num_images[subdirs.index("train")] = train_images
         if "val" in subdirs: num_images[subdirs.index("val")] = val_images
         if "test" in subdirs: num_images[subdirs.index("test")] = test_images
@@ -465,24 +528,31 @@ class NeRFDataset():
             light_poses = np.zeros((imgs_size[0], 3, 4))
         i_imgs = 0
         
-        for i_dir, dir in enumerate(subdirs):
-            poses_old = poses.copy()
-            if load_light:
-                print(f"Loading {dir} - {num_images[i_dir]} poses, images and lights...")
-            else:
-                print(f"Loading {dir} - {num_images[i_dir]} poses and images...")
+        for i_dir, subdir in enumerate(subdirs):
+            imgdir = os.path.join(basedir, subdir + sfx)
+    
+            if not os.path.exists(imgdir):
+                print( imgdir, 'does not exist, returning' )
+                return
 
-            with open(f"{dataset_path}/transforms_{dir}.json") as json_file:
+            poses_old = poses.copy()
+
+            if load_light:
+                print(f"Loading {subdir} - {num_images[i_dir]} poses, images and lights...")
+            else:
+                print(f"Loading {subdir} - {num_images[i_dir]} poses and images...")
+
+            with open(f"{basedir}/transforms_{subdir}.json") as json_file:
                 data = json.load(json_file)
                 camera_angle_x = data["camera_angle_x"]
 
-                for i, frame in tqdm(enumerate(data["frames"][:num_images[i_dir]]), unit="frame", leave=False, desc="Loading frames" if len(subdirs)==1 else f"Loading {dir} frames"):
+                for i, frame in tqdm(enumerate(data["frames"][:num_images[i_dir]]), unit="frame", leave=False, desc="Loading frames" if len(subdirs)==1 else f"Loading {subdir} frames"):
                     # Load poses
                     poses[i_imgs+i:i_imgs+i+1] = np.asarray(frame["transform_matrix"])[None, :3, ...]
 
                     # Load images
                     file = frame["file_path"].split('/')[-1]
-                    images[i_imgs+i:i_imgs+i+1] = self.imread(f'{dataset_path}/{dir}/{file}.png')[None, ...] 
+                    images[i_imgs+i:i_imgs+i+1] = self.imread(f'{imgdir}/{file}.png')[None, ...] 
 
                     # Load light sources
                     if load_light:
@@ -491,7 +561,7 @@ class NeRFDataset():
             utils.summarize_diff(poses_old, poses)
 
             self.subdirs_indices.append(list(range(i_imgs, i_imgs+num_images[i_dir])))
-            self.subdirs.append(dir)
+            self.subdirs.append(subdir)
             i_imgs += num_images[i_dir]
 
         num_images, height, width, num_channels = images.shape

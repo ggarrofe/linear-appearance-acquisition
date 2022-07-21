@@ -31,6 +31,7 @@ def parse_args():
     parser.add_argument('--checkpoint_path', type=str, help='Path where checkpoints are saved')
     parser.add_argument('--val_images', type=int, help='number of validation images', default=100)
     parser.add_argument('--train_images', type=int, help='number of training images', default=100)
+    parser.add_argument('--test_images', type=int, help='number of test images', default=100)
     parser.add_argument('--kmeans_tol', type=float, help='threshold to stop iterating the kmeans algorithm', default=1e-04)
     args = parser.parse_args()
     return args
