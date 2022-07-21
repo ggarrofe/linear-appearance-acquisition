@@ -33,23 +33,29 @@ def parse_args():
     parser.add_argument('--train_images', type=int, help='number of training images', default=100)
     parser.add_argument('--test_images', type=int, help='number of test images', default=100)
     parser.add_argument('--kmeans_tol', type=float, help='threshold to stop iterating the kmeans algorithm', default=1e-04)
+    parser.add_argument('--load_light', action='store_true', help='load light sources positions')
     args = parser.parse_args()
     return args
 
-def compute_inv(xnv, target, cluster_id, cluster_ids, embed_fn):
+def compute_inv(xh, target, cluster_id, cluster_ids, embed_fn):
     mask = cluster_ids == cluster_id
-    xnv_enc = embed_fn(xnv[mask])
-    xnv_enc_inv = torch.linalg.pinv(xnv_enc)
-    linear_mapping = xnv_enc_inv @ target[mask]
+    xh = embed_fn(xh[mask])
+    xh_enc_inv = torch.linalg.pinv(xh)
+    linear_mapping = xh_enc_inv @ target[mask]
     return linear_mapping
 
-def predict(xnv, pred, linear_mapping, cluster_id, cluster_ids, embed_fn):
+def predict(xh, pred, spec_pred, diffuse_pred, linear_mapping, cluster_id, cluster_ids, embed_fn):
     mask = (cluster_ids == cluster_id)
     if not torch.any(mask): return
 
-    xnv_enc = embed_fn(xnv[mask])
-    pred[mask] = xnv_enc @ linear_mapping
-    
+    xh_enc = embed_fn(xh[mask])
+    pred[mask] = xh_enc @ linear_mapping
+
+    # First half of the linear mapping will predict the diffuse color (only depends on the position)
+    diffuse_pred[mask] = xh_enc[..., :int(xh_enc.shape[1]/2)] @ linear_mapping[:int(linear_mapping.shape[0]/2)]
+
+    # Second half of the linear mapping will predict the specular color (depends on the half-angle vector)
+    spec_pred[mask] = xh_enc[..., int(xh_enc.shape[1]/2):] @ linear_mapping[int(linear_mapping.shape[0]/2):]
 
 if __name__ == "__main__":
     args = parse_args()
@@ -75,60 +81,74 @@ if __name__ == "__main__":
     scene = o3d.t.geometry.RaycastingScene()
     scene.add_triangles(mesh)
     dataset.create_xnv_dataset(scene, device=device if args.dataset_to_gpu else torch.device("cpu"))
+    dataset.compute_VLH()
     
     loss_fn = nn.MSELoss()
     mse2psnr = lambda x : -10. * torch.log(x) / torch.log(torch.Tensor([10.]).to(device))
 
-    for i in range(dataset.get_n_images()):
-        xnv, img, depths = dataset.get_X_target("train", i, device=device)
-        v.validation_view_rgb_xndv(img.detach().cpu(), 
-                                    img.detach().cpu(), 
-                                    points=xnv[..., :3].detach().cpu(),
-                                    normals=xnv[..., 3:6].detach().cpu(),
-                                    depths=depths,
-                                    viewdirs=xnv[..., 6:].detach().cpu(),
-                                    img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
-                                    it=iter,
-                                    wandb_act=False)
-    sys.exit()
+    if args.test:
+        for i in range(dataset.get_n_images()):
+            xnv, img, depths = dataset.get_X_target("train", i, device=device)
+            v.validation_view_rgb_xndv(img.detach().cpu(), 
+                                        img.detach().cpu(), 
+                                        points=xnv[..., :3].detach().cpu(),
+                                        normals=xnv[..., 3:6].detach().cpu(),
+                                        depths=depths,
+                                        viewdirs=xnv[..., 6:].detach().cpu(),
+                                        img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
+                                        it=iter,
+                                        wandb_act=False)
+    
     # TRAINING
-    embed_fn, input_ch = emb.get_embedder(in_dim=9, num_freqs=6)
-    xnv, target_rgb, depths = dataset.get_tensors("train", device=device)
+    embed_fn, input_ch = emb.get_embedder(in_dim=6, num_freqs=6)
+    _, target_rgb, depths = dataset.get_tensors("train", device=device) #_ is xnv
+    points_VLH = dataset.get_points_VLH("train", img=-1, device=device)
     
-    linear_mappings = torch.zeros([args.num_clusters, input_ch, 3]).to(xnv)
-    cluster_ids = torch.zeros((xnv.shape[0],)).to(xnv)
-    centroids = torch.zeros((args.num_clusters, 3)).to(xnv)
+    linear_mappings = torch.zeros([args.num_clusters, input_ch, 3]).to(points_VLH)
+    cluster_ids = torch.zeros((points_VLH.shape[0],),).to(points_VLH)
+    centroids = torch.zeros((args.num_clusters, 3)).to(points_VLH)
 
-    mask = (xnv[:,0] == -1.) & (xnv[:,1] == -1.) & (xnv[:,2] == -1.) #not masking takes too much time
-    
-    cluster_ids[~mask], centroids[:args.num_clusters-1] = kmeans(X=xnv[~mask, :3],
+    mask = (points_VLH[:,0] == -1.) & (points_VLH[:,1] == -1.) & (points_VLH[:,2] == -1.) #not masking takes too much time
+    cluster_ids[~mask], centroids[:args.num_clusters-1] = kmeans(points_VLH[~mask, :3],
                                                                  num_clusters=args.num_clusters-1, 
                                                                  tol=args.kmeans_tol,
                                                                  device=device,
                                                                  batch_size=args.batch_size)
+    # prob cluster ids is double and num_clusters no
     cluster_ids.masked_fill_(mask, args.num_clusters-1)
-    centroids[args.num_clusters-1] = torch.tensor([-1., -1., -1.]).to(xnv)
+    centroids[args.num_clusters-1] = torch.tensor([-1., -1., -1.]).to(points_VLH)
 
     for cluster_id in range(args.num_clusters):
-        linear_mappings[cluster_id] = compute_inv(xnv, target_rgb, cluster_id, cluster_ids, embed_fn=embed_fn)
+        linear_mappings[cluster_id] = compute_inv(torch.cat([points_VLH[..., :3], points_VLH[..., -3:]], dim=-1), 
+                                                  target_rgb, 
+                                                  cluster_id, 
+                                                  cluster_ids, 
+                                                  embed_fn=embed_fn)
     
     # EVALUATION
     xnv_tr, img_tr, depths_tr = dataset.get_X_target("train", 0, device=device)
+    points_VLH = dataset.get_points_VLH("train", img=0, device=device)
+    points_H_tr = torch.cat([points_VLH[..., :3], points_VLH[..., -3:]], dim=-1)
     pred_rgb_tr = torch.zeros_like(img_tr)
-    colors_tr = torch.zeros_like(xnv_tr[..., :3])
+    pred_rgb_spec_tr = torch.zeros_like(img_tr)
+    pred_rgb_diff_tr = torch.zeros_like(img_tr)
 
     xnv_val, img_val, depths_val = dataset.get_X_target("val", 0, device=device)
+    points_VLH = dataset.get_points_VLH("val", img=0, device=device)
+    points_H_val = torch.cat([points_VLH[..., :3], points_VLH[..., -3:]], dim=-1)
     pred_rgb_val = torch.zeros_like(img_val)
+    pred_rgb_spec_val = torch.zeros_like(img_val)
+    pred_rgb_diff_val = torch.zeros_like(img_val)
 
-    cluster_ids_tr = kmeans_predict(xnv_tr[..., :3], centroids, device=device)
-    v.plot_clusters_3Dpoints(xnv_tr[..., :3], cluster_ids_tr, args.num_clusters, colab=args.colab, out_path=args.out_path, filename="train_clusters.png")
+    cluster_ids_tr = kmeans_predict(points_H_tr[..., :3], centroids, device=device)
+    v.plot_clusters_3Dpoints(points_H_tr[..., :3], cluster_ids_tr, args.num_clusters, colab=args.colab, out_path=args.out_path, filename="train_clusters.png")
 
-    cluster_ids_val = kmeans_predict(xnv_val[..., :3], centroids, device=device)
-    v.plot_clusters_3Dpoints(xnv_val[..., :3], cluster_ids_val, args.num_clusters, colab=args.colab, out_path=args.out_path, filename="val_clusters.png")
+    cluster_ids_val = kmeans_predict(points_H_val[..., :3], centroids, device=device)
+    v.plot_clusters_3Dpoints(points_H_val[..., :3], cluster_ids_val, args.num_clusters, colab=args.colab, out_path=args.out_path, filename="val_clusters.png")
 
     for cluster_id in range(args.num_clusters):
-        predict(xnv_tr, pred_rgb_tr, linear_mappings[cluster_id], cluster_id, cluster_ids_tr, embed_fn)
-        predict(xnv_val, pred_rgb_val, linear_mappings[cluster_id], cluster_id, cluster_ids_val, embed_fn)
+        predict(points_H_tr, pred_rgb_tr, pred_rgb_spec_tr, pred_rgb_diff_tr, linear_mappings[cluster_id], cluster_id, cluster_ids_tr, embed_fn)
+        predict(points_H_val, pred_rgb_val, pred_rgb_spec_val, pred_rgb_diff_val, linear_mappings[cluster_id], cluster_id, cluster_ids_val, embed_fn)
     
     loss_tr = loss_fn(pred_rgb_tr, img_tr)
     loss_val = loss_fn(pred_rgb_val, img_val)
@@ -140,26 +160,26 @@ if __name__ == "__main__":
             "psnr_val": mse2psnr(loss_val)
             })
 
-    v.validation_view_rgb_xndv(pred_rgb_tr.detach().cpu(), 
-                                    img_tr.detach().cpu(), 
-                                    points=xnv_tr[..., :3].detach().cpu(),
-                                    normals=xnv_tr[..., 3:6].detach().cpu(),
-                                    depths=depths_tr,
-                                    viewdirs=xnv_tr[..., 6:].detach().cpu(),
-                                    img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
-                                    it=args.num_clusters, 
-                                    out_path=args.out_path,
-                                    name="training_xnv",
-                                    wandb_act=False)
+    v.validation_view_reflectance(reflectance=pred_rgb_tr.detach().cpu(),
+                                  specular=pred_rgb_spec_tr.detach().cpu(), 
+                                  diffuse=pred_rgb_diff_tr.detach().cpu(), 
+                                  target=img_tr.detach().cpu(),
+                                  points=points_VLH[..., :3].detach().cpu(),
+                                  normals=xnv_tr[..., 3:6].detach().cpu(),
+                                  depths=depths_tr,
+                                  img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
+                                  out_path=args.out_path,
+                                  name="training_reflectance",
+                                  wandb_act=False)
 
-    v.validation_view_rgb_xndv(pred_rgb_val.detach().cpu(), 
-                                    img_val.detach().cpu(), 
-                                    points=xnv_val[..., :3].detach().cpu(),
-                                    normals=xnv_val[..., 3:6].detach().cpu(),
-                                    depths=depths_val,
-                                    viewdirs=xnv_val[..., 6:].detach().cpu(),
-                                    img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
-                                    it=args.num_clusters, 
-                                    out_path=args.out_path,
-                                    name="val_xnv",
-                                    wandb_act=False)
+    v.validation_view_reflectance(reflectance=pred_rgb_val.detach().cpu(),
+                                  specular=pred_rgb_spec_val.detach().cpu(), 
+                                  diffuse=pred_rgb_diff_val.detach().cpu(), 
+                                  target=img_val.detach().cpu(),
+                                  points=points_VLH[..., :3].detach().cpu(),
+                                  normals=xnv_val[..., 3:6].detach().cpu(),
+                                  depths=depths_val,
+                                  img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
+                                  out_path=args.out_path,
+                                  name="val_reflectance",
+                                  wandb_act=False)

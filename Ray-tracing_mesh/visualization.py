@@ -15,47 +15,51 @@ def plot_mesh(mesh, mesh_path=None):
     mesh_frame = o3d.geometry.TriangleMesh.create_mesh_coordinate_frame(size=1.0, origin=[0., 0., 0.])
     o3d.visualization.draw_geometries([mesh, mesh_frame])
 
-def plot_rays_and_mesh(rays_od, mesh, hwf, near=2, far=6, rgb=None, rot_matrix=None, light_source=None):
-    points_n = rays_od[::100, :3] + near * rays_od[::100, 3:]
-    points_f = rays_od[::100, :3] + far * rays_od[::100, 3:]
+def create_lineset(origins, dirs, color, near=2, far=6):
+    points_n = origins[::3300] + near * dirs[::3300]
+    points_f = origins[::3300] + far * dirs[::3300]
     points = torch.concat([points_n, points_f])
 
     lines = [(i, i+points_n.shape[0]) for i in range(points_n.shape[0])]
-    if rgb is not None:
-        rgb = list(rgb)
-    else:
-        rgb = [1, 0, 0]
-    colors = [rgb for i in range(len(lines))]
+    colors = [color for i in range(len(lines))]
 
     line_set = o3d.geometry.LineSet()
     line_set.points = o3d.utility.Vector3dVector(points)
     line_set.lines = o3d.utility.Vector2iVector(lines)
     line_set.colors = o3d.utility.Vector3dVector(colors)
-    
-    camera = o3d.geometry.TriangleMesh.create_sphere(radius=0.1)
-    camera.translate(rays_od[0, :3])
 
+    return line_set
+
+def plot_rays_and_mesh(rays_od, mesh, light_rays=None, points_VLH=None, near=2, far=6):
     mesh.compute_vertex_normals()
-    o3d.visualization.draw_geometries([line_set, camera])
-    return
-    geometries = [line_set, camera, mesh]
 
-    if rot_matrix is not None:
-        coord_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1.0, origin=[0., 0., 0.])
-        coord_frame_rot = copy.deepcopy(coord_frame)
-        coord_frame_rot.rotate(rot_matrix[:3,:3].numpy())
-        geometries.append(coord_frame_rot)
+    camera = o3d.geometry.TriangleMesh.create_sphere(radius=0.01)
+    camera.translate(rays_od[0, :3])
+    camera.paint_uniform_color([1, 0, 0])
 
-        print(rot_matrix[:, 3:])
+    light = o3d.geometry.TriangleMesh.create_sphere(radius=0.01)
+    light.translate(light_rays[0, :3])
+    light.paint_uniform_color([1, 0.706, 0])
+    
+    camera_rays = create_lineset(rays_od[..., :3], rays_od[..., 3:], color=np.array([1, 0, 0]), near=0, far=far) # red camera rays
 
-    if light_source is not None:
-        light = o3d.geometry.TriangleMesh.create_sphere(radius=0.1)
-        light.paint_uniform_color([1, 0.706, 0])
-        light_source = rot_matrix[:3,:3] @ light_source
-        light_source += rot_matrix[:, 3:]
-        light.translate(light_source, relative=False)
-        #geometries.append(light)
+    geometries = [camera, light, mesh, camera_rays]
+    if light_rays is not None:
+        light_rays = create_lineset(light_rays[..., :3], light_rays[..., 3:], color=np.array([1, 0.706, 0]), near=0, far=far) # yellow light rays
+        #geometries.append(light_rays)
 
+    if points_VLH is not None:
+        V = create_lineset(origins=points_VLH[..., :3], dirs=points_VLH[..., 3:6], color=np.array([1, 0, 0]), near=0, far=far) # yellow light rays
+        L = create_lineset(origins=points_VLH[..., :3], dirs=points_VLH[..., 6:9], color=np.array([1, 0.706, 0]), near=0, far=far) # yellow light rays
+        H = create_lineset(origins=points_VLH[..., :3], dirs=points_VLH[..., 9:], color=np.array([0, 0, 1]), near=0, far=far) # yellow light rays
+        geometries.extend([V, L, H])
+        
+        surf_point = o3d.geometry.TriangleMesh.create_sphere(radius=0.01)
+        surf_point.translate(points_VLH[0, :3])
+        surf_point.paint_uniform_color([0, 0, 1])
+        geometries.append(surf_point)
+
+    
     o3d.visualization.draw_geometries(geometries)
 
 

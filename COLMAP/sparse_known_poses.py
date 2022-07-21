@@ -5,6 +5,7 @@ import numpy as np
 import os
 import sys
 import shutil
+#import mathutils
 
 from tqdm import tqdm
 
@@ -18,16 +19,18 @@ def get_pose(transform_matrix):
     # Convert from blender view space to colmap view space
     colmap_view_rotation = blender_to_colmap_rotation @ blender_view_rotation
     colmap_view_rotation_quaternion = R.from_matrix(colmap_view_rotation).as_quat()
+    #colmap_view_rotation_quaternion = mathutils.Matrix(colmap_view_rotation).to_quaternion()
     colmap_view_translation = blender_to_colmap_rotation @ blender_view_translation
-    return [
-        str(colmap_view_rotation_quaternion[3]),
-        str(colmap_view_rotation_quaternion[0]),
-        str(colmap_view_rotation_quaternion[1]),
-        str(colmap_view_rotation_quaternion[2]),
-        str(colmap_view_translation[0]),
-        str(colmap_view_translation[1]),
-        str(colmap_view_translation[2])
-    ]
+    
+    return {
+            "x_pos" : colmap_view_translation[0],
+            "y_pos" : colmap_view_translation[1],
+            "z_pos" : colmap_view_translation[2],
+            "w_rotation" : colmap_view_rotation_quaternion[3],
+            "x_rotation" : colmap_view_rotation_quaternion[0],
+            "y_rotation" : colmap_view_rotation_quaternion[1],
+            "z_rotation" : colmap_view_rotation_quaternion[2]
+        }
 
 def prepare_images(workspace, transforms_file="transforms.json", i_model=0):
     workspace = workspace if workspace[-1] != '/' else workspace[:-1]
@@ -64,17 +67,19 @@ def prepare_images(workspace, transforms_file="transforms.json", i_model=0):
                 assert len(transform_matrix)>0, f"No transform matrix found for {file}"
                 
                 transform_matrix = np.array(transform_matrix[0])
-                print(transform_matrix.shape)
                 #pose = get_pose(transform_matrix)
                 #print(pose)
 
                 pose_json = [transforms["frames"][j]["COLMAP_transform_matrix"] 
                                     for j in range(len(transforms["frames"])) 
                                         if transforms["frames"][j]["file_path"].split("/")[-1] == file]
-                assert len(transform_matrix)>0, f"No COLMAP transform matrix found for {file}"
+                assert len(pose_json)>0, f"No COLMAP transform matrix found for {file}"
                 pose_json = pose_json[0]
 
+                #pose = get_pose(transform_matrix)
+                #print(pose)
                 #print(pose_json)
+
                 line_parts[1]=str(pose_json['w_rotation'])
                 line_parts[2]=str(pose_json['x_rotation'])
                 line_parts[3]=str(pose_json['y_rotation'])

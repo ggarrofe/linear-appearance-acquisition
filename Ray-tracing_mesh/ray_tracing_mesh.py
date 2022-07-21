@@ -29,6 +29,7 @@ def parse_args():
     parser.add_argument('--val_images', type=int, help='number of validation images', default=100)
     parser.add_argument('--train_images', type=int, help='number of training images', default=100)
     parser.add_argument('--test_images', type=int, help='number of test images', default=100)
+    parser.add_argument('--load_light', action='store_true', help='load light sources positions')
 
     args = parser.parse_args()
     return args
@@ -51,18 +52,22 @@ if __name__ == '__main__':
     for i in range(dataset.get_n_images()):
         rays_od = dataset.get_rays_od("train", i, device=device)
 
+        scene = o3d.t.geometry.RaycastingScene()
+        scene.add_triangles(o3d.t.geometry.TriangleMesh.from_legacy(mesh))
+        dataset.compute_depths(scene)
+        points_VLH = dataset.get_points_VLH("train", i, device=device)
+        light_rays = dataset.get_light_rays("train", i, device=device)
+
         if args.test:
-            v.plot_rays_and_mesh(rays_od=rays_od, 
+            v.plot_rays_and_mesh(rays_od=rays_od[320400:320401],  # 800*400+400
                                  mesh=mesh,
-                                 hwf=dataset.hwf,
-                                 rot_matrix=dataset.poses[i],
-                                 #[-17.069148745572345, 3.1907768916024604, 98.4807753012208]
-                                 light_source=torch.tensor([[-17.069148745572345], [3.1907768916024604], [98.4807753012208]]).double())
+                                 light_rays=light_rays[320400:320401],
+                                 points_VLH=points_VLH[320400:320401])
             
         else:
             mesh = o3d.t.geometry.TriangleMesh.from_legacy(mesh)
             scene = o3d.t.geometry.RaycastingScene()
-            scene.add_triangles(mesh.from_legacy())
+            scene.add_triangles(mesh)
             hit = utils.cast_rays(scene, rays_od)
             hit = hit.reshape(dataset.hwf[0], dataset.hwf[1])
             img = dataset.get_image("train", i, device=device).numpy()

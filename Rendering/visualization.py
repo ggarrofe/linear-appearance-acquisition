@@ -72,7 +72,7 @@ def validation_view_rgb_xndv(rgb_map, val_target, img_shape, points, normals, de
     depths = torch.nan_to_num(depths, posinf=10.0, neginf=10.0, nan=0.0)
     #depths /= torch.max(depths)
 
-    fig = plt.figure(figsize=(25, 10))
+    fig = plt.figure(figsize=(20, 7))
     plt.subplot(231)
     plt.imshow(rgb_map.cpu().numpy())
     plt.title(f"Reconstruction - it {it}")
@@ -101,10 +101,10 @@ def validation_view_rgb_xndv(rgb_map, val_target, img_shape, points, normals, de
     
     plt.show()
 
-def validation_view_reflectance(reflectance, specular, target, img_shape, points, normals, depths, it=0, out_path=None, name="val_reflectance", save=True, wandb_act=True):
+def validation_view_reflectance(reflectance, specular, diffuse, target, img_shape, points, normals, depths, it=0, out_path=None, name="val_reflectance", save=True, wandb_act=True):
     reflectance = torch.reshape(reflectance, img_shape)
     specular = torch.reshape(specular, img_shape)
-    diffuse = reflectance-specular
+    diffuse = torch.reshape(diffuse, img_shape)
     target = torch.reshape(target, img_shape)
     points = torch.reshape(points, img_shape)
     points /= 7.0 # Keep the values lower than 1, constant so that all the views are scaled the same way

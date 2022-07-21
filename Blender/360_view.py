@@ -20,6 +20,7 @@ CIRCLE_FIXED_START = (.3,0,0)
 fp = bpy.path.abspath(f"//{RESULTS_PATH}")
 
 def get_position_colmap(world_matrix):
+    # https://github.com/colmap/colmap/issues/1467
     blender_to_colmap_rotation = np.diag([1,-1,-1])
     # Convert from blender world space to view space
     blender_world_translation, blender_world_rotation, blender_world_scale = world_matrix.decompose()

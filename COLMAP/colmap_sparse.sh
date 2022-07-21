@@ -25,4 +25,4 @@ $COLMAP_CMD mapper \
     --image_path $WORKSPACE/images \
     --output_path $WORKSPACE/sparse
 
-#/usr/local/opt/qt5/lib/cmake/Qt5
+
