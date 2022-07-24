@@ -55,28 +55,27 @@ if __name__ == '__main__':
         scene = o3d.t.geometry.RaycastingScene()
         scene.add_triangles(o3d.t.geometry.TriangleMesh.from_legacy(mesh))
         dataset.compute_depths(scene)
-        points_VLH = dataset.get_points_VLH("train", i, device=device)
-        light_rays = dataset.get_light_rays("train", i, device=device)
+        #points_VLH = dataset.get_xh_rgb("train", i, device=device)
+        #light_rays = dataset.get_light_rays("train", i, device=device)
 
         if args.test:
-            v.plot_rays_and_mesh(rays_od=rays_od[320400:320401],  # 800*400+400
+            print(dataset.poses.shape)
+            v.plot_rays_and_mesh(rays_od=rays_od,#[320400:320401],  # 800*400+400
                                  mesh=mesh,
+                                 pose = dataset.poses[i])
+            ''',
                                  light_rays=light_rays[320400:320401],
-                                 points_VLH=points_VLH[320400:320401])
+                                 points_VLH=points_VLH[320400:320401])'''
             
-        else:
-            mesh = o3d.t.geometry.TriangleMesh.from_legacy(mesh)
-            scene = o3d.t.geometry.RaycastingScene()
-            scene.add_triangles(mesh)
-            hit = utils.cast_rays(scene, rays_od)
-            hit = hit.reshape(dataset.hwf[0], dataset.hwf[1])
-            img = dataset.get_image("train", i, device=device).numpy()
-            img = img.reshape(dataset.hwf[0], dataset.hwf[1], img.shape[-1])
-            
-            fig = plt.figure(figsize=(9, 4))
-            ax1 = fig.add_subplot(2,1,1)    
-            ax1.imshow(img)
-            ax2 = fig.add_subplot(2,2,1)   
-            ax2.imshow(hit.T)
-            plt.savefig(args.out_path+f"/ray_cast_{i}.png")
-            plt.show()
+        hit = utils.cast_rays(scene, rays_od)
+        hit = hit.reshape(dataset.hwf[0], dataset.hwf[1])
+        img = dataset.get_image("train", i, device=device).numpy()
+        img = img.reshape(dataset.hwf[0], dataset.hwf[1], img.shape[-1])
+        
+        fig = plt.figure(figsize=(9, 4))
+        ax1 = fig.add_subplot(2,1,1)    
+        ax1.imshow(img)
+        ax2 = fig.add_subplot(2,2,1)   
+        ax2.imshow(hit.T)
+        plt.savefig(args.out_path+f"/ray_cast_{i}.png")
+        plt.show()

@@ -30,21 +30,28 @@ def create_lineset(origins, dirs, color, near=2, far=6):
 
     return line_set
 
-def plot_rays_and_mesh(rays_od, mesh, light_rays=None, points_VLH=None, near=2, far=6):
+def plot_rays_and_mesh(rays_od, mesh, light_rays=None, points_VLH=None, near=2, far=50000, pose=None):
     mesh.compute_vertex_normals()
 
     camera = o3d.geometry.TriangleMesh.create_sphere(radius=0.01)
     camera.translate(rays_od[0, :3])
     camera.paint_uniform_color([1, 0, 0])
-
-    light = o3d.geometry.TriangleMesh.create_sphere(radius=0.01)
-    light.translate(light_rays[0, :3])
-    light.paint_uniform_color([1, 0.706, 0])
     
-    camera_rays = create_lineset(rays_od[..., :3], rays_od[..., 3:], color=np.array([1, 0, 0]), near=0, far=far) # red camera rays
+    camera_rays = create_lineset(rays_od[..., :3], rays_od[..., 3:], color=np.array([1, 0, 0]), near=near, far=far) # red camera rays
 
-    geometries = [camera, light, mesh, camera_rays]
+    geometries = [camera, mesh, camera_rays]
+
+    if pose is not None:
+        mesh_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=10.0, origin=pose[:3,3])
+        mesh_frame.rotate(pose[:3,:3].numpy())
+        geometries.append(mesh_frame)
+
     if light_rays is not None:
+        light = o3d.geometry.TriangleMesh.create_sphere(radius=0.01)
+        light.translate(light_rays[0, :3])
+        light.paint_uniform_color([1, 0.706, 0])
+        geometries.append(light)
+        
         light_rays = create_lineset(light_rays[..., :3], light_rays[..., 3:], color=np.array([1, 0.706, 0]), near=0, far=far) # yellow light rays
         #geometries.append(light_rays)
 

@@ -1,4 +1,5 @@
 .vscode
+.idea
 *.pdf
 __pycache__
 *.tmp.*
@@ -11,3 +12,5 @@ out*
 *.db
 checkpoints
 wandb
+*xmp
+RealityCapture/**/*.txt

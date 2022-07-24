@@ -13,7 +13,10 @@ def get_pose(transform_matrix):
     blender_to_colmap_rotation = np.diag([1,-1,-1])
     # Convert from blender world space to view space
     blender_world_translation = transform_matrix[:3, 3]
+    blender_world_scale = np.linalg.norm(transform_matrix[:3, :3], axis=0)
     blender_world_rotation = transform_matrix[:3, :3]
+    blender_world_rotation /= blender_world_scale
+
     blender_view_rotation = blender_world_rotation.T
     blender_view_translation = -1.0 * blender_view_rotation @ blender_world_translation
     # Convert from blender view space to colmap view space
@@ -76,9 +79,9 @@ def prepare_images(workspace, transforms_file="transforms.json", i_model=0):
                 assert len(pose_json)>0, f"No COLMAP transform matrix found for {file}"
                 pose_json = pose_json[0]
 
-                #pose = get_pose(transform_matrix)
-                #print(pose)
-                #print(pose_json)
+                pose = get_pose(transform_matrix)
+                print(pose)
+                print(pose_json)
 
                 line_parts[1]=str(pose_json['w_rotation'])
                 line_parts[2]=str(pose_json['x_rotation'])
@@ -87,7 +90,7 @@ def prepare_images(workspace, transforms_file="transforms.json", i_model=0):
                 line_parts[5]=str(pose_json['x_pos'])
                 line_parts[6]=str(pose_json['y_pos'])
                 line_parts[7]=str(pose_json['z_pos'])
-                out_file.write(" ".join(line_parts))
+                #out_file.write(" ".join(line_parts))
 
     in_file.close()
 

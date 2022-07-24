@@ -13,6 +13,62 @@ from scipy.spatial.transform import Rotation as R
 
 from pprint import pprint
 
+def _minify(basedir, subdir=None, factors=[], resolutions=[]):
+    needtoload = False
+    for r in factors:
+        imgdir = os.path.join(basedir, f'{subdir}_{r}')
+        if not os.path.exists(imgdir):
+            print("needtoload")
+            needtoload = True
+    for r in resolutions:
+        imgdir = os.path.join(basedir, f'{subdir}_{r[1]}x{r[0]}')
+        if not os.path.exists(imgdir):
+            print("needtoload")
+            needtoload = True
+    if not needtoload:
+        return
+    
+    from shutil import copy
+    from subprocess import check_output
+    
+    imgdir = basedir if subdir is None else os.path.join(basedir, subdir)
+    imgs = [os.path.join(imgdir, f) for f in sorted(os.listdir(imgdir))]
+    imgs = [f for f in imgs if any([f.endswith(ex) for ex in ['JPG', 'jpg', 'png', 'jpeg', 'PNG']])]
+    imgdir_orig = imgdir
+    
+    wd = os.getcwd()
+    if subdir is None:
+        subdir = 'images'
+
+    for r in factors + resolutions:
+        if isinstance(r, int):
+            name = '{}_{}'.format(subdir, r)
+            resizearg = '{}%'.format(100./r)
+        else:
+            name = '{}_{}x{}'.format(subdir, r[1], r[0])
+            resizearg = '{}x{}'.format(r[1], r[0])
+        imgdir = os.path.join(basedir, name)
+        if os.path.exists(imgdir):
+            continue
+            
+        print('Minifying', r, imgdir)
+        
+        os.makedirs(imgdir)
+        check_output('cp {}/* {}'.format(imgdir_orig, imgdir), shell=True)
+        
+        ext = imgs[0].split('.')[-1]
+        args = ' '.join(['mogrify', '-resize', resizearg, '-format', 'png', '*.{}'.format(ext)])
+        print(args)
+        os.chdir(imgdir)
+        check_output(args, shell=True)
+        os.chdir(wd)
+        
+        if ext != 'png':
+            check_output('rm {}/*.{}'.format(imgdir, ext), shell=True)
+            print('Removed duplicates')
+        print('Done')
+ 
+
 def get_subdirs(path) -> list:
     """ Check if the provided path contains the images or has other inner directories that 
         contain the images. Ommits the resized folders that end with a number.
@@ -45,7 +101,12 @@ def get_subdirs(path) -> list:
         path = path+'/'
 
     if not any(fname.endswith('.png') for fname in os.listdir(path)):
-        subdirs = [name for name in os.listdir(path) if os.path.isdir(os.path.join(path, name)) and not name[-1].isdigit() and not ".tmp" in name]
+        for name in os.listdir(path):
+            if os.path.isdir(os.path.join(path, name)) == False:
+                continue
+            if name[-1].isdigit() or ".tmp" in name or "_xmp" in name:
+                continue
+            subdirs.append(name)
 
     if len(subdirs) == 0:
         subdirs = ['.'] 
@@ -93,7 +154,7 @@ class NeRFSubDataset():
         self.inf_value = -1.0
         self.light_rays = None
         self.points = None
-        self.VLH = None
+        self.half_angles = None
 
     def compute_depths(self, scene, device=torch.device("cpu")):
         h, w, f = self.hwf
@@ -147,7 +208,7 @@ class NeRFSubDataset():
             normals = direction/magnitude * 0.5 + 0.5
             self.normals[i:i+h*w] = torch.nan_to_num(normals, nan=-1.0).reshape((h*w, 3))
 
-    def compute_VLH(self):
+    def compute_xh(self):
         assert self.light_poses is not None, "Light poses info is missing"
         
         points = torch.stack([self.get_points(i, device=self.dataset.tensors[0].device) for i in range(len(self.light_poses))])
@@ -161,11 +222,11 @@ class NeRFSubDataset():
         V = cam_pos - points
         L = light_pos - points
         H = (V + L)/torch.norm((V + L), dim=-1)[..., None]
-        self.VLH = torch.cat([V, L, H], dim=-1)
+        self.half_angles = H
 
-        self.light_rays = torch.stack([torch.cat(NeRFDataset.get_rays_origins_and_directions(c2w, self.hwf), dim=-1) 
+        '''self.light_rays = torch.stack([torch.cat(NeRFDataset.get_rays_origins_and_directions(c2w, self.hwf), dim=-1) 
                                         for c2w in tqdm(self.light_poses, unit="pose", desc="Generating ray lights")])
-        self.light_rays = self.light_rays.reshape((-1, 6))
+        self.light_rays = self.light_rays.reshape((-1, 6))'''
         
 
 
@@ -216,36 +277,38 @@ class NeRFSubDataset():
         w = self.hwf[1]
         return self.dataset.tensors[0][i*h*w:(i+1)*h*w, :6].float().to(device)
 
-    def get_VLH(self, i, device=torch.device('cuda')):
+    def get_xh(self, i, device=torch.device('cuda')):
         h = self.hwf[0]
         w = self.hwf[1]
 
-        if self.VLH is None and self.light_poses is not None:
-            self.compute_VLH()
+        if self.half_angles is None and self.light_poses is not None:
+            self.compute_xh()
 
-        return self.VLH[i*h*w:(i+1)*h*w].float().to(device)
+        return self.half_angles[i*h*w:(i+1)*h*w].float().to(device)
 
     def get_light_rays(self, i, device=torch.device('cuda')):
         h = self.hwf[0]
         w = self.hwf[1]
 
         if self.light_rays is None and self.light_poses is not None:
-            self.compute_VLH()
+            self.compute_xh()
 
         return self.light_rays[i*h*w:(i+1)*h*w].float().to(device)
 
-    def get_points_VLH(self, i, device=torch.device('cuda')):
+    def get_xh_rgb(self, i, device=torch.device('cuda')):
         h = self.hwf[0]
         w = self.hwf[1]
 
-        if self.VLH is None and self.light_poses is not None:
-            self.get_VLH(i, device=device)
+        if self.half_angles is None and self.light_poses is not None:
+            self.get_xh_rgb(i, device=device)
         if i >= 0:
             return torch.cat([self.get_points(i, device),
-                            self.VLH[i*h*w:(i+1)*h*w].float().to(device)], dim=-1)
+                            self.half_angles[i*h*w:(i+1)*h*w].float().to(device)], dim=-1), \
+                   self.dataset.tensors[1][i*h*w:(i+1)*h*w].float().to(device)
 
         else:
-            return torch.cat([self.points, self.VLH], dim=-1).float().to(device)
+            return torch.cat([self.points, self.half_angles], dim=-1).float().to(device), \
+                   self.dataset.tensors[1].float().to(device)
 
     def get_depths(self, i, device=torch.device('cuda')):
         h = self.hwf[0]
@@ -284,6 +347,7 @@ class NeRFDataset():
         elif args.dataset_type == "synthetic":
             self.load_synthetic(args.dataset_path, 
                                 device=device, 
+                                factor=args.factor,
                                 train_images=args.train_images, 
                                 val_images=args.val_images,
                                 test_images=args.test_images,
@@ -322,9 +386,12 @@ class NeRFDataset():
             rays_odv = torch.cat([rays, view_dirs], dim=-1)
 
             self.subdatasets.append(NeRFSubDataset(rays_odv, images, self.hwf, name, batch_size=batch_size, shuffle=shuffle, light_poses=light_poses))
+        
+        # Trying to free some memory to deal with big datasets
+        delattr(self, "images")
+        #delattr(self, "poses")
 
         print("Datasets created successfully\n")
-        #focal_length = focal_length.to(self.device)
 
     @staticmethod
     def get_rays_origins_and_directions(c2w, hwf=None):
@@ -381,9 +448,9 @@ class NeRFDataset():
         subdataset = [d for d in self.subdatasets if d.name == dataset][0]
         return subdataset.get_VLH(img, device=device)
 
-    def get_points_VLH(self, dataset="train", img=0, device=torch.device('cuda')):
+    def get_xh_rgb(self, dataset="train", img=0, device=torch.device('cuda')):
         subdataset = [d for d in self.subdatasets if d.name == dataset][0]
-        return subdataset.get_points_VLH(img, device=device)
+        return subdataset.get_xh_rgb(img, device=device)
 
     def get_light_rays(self, dataset="train", img=0, device=torch.device('cuda')):
         subdataset = [d for d in self.subdatasets if d.name == dataset][0]
@@ -425,9 +492,9 @@ class NeRFDataset():
         for d in self.subdatasets:
             d.create_xnv_dataset(scene, device=device)
 
-    def compute_VLH(self):
+    def compute_xh(self):
         for d in self.subdatasets:
-            d.compute_VLH()
+            d.compute_xh()
 
     def sort_clusters(self, cluster_ids):
         subdataset = [d for d in self.subdatasets if d.name == "train"][0]
@@ -440,21 +507,27 @@ class NeRFDataset():
             return imageio.imread(f)/255.
 
     def load_synthetic(self,  
-                  dataset_path,
+                  basedir,
                   device=torch.device('cuda'), 
-                  save_to=None, 
+                  factor=None, 
                   train_images=100, 
                   val_images=100, 
                   test_images=100,
                   load_light=False):
 
-        if dataset_path[-1] == '/':
-            dataset_path = dataset_path[:-1]
+        if basedir[-1] == '/':
+            basedir = basedir[:-1]
         
-        subdirs = get_subdirs(dataset_path)
+        subdirs = get_subdirs(basedir)
         print(subdirs)
-
-        imgs_size, num_images = get_images_size(dataset_path, subdirs)
+        sfx=''
+        if factor is not None and factor > 1:
+            sfx = '_{}'.format(factor)
+            factor = factor
+            for subdir in subdirs:
+                _minify(basedir, subdir=subdir, factors=[factor])
+            
+        imgs_size, num_images = get_images_size(basedir, subdirs, factor=factor)
         if "train" in subdirs: num_images[subdirs.index("train")] = train_images
         if "val" in subdirs: num_images[subdirs.index("val")] = val_images
         if "test" in subdirs: num_images[subdirs.index("test")] = test_images
@@ -465,24 +538,31 @@ class NeRFDataset():
             light_poses = np.zeros((imgs_size[0], 3, 4))
         i_imgs = 0
         
-        for i_dir, dir in enumerate(subdirs):
-            poses_old = poses.copy()
-            if load_light:
-                print(f"Loading {dir} - {num_images[i_dir]} poses, images and lights...")
-            else:
-                print(f"Loading {dir} - {num_images[i_dir]} poses and images...")
+        for i_dir, subdir in enumerate(subdirs):
+            imgdir = os.path.join(basedir, subdir + sfx)
+    
+            if not os.path.exists(imgdir):
+                print( imgdir, 'does not exist, returning' )
+                return
 
-            with open(f"{dataset_path}/transforms_{dir}.json") as json_file:
+            poses_old = poses.copy()
+
+            if load_light:
+                print(f"Loading {subdir} - {num_images[i_dir]} poses, images ({imgs_size[1]}x{imgs_size[2]}) and lights...")
+            else:
+                print(f"Loading {subdir} - {num_images[i_dir]} poses and images ({imgs_size[1]}x{imgs_size[2]})...")
+
+            with open(f"{basedir}/transforms_{subdir}.json") as json_file:
                 data = json.load(json_file)
                 camera_angle_x = data["camera_angle_x"]
 
-                for i, frame in tqdm(enumerate(data["frames"][:num_images[i_dir]]), unit="frame", leave=False, desc="Loading frames" if len(subdirs)==1 else f"Loading {dir} frames"):
+                for i, frame in tqdm(enumerate(data["frames"][:num_images[i_dir]]), unit="frame", leave=False, desc="Loading frames" if len(subdirs)==1 else f"Loading {subdir} frames"):
                     # Load poses
                     poses[i_imgs+i:i_imgs+i+1] = np.asarray(frame["transform_matrix"])[None, :3, ...]
 
                     # Load images
                     file = frame["file_path"].split('/')[-1]
-                    images[i_imgs+i:i_imgs+i+1] = self.imread(f'{dataset_path}/{dir}/{file}.png')[None, ...] 
+                    images[i_imgs+i:i_imgs+i+1] = self.imread(f'{imgdir}/{file}.png')[None, ...] 
 
                     # Load light sources
                     if load_light:
@@ -491,11 +571,12 @@ class NeRFDataset():
             utils.summarize_diff(poses_old, poses)
 
             self.subdirs_indices.append(list(range(i_imgs, i_imgs+num_images[i_dir])))
-            self.subdirs.append(dir)
+            self.subdirs.append(subdir)
             i_imgs += num_images[i_dir]
 
         num_images, height, width, num_channels = images.shape
         focal_length = width/(2 * np.tan(camera_angle_x/2))
+        print(f"Focal length: {focal_length}")
         focal_length = torch.from_numpy(np.array([focal_length])).to(device)
         self.images = torch.from_numpy(images).to(device)
         self.poses = torch.from_numpy(poses).to(device)
@@ -560,8 +641,22 @@ class NeRFDataset():
         focal_length = torch.from_numpy(np.array([hwf[2]])).to(device)
         self.hwf = (int(hwf[0]), int(hwf[1]), focal_length)
 
-    def get_test_poses(self, i):
-        return self.test_data[0][i], self.test_data[1][i]
+    def load_reality_capture(self, dataset_path, device=torch.device('cuda'), factor=1, train_images=100, val_images=100, test_images=100):
+        subdirs = get_subdirs(dataset_path)
+        print(subdirs)
+
+        imgs_size, num_images = get_images_size(dataset_path, subdirs, factor=factor)
+        if "train" in subdirs: num_images[subdirs.index("train")] = train_images
+        if "val" in subdirs: num_images[subdirs.index("val")] = val_images
+        if "test" in subdirs: num_images[subdirs.index("test")] = test_images
+        imgs_size[0] = np.array(num_images).sum()
+        images = np.zeros(imgs_size)
+        poses = np.zeros((imgs_size[0], 3, 4))
+        i_imgs = 0
+
+        for i_dir, dir in enumerate(subdirs):
+            poses_old = poses.copy()
+            print(f"Loading {dir} - {num_images[i_dir]} images...")
 
     def load_colmap(self, dataset_path, device=torch.device('cuda')):
         if dataset_path[-1] == '/':
@@ -691,7 +786,4 @@ class NeRFDataset():
         print("Focal", focal_length)
         self.hwf = (height, width, focal_length)
         
-    def get_val_pose_img_hwf(self, val_image=0):
-        i_train, i_val, i_test = self.i_split
-        return self.poses[i_val[val_image]], self.images[i_val[val_image]], self.hwf
 

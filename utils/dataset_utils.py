@@ -181,18 +181,19 @@ def add_to_id(basedir="../data/lego_lighting/val", offset=300):
         print(f"\t{filename}")
         shutil.copyfile(f"{basedir}/{f}", f"../COLMAP/lego_lighting/images/{filename}")
 
-def merge_images(sourcedir="../data/hotdog", destdir="../COLMAP/hotdog/images"):
+def merge_images(sourcedir="../data/hotdog", destdir="../COLMAP/hotdog/images", is_synthetic=True):
     subdirs = ["train", "val"]
     i_img = 0
     transforms = None
     for subdir in subdirs:
 
-        with open(os.path.join(sourcedir, f"transforms_{subdir}.json")) as json_file:
-            if transforms is None:
-                transforms = json.load(json_file)
-            else:
-                data = json.load(json_file)
-                transforms['frames'].extend(data['frames'])
+        if is_synthetic:
+            with open(os.path.join(sourcedir, f"transforms_{subdir}.json")) as json_file:
+                if transforms is None:
+                    transforms = json.load(json_file)
+                else:
+                    data = json.load(json_file)
+                    transforms['frames'].extend(data['frames'])
 
         for i, f in enumerate(sorted(os.listdir(os.path.join(sourcedir, subdir)))):
             if f.endswith('JPG') or f.endswith('jpg') or f.endswith('png'):
@@ -204,14 +205,210 @@ def merge_images(sourcedir="../data/hotdog", destdir="../COLMAP/hotdog/images"):
                 rgb_image = rgba_image.convert('RGB')
                 rgb_image.save(dest_path)
 
-                path = '/'.join(transforms['frames'][i_img]['file_path'].split('/')[:-1])
-                transforms['frames'][i_img]['file_path'] = f'{path}/r_{i_img}'
+                if is_synthetic:
+                    path = '/'.join(transforms['frames'][i_img]['file_path'].split('/')[:-1])
+                    transforms['frames'][i_img]['file_path'] = f'{path}/r_{i_img}'
                 i_img += 1
 
-    with open(os.path.join(destdir, "..", f"transforms.json"), "w") as json_file:
-        json.dump(transforms, json_file)
+    if is_synthetic:
+        with open(os.path.join(destdir, "..", f"transforms.json"), "w") as json_file:
+            json.dump(transforms, json_file, indent=4)
+
+def merge_images_realitycapture(sourcedir="../data/lego", destdir="../RealityCapture/lego"):
+    subdirs = ["train", "val"]
+    i_img = 0
+    transforms = None
+    for subdir in subdirs:
+
+        with open(os.path.join(sourcedir, f"transforms_{subdir}.json")) as json_file:
+            transforms = json.load(json_file)
+
+        for i, f in enumerate(sorted(os.listdir(os.path.join(sourcedir, subdir)))):
+            if f.endswith('JPG') or f.endswith('jpg') or f.endswith('png'):
+                source_path = os.path.join(sourcedir, subdir, f)
+                dest_path = os.path.join(destdir, f"r_{i_img}.png")
+                file_path = os.path.join(destdir, f"r_{i_img}.txt")
+                print(f"Copying {source_path} - {i} to {dest_path}")
+
+                rgba_image = PIL.Image.open(source_path)
+                rgb_image = rgba_image.convert('RGB')
+                rgb_image.save(dest_path)
+
+                transform = np.array(transforms['frames'][i]['transform_matrix'][:3])
+                with open(file_path, "w") as transform_file:
+                    for i in range(len(transform)):
+                        row = [str(c) for c in transform[i]]
+                        transform_file.write(' '.join(row)+'\n')
+                        
+                i_img += 1
+
+def listify_matrix(matrix):
+    matrix_list = []
+    for row in matrix:
+        matrix_list.append(list(row))
+    return matrix_list
+
+def get_realitycapture_pose(transform_matrix):
+    # https://support.capturingreality.com/hc/en-us/articles/360017783459-RealityCapture-XMP-Camera-Math
+    #realiycapture2nerf_rotation = np.diag([1,-1,-1])
+    realitycapture2nerf_rotation = np.array([[1, 0, 0],
+                                             [0, -1, 0],
+                                             [0, 0, -1]])
+    # Convert from blender world space to view space
+    blender_world_translation = transform_matrix[:3, 3]
+    blender_world_scale = np.linalg.norm(transform_matrix[:3, :3], axis=0)
+    blender_world_rotation = transform_matrix[:3, :3]
+    blender_world_rotation /= blender_world_scale
+
+    blender_view_rotation = blender_world_rotation.T
+    #blender_view_translation = -1.0 * blender_view_rotation @ blender_world_translation
+    # Convert from blender view space to colmap view space
+    realitycapture_view_rotation = blender_view_rotation @ realitycapture2nerf_rotation
+    #realitycapture_view_translation = blender_view_translation @ realitycapture2nerf_rotation
+    
+    trans_mat = np.concatenate([realitycapture_view_rotation, blender_world_translation.reshape(3,1)], axis=1)
+    trans_mat = np.concatenate([trans_mat, np.array([[0, 0, 0, 1]])], axis=0)
+    return trans_mat
+
+def xmp2transforms(sourcedir, xmp_path, realitycapture_path):
+    subdirs = ["train", "val"]
+    indices = [list(range(0, 100)), list(range(100, 200))]
+    
+    transforms = []
+    for i, subdir in enumerate(subdirs):        
+        transforms.append({
+            "camera_angle_x": 0,
+            "frames": []
+        })
+
+        if not os.path.exists(os.path.join(realitycapture_path, subdir)):
+            print("Creating ", os.path.join(realitycapture_path, subdir))
+            os.makedirs(os.path.join(realitycapture_path, subdir))
+        
+    for f in sorted(os.listdir(xmp_path)):
+        
+        frame = {
+            "file_path": f.rsplit('.xmp', 1)[0],
+        }
+
+        id = int(frame["file_path"].split("_")[1])
+        subdir = None
+        i_subdir = -1
+        for i, subd in enumerate(subdirs):
+            if id in indices[i]: 
+                subdir = subd
+                i_subdir = i
+                break
+
+        print(f"Getting the transforms of {frame['file_path']}")
+        with open(f"{xmp_path}/{f}", "r") as xmp_file:
+            rot_mat = None
+            t = None
+            for line in xmp_file:
+                if '<xcr:Rotation>' in line:
+                    line = line.strip()
+                    line = line.split('<xcr:Rotation>', 1)[1]
+                    line = line.rsplit('</xcr:Rotation>', 1)[0]
+                    rot_mat = np.array([float(i) for i in line.split(" ")]).reshape((3,3))
+                
+                if '<xcr:Position>' in line:
+                    line = line.strip()
+                    line = line.split('<xcr:Position>', 1)[1]
+                    line = line.rsplit('</xcr:Position>', 1)[0]
+                    t = np.array([float(i) for i in line.split(" ")]).reshape((3,1))
+
+                if 'xcr:Position=' in line:
+                    line = line.strip()
+                    line = line.split('xcr:Position="', 1)[1]
+                    line = line.rsplit('"', 1)[0]
+                    t = np.array([float(i) for i in line.split(" ")]).reshape((3,1))
+
+                if 'xcr:FocalLength35mm=' in line:
+                    line = line.strip()
+                    line = line.split('xcr:FocalLength35mm="', 1)[1]
+                    line = line.rsplit('"', 1)[0]
+                    focal = float(line)
+                    cam_ang_x = 2 * np.arctan(36/(2*focal))
+                    print("Focal", focal, cam_ang_x)
+
+            trans_mat = np.concatenate([rot_mat, t], axis=1)
+            trans_mat = np.concatenate([trans_mat, np.array([[0, 0, 0, 1]])], axis=0)
+            pose = get_realitycapture_pose(trans_mat)
+            #pose = np.concatenate([pose[:, 0:1], -pose[:, 1:2], -pose[:, 2:3], pose[:, 3:]], 1)
+            
+            frame["transform_matrix"] = listify_matrix(pose)
+            transforms[i_subdir]["frames"].append(frame)
+            transforms[i_subdir]["camera_angle_x"] += 1/len(transforms[i_subdir]["frames"]) * (cam_ang_x - transforms[i_subdir]["camera_angle_x"])
+            print("cam angle x", transforms[i_subdir]["camera_angle_x"])
+
+        source_path = os.path.join(sourcedir, f"r_{id}.png")
+        dest_path = os.path.join(realitycapture_path, subdir, f"r_{id}.png")
+        print(f"Copying {source_path} - {i} to {dest_path}")
+
+        rgba_image = PIL.Image.open(source_path)
+        rgb_image = rgba_image.convert('RGB')
+        rgb_image.save(dest_path)
+            
+
+    for i, subdir in enumerate(subdirs):
+        with open(os.path.join(realitycapture_path, f"transforms_{subdir}.json"), "w") as json_file:
+            json.dump(transforms[i], json_file, indent=4)
+
+def transforms2xmp(basedir, xmp_path, dest_path):
+    subdirs = ["train", "val"]
+    indices = [list(range(0, 100)), list(range(100, 200))]
+
+    transforms = []
+    for i_subdir, subdir in enumerate(subdirs):
+        with open(os.path.join(basedir, f"transforms_{subdir}.json")) as json_file:
+            transforms.append(json.load(json_file)) 
+
+    for f in sorted(os.listdir(xmp_path)):
+        id = int(f.rsplit('.xmp', 1)[0].split("_")[1])
+        subdir = None
+        i_subdir = -1
+        for i, subd in enumerate(subdirs):
+            if id in indices[i]: 
+                subdir = subd
+                i_subdir = i
+                frame_i = id - indices[i_subdir][0]
+                break
+
+        transform_mat = transforms[i_subdir]["frames"][frame_i]
+        rotation = list(transform_mat[:3, :3].flatten())
+        position = list(transform_mat[:3, 3].flatten())
+        print(transform_mat)
+        print(rotation)
+        print(position)
+
+        with open(f"{xmp_path}/{f}", "rw") as xmp_file:
+            for line in xmp_file:
+                if '<xcr:Rotation>' in line:
+                    new_line = line.split('<xcr:Rotation>', 1)[0]
+                    new_line += '<xcr:Rotation>'
+                    new_line += str(rotation)
+                    new_line += '</xcr:Rotation>'
+                    new_line += line.rsplit('</xcr:Rotation>', 1)[1]
+
+                
+                if '<xcr:Position>' in line:
+                    line = line.strip()
+                    line = line.split('<xcr:Position>', 1)[1]
+                    line = line.rsplit('</xcr:Position>', 1)[0]
+                    t = np.array([float(i) for i in line.split(" ")]).reshape((3,1))
+
+                if 'xcr:Position=' in line:
+                    line = line.strip()
+                    line = line.split('xcr:Position="', 1)[1]
+                    line = line.rsplit('"', 1)[0]
+                    t = np.array([float(i) for i in line.split(" ")]).reshape((3,1))
+            pass
+    
+
 
 if __name__ == "__main__":
     #convert_nerfactor(light_id="0000-0000")
     #add_to_id()
-    merge_images()
+    #merge_images("../data/lego_llff", "../RealityCapture/lego", is_synthetic=False)
+    #merge_images_realitycapture()
+    xmp2transforms("../RealityCapture/lego", "../RealityCapture/lego_xmp/", "../RealityCapture/lego_transforms/")

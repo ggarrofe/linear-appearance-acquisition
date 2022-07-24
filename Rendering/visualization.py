@@ -101,34 +101,25 @@ def validation_view_rgb_xndv(rgb_map, val_target, img_shape, points, normals, de
     
     plt.show()
 
-def validation_view_reflectance(reflectance, specular, diffuse, target, img_shape, points, normals, depths, it=0, out_path=None, name="val_reflectance", save=True, wandb_act=True):
+def validation_view_reflectance(reflectance, specular, diffuse, target, img_shape, points, it=0, out_path=None, name="val_reflectance", save=True, wandb_act=True):
     reflectance = torch.reshape(reflectance, img_shape)
     specular = torch.reshape(specular, img_shape)
     diffuse = torch.reshape(diffuse, img_shape)
     target = torch.reshape(target, img_shape)
     points = torch.reshape(points, img_shape)
-    points /= 7.0 # Keep the values lower than 1, constant so that all the views are scaled the same way
-    normals = torch.reshape(normals, img_shape)
-    depths = torch.reshape(depths, list(img_shape)[0:2])
-    depths = torch.nan_to_num(depths, posinf=10.0, neginf=10.0, nan=0.0)
+    #points /= 7.0 # Keep the values lower than 1, constant so that all the views are scaled the same way
 
     fig = plt.figure(figsize=(25, 10))
-    plt.subplot(231)
+    plt.subplot(221)
     plt.imshow(diffuse.cpu().numpy())
     plt.title(f"Diffuse - it {it}")
-    plt.subplot(232)
+    plt.subplot(222)
     plt.imshow(specular.cpu().numpy())
     plt.title(f"Specular - it {it}")
-    plt.subplot(233)
+    plt.subplot(223)
     plt.imshow(reflectance.cpu().numpy())
     plt.title("Predicted reflectance")
-    plt.subplot(234)
-    plt.imshow(normals.cpu().numpy())
-    plt.title("Normals")
-    plt.subplot(235)
-    plt.imshow(depths.cpu().numpy())
-    plt.title("Depths")
-    plt.subplot(236)
+    plt.subplot(224)
     plt.imshow(target.cpu().numpy())
     plt.title("Target reflectance")
 
@@ -137,7 +128,6 @@ def validation_view_reflectance(reflectance, specular, diffuse, target, img_shap
             plt.savefig(f"{out_path}/{name}_it{it}.png", bbox_inches='tight', dpi=150)
         if wandb_act:
             wandb.log({f"{name}_view": fig}, step=it)
-
     
     plt.show()
 

@@ -50,6 +50,7 @@ def kmeans(
     
     while True:
         centroids_pre = centroids.clone()
+        
         means[:,:] = 0.0
         n_samples[:] = 0
         
@@ -105,12 +106,12 @@ def kmeans_predict(
     return torch.argmin(dis, dim=1).cpu()
 
 
-def distance(points, centroids, device=torch.device('cpu')):
+def distance(points, centroids):
     # batch_size x 1 x N
-    points = points.to(device).unsqueeze(dim=1)
+    points = points.unsqueeze(dim=1)
 
     # 1 x num_clusters x N
-    centroids = centroids.to(device).unsqueeze(dim=0)
+    centroids = centroids.unsqueeze(dim=0)
 
     # broadcasted subtract
     dis = (points - centroids) ** 2.0
