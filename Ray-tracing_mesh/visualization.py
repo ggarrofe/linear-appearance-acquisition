@@ -30,7 +30,7 @@ def create_lineset(origins, dirs, color, near=2, far=6):
 
     return line_set
 
-def plot_rays_and_mesh(rays_od, mesh, light_rays=None, points_VLH=None, near=2, far=50000, pose=None):
+def plot_rays_and_mesh(rays_od, mesh, light_rays=None, points_VLH=None, near=2, far=5000, pose=None):
     mesh.compute_vertex_normals()
 
     camera = o3d.geometry.TriangleMesh.create_sphere(radius=0.01)
@@ -42,7 +42,7 @@ def plot_rays_and_mesh(rays_od, mesh, light_rays=None, points_VLH=None, near=2, 
     geometries = [camera, mesh, camera_rays]
 
     if pose is not None:
-        mesh_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=10.0, origin=pose[:3,3])
+        mesh_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1.0, origin=pose[:3,3])
         mesh_frame.rotate(pose[:3,:3].numpy())
         geometries.append(mesh_frame)
 

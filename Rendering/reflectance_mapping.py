@@ -5,6 +5,8 @@ import configargparse
 import open3d as o3d
 import visualization as v
 
+import gc
+
 import matplotlib.pyplot as plt
 
 import sys
@@ -39,26 +41,47 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-def filter_duplicates(xh, target):
-    unique_xh, inverse = torch.unique(xh, sorted=True, return_inverse=True, dim=0)
-    perm = torch.arange(inverse.size(0), dtype=inverse.dtype, device=inverse.device)
-    inverse, perm = inverse.flip([0]), perm.flip([0])
-    inidices = inverse.new_empty(unique_xh.size(0)).scatter_(0, inverse, perm)
+def filter_duplicates(xh, target, batch_size=1_000_000):
+    xh_unique = None
 
-    return unique_xh, target[inidices]
+    for i in range(0, xh.shape[0], batch_size):
+        xh_batch, inverse = torch.unique(xh[i:i+batch_size], sorted=True, return_inverse=True, dim=0)
+        perm = torch.arange(inverse.size(0), dtype=inverse.dtype, device=inverse.device)
+        inverse, perm = inverse.flip([0]), perm.flip([0])
+        indices_batch = inverse.new_empty(xh_batch.size(0)).scatter_(0, inverse, perm)
+        indices_batch += i
+
+        if xh_unique is None:
+            xh_unique, indices = xh_batch, indices_batch
+        else:
+            xh_unique_tmp = torch.cat([xh_unique, xh_batch])
+            indices = torch.cat([indices, indices_batch])
+            
+            xh_unique, inverse = torch.unique(xh_unique_tmp, return_inverse=True, dim=0)
+            perm = torch.arange(inverse.size(0), dtype=inverse.dtype, device=inverse.device)
+            inverse, perm = inverse.flip([0]), perm.flip([0])
+            indices_nonrep = inverse.new_empty(xh_unique.size(0)).scatter_(0, inverse, perm)
+            indices = indices[indices_nonrep]
+
+    return xh_unique, target[indices]
 
 def compute_inv(xh, target, cluster_id, cluster_ids, embed_fn, device=torch.device("cuda"), batch_size=1e07):
     mask = cluster_ids == cluster_id
-    xh, target, cluster_ids = xh[mask], target[mask], cluster_ids[mask]
-    
+    xh, target = xh[mask], target[mask]
+    del mask
+    gc.collect()
+
     # if the target is the same and the input is the same, reduce it
-    xh, target = filter_duplicates(xh, target)
+    print(f"Compute inv {xh.shape[0]}")
 
     if xh.shape[0] < batch_size:
+        print(f"Inverse computed in {device} - {xh.shape[0]}")
         xh_enc_inv = torch.linalg.pinv(embed_fn(xh.to(device)))
         linear_mapping = xh_enc_inv @ target.to(device)
     else: 
-        print(f"Inverse computed in gpu {xh.shape[0]}")
+        print(f"Inverse computed in {xh.device}, {target.device} - {xh.shape[0]}")
+        xh, target = filter_duplicates(xh, target)
+        print(f"Filtered xh {xh.shape}")
         xh_enc_inv = torch.linalg.pinv(embed_fn(xh))
         linear_mapping = xh_enc_inv @ target
     return linear_mapping.to(device)
@@ -132,6 +155,7 @@ if __name__ == "__main__":
                                                   device=device)
     
     # EVALUATION
+    print("evaluating...")
     xh, img_tr = dataset.get_xh_rgb("train", img=0, device=device)
     print("img tr", img_tr.shape)
     points_H_tr = torch.cat([xh[..., :3], xh[..., -3:]], dim=-1)

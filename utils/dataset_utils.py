@@ -248,10 +248,10 @@ def listify_matrix(matrix):
         matrix_list.append(list(row))
     return matrix_list
 
-def get_realitycapture_pose(transform_matrix):
+def realitycapture2blender_pose(transform_matrix):
     # https://support.capturingreality.com/hc/en-us/articles/360017783459-RealityCapture-XMP-Camera-Math
     #realiycapture2nerf_rotation = np.diag([1,-1,-1])
-    realitycapture2nerf_rotation = np.array([[1, 0, 0],
+    realitycapture2blender_rotation = np.array([[1, 0, 0],
                                              [0, -1, 0],
                                              [0, 0, -1]])
     # Convert from blender world space to view space
@@ -263,10 +263,24 @@ def get_realitycapture_pose(transform_matrix):
     blender_view_rotation = blender_world_rotation.T
     #blender_view_translation = -1.0 * blender_view_rotation @ blender_world_translation
     # Convert from blender view space to colmap view space
-    realitycapture_view_rotation = blender_view_rotation @ realitycapture2nerf_rotation
+    realitycapture_view_rotation = blender_view_rotation @ realitycapture2blender_rotation
     #realitycapture_view_translation = blender_view_translation @ realitycapture2nerf_rotation
     
     trans_mat = np.concatenate([realitycapture_view_rotation, blender_world_translation.reshape(3,1)], axis=1)
+    trans_mat = np.concatenate([trans_mat, np.array([[0, 0, 0, 1]])], axis=0)
+    return trans_mat
+
+def blender2realitycapture_pose(transform_matrix):
+    realitycapture2blender_rotation = np.diag([1,-1,-1])
+
+    # Convert from realitycapture world space to view space
+    blender_world_translation = transform_matrix[:3, 3]
+    realitycapture_view_rotation = transform_matrix[:3, :3]
+
+    blender_view_rotation = realitycapture_view_rotation @ realitycapture2blender_rotation
+    blender_world_rotation = blender_view_rotation.T
+    
+    trans_mat = np.concatenate([blender_world_rotation, blender_world_translation.reshape(3,1)], axis=1)
     trans_mat = np.concatenate([trans_mat, np.array([[0, 0, 0, 1]])], axis=0)
     return trans_mat
 
@@ -329,11 +343,13 @@ def xmp2transforms(sourcedir, xmp_path, realitycapture_path):
                     line = line.rsplit('"', 1)[0]
                     focal = float(line)
                     cam_ang_x = 2 * np.arctan(36/(2*focal))
-                    print("Focal", focal, cam_ang_x)
 
             trans_mat = np.concatenate([rot_mat, t], axis=1)
             trans_mat = np.concatenate([trans_mat, np.array([[0, 0, 0, 1]])], axis=0)
-            pose = get_realitycapture_pose(trans_mat)
+            #print("pose realitycapt", trans_mat)
+            pose = realitycapture2blender_pose(trans_mat)
+            #print("pose synth", pose)
+            #print("pose reconstr", blender2realitycapture_pose(pose))
             #pose = np.concatenate([pose[:, 0:1], -pose[:, 1:2], -pose[:, 2:3], pose[:, 3:]], 1)
             
             frame["transform_matrix"] = listify_matrix(pose)
@@ -374,34 +390,61 @@ def transforms2xmp(basedir, xmp_path, dest_path):
                 frame_i = id - indices[i_subdir][0]
                 break
 
-        transform_mat = transforms[i_subdir]["frames"][frame_i]
+        source_path = os.path.join(basedir, subdir, f"r_{frame_i}.png")
+        dest_img_path = os.path.join(dest_path, f"r_{id}.png")
+        print(f"Copying {source_path} - {i} to {dest_img_path}")
+
+        rgba_image = PIL.Image.open(source_path)
+        rgb_image = rgba_image.convert('RGB')
+        rgb_image.save(dest_img_path)
+        
+        transform_mat = np.array(transforms[i_subdir]["frames"][frame_i]["transform_matrix"])
+        transform_mat = blender2realitycapture_pose(transform_mat)
+        cam_ang_x = float(transforms[i_subdir]["camera_angle_x"])
+        print("cam ang", cam_ang_x)
+        focal_length = 36/(2 * np.tan(cam_ang_x/2))
+        
         rotation = list(transform_mat[:3, :3].flatten())
         position = list(transform_mat[:3, 3].flatten())
-        print(transform_mat)
-        print(rotation)
-        print(position)
 
-        with open(f"{xmp_path}/{f}", "rw") as xmp_file:
-            for line in xmp_file:
-                if '<xcr:Rotation>' in line:
-                    new_line = line.split('<xcr:Rotation>', 1)[0]
-                    new_line += '<xcr:Rotation>'
-                    new_line += str(rotation)
-                    new_line += '</xcr:Rotation>'
-                    new_line += line.rsplit('</xcr:Rotation>', 1)[1]
+        with open(f"{xmp_path}/{f}", "r") as xmp_r_file:
+            with open(f"{dest_path}/{f}", "w") as xmp_w_file:
+                for line in xmp_r_file:
+                    if '<xcr:Rotation>' in line:
+                        new_line = line.split('<xcr:Rotation>', 1)[0]
+                        new_line += '<xcr:Rotation>'
+                        new_line += ' '.join([str(r) for r in rotation])
+                        new_line += '</xcr:Rotation>'
+                        new_line += line.rsplit('</xcr:Rotation>', 1)[1]
+                        
+                    elif '<xcr:Position>' in line:
+                        new_line = line.split('<xcr:Position>', 1)[0]
+                        new_line += '<xcr:Position>'
+                        new_line += ' '.join([str(p) for p in position])
+                        new_line += '</xcr:Position>'
+                        new_line += line.rsplit('</xcr:Position>', 1)[1]
 
-                
-                if '<xcr:Position>' in line:
-                    line = line.strip()
-                    line = line.split('<xcr:Position>', 1)[1]
-                    line = line.rsplit('</xcr:Position>', 1)[0]
-                    t = np.array([float(i) for i in line.split(" ")]).reshape((3,1))
+                    elif 'xcr:Position=' in line:
+                        print(f"special position {f}")
+                        new_line = line.split('xcr:Position="', 1)[0]
+                        new_line += 'xcr:Position="'
+                        new_line += ' '.join([str(p) for p in position])
+                        new_line += '"'
+                        new_line += line.rsplit('"', 1)[1]
 
-                if 'xcr:Position=' in line:
-                    line = line.strip()
-                    line = line.split('xcr:Position="', 1)[1]
-                    line = line.rsplit('"', 1)[0]
-                    t = np.array([float(i) for i in line.split(" ")]).reshape((3,1))
+                    elif 'xcr:FocalLength35mm=' in line:
+                        print("focal length", focal_length)
+                        new_line = line.split('xcr:FocalLength35mm="', 1)[0]
+                        new_line += 'xcr:FocalLength35mm="'
+                        new_line += str(focal_length)
+                        new_line += '"'
+                        new_line += line.rsplit('"', 1)[1]
+
+                    else:
+                        new_line = line
+
+                    xmp_w_file.write(new_line)
+
             pass
     
 
@@ -411,4 +454,5 @@ if __name__ == "__main__":
     #add_to_id()
     #merge_images("../data/lego_llff", "../RealityCapture/lego", is_synthetic=False)
     #merge_images_realitycapture()
-    xmp2transforms("../RealityCapture/lego", "../RealityCapture/lego_xmp/", "../RealityCapture/lego_transforms/")
+    #xmp2transforms("../RealityCapture/hotdog", "../RealityCapture/hotdog_xmp/", "../RealityCapture/hotdog_transforms/")
+    transforms2xmp("../data/hotdog", "../RealityCapture/hotdog_xmp", "../RealityCapture/hotdog_known_xmp")
