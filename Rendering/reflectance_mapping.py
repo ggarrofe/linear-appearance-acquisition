@@ -4,7 +4,7 @@ import torch.nn as nn
 import configargparse
 import open3d as o3d
 import visualization as v
-
+from tqdm import tqdm
 import gc
 
 import matplotlib.pyplot as plt
@@ -71,17 +71,11 @@ def compute_inv(xh, target, cluster_id, cluster_ids, embed_fn, device=torch.devi
     del mask
     gc.collect()
 
-    # if the target is the same and the input is the same, reduce it
-    print(f"Compute inv {xh.shape[0]}")
-
     if xh.shape[0] < batch_size:
-        print(f"Inverse computed in {device} - {xh.shape[0]}")
         xh_enc_inv = torch.linalg.pinv(embed_fn(xh.to(device)))
         linear_mapping = xh_enc_inv @ target.to(device)
     else: 
-        print(f"Inverse computed in {xh.device}, {target.device} - {xh.shape[0]}")
         xh, target = filter_duplicates(xh, target)
-        print(f"Filtered xh {xh.shape}")
         xh_enc_inv = torch.linalg.pinv(embed_fn(xh))
         linear_mapping = xh_enc_inv @ target
     return linear_mapping.to(device)
@@ -146,7 +140,7 @@ if __name__ == "__main__":
     centroids[args.num_clusters-1] = torch.tensor([-1., -1., -1.]).to(xh)
     cluster_ids = cluster_ids.cpu()
 
-    for cluster_id in range(args.num_clusters):
+    for cluster_id in tqdm(range(args.num_clusters), unit="linear mapping", desc="Computing linear mappings"):
         linear_mappings[cluster_id] = compute_inv(torch.cat([xh[..., :3], xh[..., -3:]], dim=-1), 
                                                   target_rgb, 
                                                   cluster_id, 
