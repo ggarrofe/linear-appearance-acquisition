@@ -91,3 +91,25 @@ class SurfaceRenderingNetwork(nn.Module):
             x = y
 
         return y
+
+class LinearNetwork(nn.Module):
+    def __init__(self, linear_mappings, embed_fn):
+        super(LinearNetwork, self).__init__()
+
+        # linear_mappings: n_clusters x 3 x encoding_size
+        linear_mappings = linear_mappings.reshape(-1, linear_mappings.shape[-1])
+
+        self.linear_net = nn.Linear(in_features=linear_mappings.shape[-1], out_features=linear_mappings.shape[0], bias=False)
+        with torch.no_grad():
+            self.linear_net.weight = nn.Parameter(linear_mappings)
+
+        self.embed_fn = embed_fn
+
+    def forward(self, X, cluster_ids):
+        encoded_X = self.embed_fn(X)
+        rgb_clusters = self.linear_net(encoded_X)
+
+        row_indices = torch.arange(encoded_X.shape[0])
+        col_indices = torch.stack([3*cluster_ids, 3*cluster_ids+1, 3*cluster_ids+2])
+        rgb = rgb_clusters[row_indices, col_indices].T
+        return rgb
