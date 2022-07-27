@@ -4,6 +4,8 @@ import torch.nn as nn
 import configargparse
 import open3d as o3d
 import visualization as v
+from tqdm import tqdm
+import gc
 
 import matplotlib.pyplot as plt
 
@@ -33,15 +35,25 @@ def parse_args():
     parser.add_argument('--train_images', type=int, help='number of training images', default=100)
     parser.add_argument('--test_images', type=int, help='number of test images', default=100)
     parser.add_argument('--kmeans_tol', type=float, help='threshold to stop iterating the kmeans algorithm', default=1e-04)
+    parser.add_argument('--load_light', action='store_true', help='load light sources positions')
     args = parser.parse_args()
     return args
 
-def compute_inv(xnv, target, cluster_id, cluster_ids, embed_fn):
+def compute_inv(xnv, target, cluster_id, cluster_ids, embed_fn, device=torch.device("cuda"), batch_size=1e07):
     mask = cluster_ids == cluster_id
-    xnv_enc = embed_fn(xnv[mask])
-    xnv_enc_inv = torch.linalg.pinv(xnv_enc)
-    linear_mapping = xnv_enc_inv @ target[mask]
-    return linear_mapping
+    xnv, target = xnv[mask], target[mask]
+    del mask
+    gc.collect()
+
+    if xnv.shape[0] < batch_size:
+        xnv_enc_inv = torch.linalg.pinv(embed_fn(xnv.to(device)))
+        linear_mapping = xnv_enc_inv @ target.to(device)
+    else: 
+        xnv, indices = utils.filter_duplicates(xnv)
+        target = target[indices]
+        xnv_enc_inv = torch.linalg.pinv(embed_fn(xnv))
+        linear_mapping = xnv_enc_inv @ target
+    return linear_mapping.to(device)
 
 def predict(xnv, pred, linear_mapping, cluster_id, cluster_ids, embed_fn):
     mask = (cluster_ids == cluster_id)
@@ -83,9 +95,9 @@ if __name__ == "__main__":
     embed_fn, input_ch = emb.get_embedder(in_dim=9, num_freqs=6)
     xnv, target_rgb, depths = dataset.get_tensors("train", device=device)
     
-    linear_mappings = torch.zeros([args.num_clusters, input_ch, 3]).to(xnv)
-    cluster_ids = torch.zeros((xnv.shape[0],)).to(xnv)
-    centroids = torch.zeros((args.num_clusters, 3)).to(xnv)
+    linear_mappings = torch.zeros([args.num_clusters, input_ch, 3]).to(device)
+    cluster_ids = torch.zeros((xnv.shape[0],)).to(device)
+    centroids = torch.zeros((args.num_clusters, 3)).to(device)
 
     mask = (xnv[:,0] == -1.) & (xnv[:,1] == -1.) & (xnv[:,2] == -1.) #not masking takes too much time
     
@@ -94,10 +106,10 @@ if __name__ == "__main__":
                                                                  tol=args.kmeans_tol,
                                                                  device=device,
                                                                  batch_size=args.batch_size)
-    cluster_ids.masked_fill_(mask, args.num_clusters-1)
+    cluster_ids.masked_fill_(mask.to(device), args.num_clusters-1)
     centroids[args.num_clusters-1] = torch.tensor([-1., -1., -1.]).to(xnv)
 
-    for cluster_id in range(args.num_clusters):
+    for cluster_id in tqdm(range(args.num_clusters-1), unit="linear mapping", desc="Computing linear mappings"):
         linear_mappings[cluster_id] = compute_inv(xnv, target_rgb, cluster_id, cluster_ids, embed_fn=embed_fn)
     
     # EVALUATION
@@ -105,28 +117,13 @@ if __name__ == "__main__":
     pred_rgb_tr = torch.zeros_like(img_tr)
     colors_tr = torch.zeros_like(xnv_tr[..., :3])
 
-    xnv_val, img_val, depths_val = dataset.get_X_target("val", 0, device=device)
-    pred_rgb_val = torch.zeros_like(img_val)
-
     cluster_ids_tr = kmeans_predict(xnv_tr[..., :3], centroids, device=device)
     v.plot_clusters_3Dpoints(xnv_tr[..., :3], cluster_ids_tr, args.num_clusters, colab=args.colab, out_path=args.out_path, filename="train_clusters.png")
 
-    cluster_ids_val = kmeans_predict(xnv_val[..., :3], centroids, device=device)
-    v.plot_clusters_3Dpoints(xnv_val[..., :3], cluster_ids_val, args.num_clusters, colab=args.colab, out_path=args.out_path, filename="val_clusters.png")
-
-    for cluster_id in range(args.num_clusters):
+    for cluster_id in range(args.num_clusters-1):
         predict(xnv_tr, pred_rgb_tr, linear_mappings[cluster_id], cluster_id, cluster_ids_tr, embed_fn)
-        predict(xnv_val, pred_rgb_val, linear_mappings[cluster_id], cluster_id, cluster_ids_val, embed_fn)
-    
-    loss_tr = loss_fn(pred_rgb_tr, img_tr)
-    loss_val = loss_fn(pred_rgb_val, img_val)
 
-    print({
-            "loss_tr": loss_tr,
-            "psnr_tr": mse2psnr(loss_tr),
-            "loss_val": loss_val,
-            "psnr_val": mse2psnr(loss_val)
-            })
+    loss_tr = loss_fn(pred_rgb_tr, img_tr)
 
     v.validation_view_rgb_xndv(pred_rgb_tr.detach().cpu(), 
                                     img_tr.detach().cpu(), 
@@ -139,6 +136,25 @@ if __name__ == "__main__":
                                     out_path=args.out_path,
                                     name="training_xnv",
                                     wandb_act=False)
+
+    xnv_val, img_val, depths_val = dataset.get_X_target("val", 0, device=device)
+    pred_rgb_val = torch.zeros_like(img_val)
+
+    cluster_ids_val = kmeans_predict(xnv_val[..., :3], centroids, device=device)
+    v.plot_clusters_3Dpoints(xnv_val[..., :3], cluster_ids_val, args.num_clusters, colab=args.colab, out_path=args.out_path, filename="val_clusters.png")
+
+    for cluster_id in range(args.num_clusters-1):
+        predict(xnv_val, pred_rgb_val, linear_mappings[cluster_id], cluster_id, cluster_ids_val, embed_fn)
+    
+
+    loss_val = loss_fn(pred_rgb_val, img_val)
+
+    print({
+            "loss_tr": loss_tr,
+            "psnr_tr": mse2psnr(loss_tr),
+            "loss_val": loss_val,
+            "psnr_val": mse2psnr(loss_val)
+            })
 
     v.validation_view_rgb_xndv(pred_rgb_val.detach().cpu(), 
                                     img_val.detach().cpu(), 

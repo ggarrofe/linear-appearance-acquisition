@@ -30,14 +30,14 @@ def create_lineset(origins, dirs, color, near=2, far=6):
 
     return line_set
 
-def plot_rays_and_mesh(rays_od, mesh, light_rays=None, points_VLH=None, near=2, far=5000, pose=None):
+def plot_rays_and_mesh(rays_od, mesh, light_rays=None, xh=None, near=2, far=6, pose=None):
     mesh.compute_vertex_normals()
 
     camera = o3d.geometry.TriangleMesh.create_sphere(radius=0.01)
     camera.translate(rays_od[0, :3])
     camera.paint_uniform_color([1, 0, 0])
     
-    camera_rays = create_lineset(rays_od[..., :3], rays_od[..., 3:], color=np.array([1, 0, 0]), near=near, far=far) # red camera rays
+    camera_rays = create_lineset(rays_od[..., :3], rays_od[..., 3:], color=np.array([1, 0, 0]), near=near, far=5000) # red camera rays
 
     geometries = [camera, mesh, camera_rays]
 
@@ -53,16 +53,14 @@ def plot_rays_and_mesh(rays_od, mesh, light_rays=None, points_VLH=None, near=2, 
         geometries.append(light)
         
         light_rays = create_lineset(light_rays[..., :3], light_rays[..., 3:], color=np.array([1, 0.706, 0]), near=0, far=far) # yellow light rays
-        #geometries.append(light_rays)
+        geometries.append(light_rays)
 
-    if points_VLH is not None:
-        V = create_lineset(origins=points_VLH[..., :3], dirs=points_VLH[..., 3:6], color=np.array([1, 0, 0]), near=0, far=far) # yellow light rays
-        L = create_lineset(origins=points_VLH[..., :3], dirs=points_VLH[..., 6:9], color=np.array([1, 0.706, 0]), near=0, far=far) # yellow light rays
-        H = create_lineset(origins=points_VLH[..., :3], dirs=points_VLH[..., 9:], color=np.array([0, 0, 1]), near=0, far=far) # yellow light rays
-        geometries.extend([V, L, H])
+    if xh is not None:
+        H = create_lineset(origins=xh[..., :3], dirs=xh[..., 3:], color=np.array([0, 0, 1]), near=0, far=far) # yellow light rays
+        geometries.extend([H])
         
         surf_point = o3d.geometry.TriangleMesh.create_sphere(radius=0.01)
-        surf_point.translate(points_VLH[0, :3])
+        surf_point.translate(xh[0, :3])
         surf_point.paint_uniform_color([0, 0, 1])
         geometries.append(surf_point)
 

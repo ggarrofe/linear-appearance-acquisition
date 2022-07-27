@@ -2,6 +2,9 @@ from functools import reduce
 import numpy as np
 import open3d.core as o3c
 
+import torch
+from tqdm import tqdm
+
 def append_dict(dict, new_dict):
     for key in dict:
         dict[key].append(new_dict[key])
@@ -32,3 +35,28 @@ def cast_rays(scene, rays_od):
     ans = scene.cast_rays(torch2open3d(rays_od.float()))
     hit = ans['t_hit'].numpy()
     return hit
+
+####################       LINEAR MAPPING       ####################
+def filter_duplicates(xh, batch_size=1_000_000):
+    xh_unique = None
+    for i in tqdm(range(0, xh.shape[0], batch_size), unit="batch", leave=False, desc=f"Filtering {xh.shape[0]} points"):
+        xh_batch, inverse = torch.unique(xh[i:i+batch_size], sorted=True, return_inverse=True, dim=0)
+        perm = torch.arange(inverse.size(0), dtype=inverse.dtype, device=inverse.device)
+        inverse, perm = inverse.flip([0]), perm.flip([0])
+        indices_batch = inverse.new_empty(xh_batch.size(0)).scatter_(0, inverse, perm)
+        indices_batch += i
+        
+        if xh_unique is None:
+            xh_unique, indices = xh_batch, indices_batch
+        else:
+            xh_unique_tmp = torch.cat([xh_unique, xh_batch])
+            indices = torch.cat([indices, indices_batch])
+            
+            xh_unique, inverse = torch.unique(xh_unique_tmp, return_inverse=True, dim=0)
+            perm = torch.arange(inverse.size(0), dtype=inverse.dtype, device=inverse.device)
+            inverse, perm = inverse.flip([0]), perm.flip([0])
+            indices_nonrep = inverse.new_empty(xh_unique.size(0)).scatter_(0, inverse, perm)
+            indices = indices[indices_nonrep]
+
+    print(f"Filtered to {xh_unique.shape[0]}")
+    return xh_unique, indices

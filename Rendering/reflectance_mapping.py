@@ -41,30 +41,6 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-def filter_duplicates(xh, target, batch_size=1_000_000):
-    xh_unique = None
-
-    for i in range(0, xh.shape[0], batch_size):
-        xh_batch, inverse = torch.unique(xh[i:i+batch_size], sorted=True, return_inverse=True, dim=0)
-        perm = torch.arange(inverse.size(0), dtype=inverse.dtype, device=inverse.device)
-        inverse, perm = inverse.flip([0]), perm.flip([0])
-        indices_batch = inverse.new_empty(xh_batch.size(0)).scatter_(0, inverse, perm)
-        indices_batch += i
-
-        if xh_unique is None:
-            xh_unique, indices = xh_batch, indices_batch
-        else:
-            xh_unique_tmp = torch.cat([xh_unique, xh_batch])
-            indices = torch.cat([indices, indices_batch])
-            
-            xh_unique, inverse = torch.unique(xh_unique_tmp, return_inverse=True, dim=0)
-            perm = torch.arange(inverse.size(0), dtype=inverse.dtype, device=inverse.device)
-            inverse, perm = inverse.flip([0]), perm.flip([0])
-            indices_nonrep = inverse.new_empty(xh_unique.size(0)).scatter_(0, inverse, perm)
-            indices = indices[indices_nonrep]
-
-    return xh_unique, target[indices]
-
 def compute_inv(xh, target, cluster_id, cluster_ids, embed_fn, device=torch.device("cuda"), batch_size=1e07):
     mask = cluster_ids == cluster_id
     xh, target = xh[mask], target[mask]
@@ -75,7 +51,8 @@ def compute_inv(xh, target, cluster_id, cluster_ids, embed_fn, device=torch.devi
         xh_enc_inv = torch.linalg.pinv(embed_fn(xh.to(device)))
         linear_mapping = xh_enc_inv @ target.to(device)
     else: 
-        xh, target = filter_duplicates(xh, target)
+        xh, indices = utils.filter_duplicates(xh)
+        target = target[indices]
         xh_enc_inv = torch.linalg.pinv(embed_fn(xh))
         linear_mapping = xh_enc_inv @ target
     return linear_mapping.to(device)
@@ -87,10 +64,11 @@ def predict(xh, pred, spec_pred, diffuse_pred, linear_mapping, cluster_id, clust
     pred[cluster_ids == cluster_id] = xh_enc @ linear_mapping
 
     # First half of the linear mapping will predict the diffuse color (only depends on the position)
-    diffuse_pred[cluster_ids == cluster_id] = xh_enc[..., :int(xh_enc.shape[1]/2)] @ linear_mapping[:int(linear_mapping.shape[0]/2)]
+    diffuse_pred[cluster_ids == cluster_id] = xh_enc[..., :48] @ linear_mapping[:48]
 
     # Second half of the linear mapping will predict the specular color (depends on the half-angle vector)
-    spec_pred[cluster_ids == cluster_id] = xh_enc[..., int(xh_enc.shape[1]/2):] @ linear_mapping[int(linear_mapping.shape[0]/2):]
+    linear_mapping_spec = torch.cat([linear_mapping[:36], linear_mapping[48:]], dim=0)
+    spec_pred[cluster_ids == cluster_id] = torch.cat([xh_enc[..., :36], xh_enc[..., 48:]], dim=-1) @ linear_mapping_spec
 
 if __name__ == "__main__":
     args = parse_args()
@@ -122,8 +100,8 @@ if __name__ == "__main__":
     mse2psnr = lambda x : -10. * torch.log(x) / torch.log(torch.Tensor([10.]).to(device))
     
     # TRAINING
-    embed_fn, input_ch = emb.get_embedder(in_dim=6, num_freqs=6)
     xh, target_rgb = dataset.get_xh_rgb("train", img=-1, device=torch.device("cpu"))
+    embed_fn, input_ch = emb.get_embedder(in_dim=xh.shape[-1], num_freqs=6)
     
     linear_mappings = torch.zeros([args.num_clusters, input_ch, 3]).to(device)
     cluster_ids = torch.zeros((xh.shape[0],),).to(device)
@@ -141,7 +119,7 @@ if __name__ == "__main__":
     cluster_ids = cluster_ids.cpu()
 
     for cluster_id in tqdm(range(args.num_clusters), unit="linear mapping", desc="Computing linear mappings"):
-        linear_mappings[cluster_id] = compute_inv(torch.cat([xh[..., :3], xh[..., -3:]], dim=-1), 
+        linear_mappings[cluster_id] = compute_inv(xh, 
                                                   target_rgb, 
                                                   cluster_id, 
                                                   cluster_ids, 
@@ -150,41 +128,42 @@ if __name__ == "__main__":
     
     # EVALUATION
     print("evaluating...")
-    xh, img_tr = dataset.get_xh_rgb("train", img=0, device=device)
-    print("img tr", img_tr.shape)
-    points_H_tr = torch.cat([xh[..., :3], xh[..., -3:]], dim=-1)
-    pred_rgb = torch.zeros_like(img_tr)
-    pred_rgb_spec = torch.zeros_like(img_tr)
-    pred_rgb_diff = torch.zeros_like(img_tr)
-
-    cluster_ids_tr = kmeans_predict(points_H_tr[..., :3], centroids, device=device)
-
-    for cluster_id in range(args.num_clusters):
-        predict(points_H_tr, pred_rgb, pred_rgb_spec, pred_rgb_diff, linear_mappings[cluster_id], cluster_id, cluster_ids_tr, embed_fn)
-    
-    v.plot_clusters_3Dpoints(points_H_tr[..., :3], cluster_ids_tr, args.num_clusters, colab=args.colab, out_path=args.out_path, filename="train_clusters.png")
+    for i in range(5):
+        xh, img_tr = dataset.get_xh_rgb("train", img=i, device=device)
         
-    loss_tr = loss_fn(pred_rgb, img_tr)
+        pred_rgb = torch.zeros_like(img_tr)
+        pred_rgb_spec = torch.zeros_like(img_tr)
+        pred_rgb_diff = torch.zeros_like(img_tr)
 
-    v.validation_view_reflectance(reflectance=pred_rgb.detach().cpu(),
-                                  specular=pred_rgb_spec.detach().cpu(), 
-                                  diffuse=pred_rgb_diff.detach().cpu(), 
-                                  target=img_tr.detach().cpu(),
-                                  points=xh[..., :3].detach().cpu(),
-                                  img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
-                                  out_path=args.out_path,
-                                  name="training_reflectance",
-                                  wandb_act=False)
+        cluster_ids_tr = kmeans_predict(xh[..., :3], centroids, device=device)
+
+        for cluster_id in range(args.num_clusters):
+            predict(xh, pred_rgb, pred_rgb_spec, pred_rgb_diff, linear_mappings[cluster_id], cluster_id, cluster_ids_tr, embed_fn)
+        
+        v.plot_clusters_3Dpoints(xh[..., :3], cluster_ids_tr, args.num_clusters, colab=args.colab, out_path=args.out_path, filename="train_clusters.png")
+            
+        loss_tr = loss_fn(pred_rgb, img_tr)
+
+        v.validation_view_reflectance(reflectance=pred_rgb.detach().cpu(),
+                                    specular=pred_rgb_spec.detach().cpu(), 
+                                    diffuse=pred_rgb_diff.detach().cpu(), 
+                                    target=img_tr.detach().cpu(),
+                                    points=xh[..., :3].detach().cpu(),
+                                    img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
+                                    out_path=args.out_path,
+                                    it=i,
+                                    name="training_reflectance",
+                                    wandb_act=False)
 
     for i in range(dataset.get_n_images("val")):
         xh, img_val = dataset.get_xh_rgb("val", img=i, device=device)
-        points_H_val = torch.cat([xh[..., :3], xh[..., -3:]], dim=-1)
+        #points_H_val = torch.cat([xh[..., :3], xh[..., 3:]], dim=-1)
 
-        cluster_ids_val = kmeans_predict(points_H_val[..., :3], centroids, device=device)
+        cluster_ids_val = kmeans_predict(xh[..., :3], centroids, device=device)
         for cluster_id in range(args.num_clusters):
-            predict(points_H_val, pred_rgb, pred_rgb_spec, pred_rgb_diff, linear_mappings[cluster_id], cluster_id, cluster_ids_val, embed_fn)
+            predict(xh, pred_rgb, pred_rgb_spec, pred_rgb_diff, linear_mappings[cluster_id], cluster_id, cluster_ids_val, embed_fn)
         
-        v.plot_clusters_3Dpoints(points_H_val[..., :3], cluster_ids_val, args.num_clusters, colab=args.colab, out_path=args.out_path, filename="val_clusters.png")
+        v.plot_clusters_3Dpoints(xh[..., :3], cluster_ids_val, args.num_clusters, colab=args.colab, out_path=args.out_path, filename="val_clusters.png")
 
         v.validation_view_reflectance(reflectance=pred_rgb.detach().cpu(),
                                       specular=pred_rgb_spec.detach().cpu(),
