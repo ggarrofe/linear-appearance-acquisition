@@ -103,90 +103,70 @@ if __name__ == "__main__":
     mse2psnr = lambda x : -10. * torch.log(x) / torch.log(torch.Tensor([10.]).to(device))
     
     # TRAINING
-    xh, target_rgb = dataset.get_xh_rgb("train", img=-1, device=torch.device("cpu"))
-    embed_fn, input_ch = emb.get_embedder(in_dim=xh.shape[-1], num_freqs=1)
+    x_NdotL_NdotH, target_rgb = dataset.get_x_NdotL_NdotH_rgb("train", img=-1, device=torch.device("cpu"))
+    embed_fn, input_ch = emb.get_embedder(in_dim=x_NdotL_NdotH.shape[-1], num_freqs=6)
     
     linear_mappings = torch.zeros([args.num_clusters, 3, input_ch]).to(device)
-    cluster_ids = torch.zeros((xh.shape[0],),).to(device)
+    cluster_ids = torch.zeros((x_NdotL_NdotH.shape[0],),).to(device)
     centroids = torch.zeros((args.num_clusters, 3)).to(device)
 
-    mask = (xh[:,0] == -1.) & (xh[:,1] == -1.) & (xh[:,2] == -1.) #not masking takes too much time
-    cluster_ids[~mask], centroids[:args.num_clusters-1] = kmeans(xh[~mask, :3],
+    mask = (x_NdotL_NdotH[:,0] == -1.) & (x_NdotL_NdotH[:,1] == -1.) & (x_NdotL_NdotH[:,2] == -1.) #not masking takes too much time
+    cluster_ids[~mask], centroids[:args.num_clusters-1] = kmeans(x_NdotL_NdotH[~mask, :3],
                                                                  num_clusters=args.num_clusters-1, 
                                                                  tol=args.kmeans_tol,
                                                                  device=device,
                                                                  batch_size=args.batch_size)
     
     cluster_ids.masked_fill_(mask.to(device), args.num_clusters-1)
-    centroids[args.num_clusters-1] = torch.tensor([-1., -1., -1.]).to(xh)
+    centroids[args.num_clusters-1] = torch.tensor([-1., -1., -1.]).to(x_NdotL_NdotH)
     cluster_ids = cluster_ids.cpu()
 
-    #get_pos2cluster(xh[..., :3], cluster_ids, args.num_clusters)
-
     for cluster_id in tqdm(range(args.num_clusters), unit="linear mapping", desc="Computing linear mappings"):
-        linear_mappings[cluster_id] = compute_inv(xh, 
+        linear_mappings[cluster_id] = compute_inv(x_NdotL_NdotH, 
                                                   target_rgb, 
                                                   cluster_id, 
                                                   cluster_ids, 
                                                   embed_fn=embed_fn,
                                                   device=device)
 
-    linear_net = net.LinearNetwork(linear_mappings, embed_fn)
+    linear_net = net.LinearNetwork(in_features=x_NdotL_NdotH.shape[-1], linear_mappings=linear_mappings, num_freqs=6)
+    linear_net.to(device)
+    
     # EVALUATION
     print("evaluating...")
     for i in range(5):
-        xh, img_tr = dataset.get_xh_rgb("train", img=i, device=device)
+        x_NdotL_NdotH, img_tr = dataset.get_x_NdotL_NdotH_rgb("train", img=i, device=device)
         
-        pred_rgb = torch.zeros_like(img_tr)
-        pred_rgb_spec = torch.zeros_like(img_tr)
-        pred_rgb_diff = torch.zeros_like(img_tr)
-
-        cluster_ids_tr = kmeans_predict(xh[..., :3], centroids, device=device)
-        pred_rgb_net = linear_net(xh, cluster_ids_tr)
-        for cluster_id in range(args.num_clusters):
-            predict(xh, pred_rgb, pred_rgb_spec, pred_rgb_diff, linear_mappings[cluster_id], cluster_id, cluster_ids_tr, embed_fn)
-        
-        v.plot_clusters_3Dpoints(xh[..., :3], cluster_ids_tr, args.num_clusters, colab=args.colab, out_path=args.out_path, filename="train_clusters.png")
-            
+        cluster_ids_tr = kmeans_predict(x_NdotL_NdotH[..., :3], centroids, device=device)
+        pred_rgb = linear_net(x_NdotL_NdotH, cluster_ids_tr)
+        pred_rgb_spec = linear_net.specular(x_NdotL_NdotH, cluster_ids_tr)
+        pred_rgb_diff = linear_net.diffuse(x_NdotL_NdotH, cluster_ids_tr)
+          
         loss_tr = loss_fn(pred_rgb, img_tr)
 
         v.validation_view_reflectance(reflectance=pred_rgb.detach().cpu(),
                                     specular=pred_rgb_spec.detach().cpu(), 
                                     diffuse=pred_rgb_diff.detach().cpu(), 
                                     target=img_tr.detach().cpu(),
-                                    points=xh[..., :3].detach().cpu(),
+                                    points=x_NdotL_NdotH[..., :3].detach().cpu(),
                                     img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
                                     out_path=args.out_path,
                                     it=i,
                                     name="training_reflectance",
                                     wandb_act=False)
 
-        v.validation_view_reflectance(reflectance=pred_rgb_net.detach().cpu(),
-                                    specular=pred_rgb_net.detach().cpu(), 
-                                    diffuse=pred_rgb_net.detach().cpu(), 
-                                    target=img_tr.detach().cpu(),
-                                    points=xh[..., :3].detach().cpu(),
-                                    img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
-                                    out_path=args.out_path,
-                                    it=i,
-                                    name="network_training_reflectance",
-                                    wandb_act=False)
-    sys.exit()
     for i in range(dataset.get_n_images("val")):
-        xh, img_val = dataset.get_xh_rgb("val", img=i, device=device)
-        #points_H_val = torch.cat([xh[..., :3], xh[..., 3:]], dim=-1)
-
-        cluster_ids_val = kmeans_predict(xh[..., :3], centroids, device=device)
-        for cluster_id in range(args.num_clusters):
-            predict(xh, pred_rgb, pred_rgb_spec, pred_rgb_diff, linear_mappings[cluster_id], cluster_id, cluster_ids_val, embed_fn)
-        
-        v.plot_clusters_3Dpoints(xh[..., :3], cluster_ids_val, args.num_clusters, colab=args.colab, out_path=args.out_path, filename="val_clusters.png")
+        x_NdotL_NdotH, img_val = dataset.get_x_NdotL_NdotH_rgb("val", img=i, device=device)
+        cluster_ids_tr = kmeans_predict(x_NdotL_NdotH[..., :3], centroids, device=device)
+        pred_rgb = linear_net(x_NdotL_NdotH, cluster_ids_tr)
+        pred_rgb_spec = linear_net.specular(x_NdotL_NdotH, cluster_ids_tr)
+        pred_rgb_diff = linear_net.diffuse(x_NdotL_NdotH, cluster_ids_tr)
 
         v.validation_view_reflectance(reflectance=pred_rgb.detach().cpu(),
                                       specular=pred_rgb_spec.detach().cpu(),
                                       diffuse=pred_rgb_diff.detach().cpu(),
                                       target=img_val.detach().cpu(),
-                                      points=xh[..., :3].detach().cpu(),
+                                      points=x_NdotL_NdotH[..., :3].detach().cpu(),
                                       it=i,
                                       img_shape=(dataset.hwf[0], dataset.hwf[1], 3),
                                       out_path=args.out_path,

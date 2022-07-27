@@ -93,7 +93,7 @@ class SurfaceRenderingNetwork(nn.Module):
         return y
 
 class LinearNetwork(nn.Module):
-    def __init__(self, linear_mappings, embed_fn):
+    def __init__(self, in_features, linear_mappings, num_freqs):
         super(LinearNetwork, self).__init__()
 
         # linear_mappings: n_clusters x 3 x encoding_size
@@ -103,7 +103,8 @@ class LinearNetwork(nn.Module):
         with torch.no_grad():
             self.linear_net.weight = nn.Parameter(linear_mappings)
 
-        self.embed_fn = embed_fn
+        self.embed_fn, self.input_ch = emb.get_embedder(in_dim=in_features, num_freqs=num_freqs)
+        self.num_freqs = num_freqs
 
     def forward(self, X, cluster_ids):
         encoded_X = self.embed_fn(X)
@@ -113,3 +114,27 @@ class LinearNetwork(nn.Module):
         col_indices = torch.stack([3*cluster_ids, 3*cluster_ids+1, 3*cluster_ids+2])
         rgb = rgb_clusters[row_indices, col_indices].T
         return rgb
+
+    def specular(self, X, cluster_ids):
+        encoded_X = self.embed_fn(X)
+        X_pos = 3*2*self.num_freqs
+        NdotH_pos = 4*2*self.num_freqs
+        linear_mapping_spec = torch.cat([self.linear_net.weight[..., :X_pos], 
+                                         self.linear_net.weight[..., NdotH_pos:]], dim=-1)
+
+        specular = torch.cat([encoded_X[..., :X_pos], encoded_X[..., NdotH_pos:]], dim=-1) @ linear_mapping_spec.T
+
+        row_indices = torch.arange(encoded_X.shape[0])
+        col_indices = torch.stack([3*cluster_ids, 3*cluster_ids+1, 3*cluster_ids+2])
+        return specular[row_indices, col_indices].T
+
+    def diffuse(self, X, cluster_ids):
+        encoded_X = self.embed_fn(X)
+        NdotL_pos = 4*2*self.num_freqs
+
+        diffuse = encoded_X[..., :NdotL_pos] @ self.linear_net.weight[..., :NdotL_pos].T
+
+        row_indices = torch.arange(encoded_X.shape[0])
+        col_indices = torch.stack([3*cluster_ids, 3*cluster_ids+1, 3*cluster_ids+2])
+        return diffuse[row_indices, col_indices].T
+
