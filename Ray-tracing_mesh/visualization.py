@@ -67,6 +67,24 @@ def plot_rays_and_mesh(rays_od, mesh, light_rays=None, xh=None, near=2, far=6, p
     
     o3d.visualization.draw_geometries(geometries)
 
+def plot_camera_and_mesh(mesh_path, camera_pose):
+    scene = o3d.t.geometry.RaycastingScene()
+    mesh = o3d.io.read_triangle_mesh(mesh_path, print_progress=True)
+    scene.add_triangles(o3d.t.geometry.TriangleMesh.from_legacy(mesh))
+    mesh.compute_vertex_normals()
+
+    camera = o3d.geometry.TriangleMesh.create_sphere(radius=0.01)
+    camera.translate(camera_pose[:3, 3])
+    camera.paint_uniform_color([1, 0, 0])
+    
+    cam_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1.0, origin=camera_pose[:3,3])
+    cam_frame.rotate(camera_pose[:3,:3].numpy())
+    geometries.append(cam_frame)
+    
+    geometries = [camera, mesh, cam_frame]
+    
+    o3d.visualization.draw_geometries(geometries)
+
 
 def get_lines_camera(rays_od, rgb, near=2, far=6):
     points_n = rays_od[::100, :3] + near * rays_od[::100, 3:]

@@ -103,7 +103,7 @@ def kmeans_predict(
 ):
     X = X.float().to(device)
     dis = distance(X, centroids)
-    return torch.argmin(dis, dim=1).cpu()
+    return torch.argmin(dis, dim=1)
 
 
 def distance(points, centroids):

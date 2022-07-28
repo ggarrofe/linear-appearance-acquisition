@@ -210,7 +210,7 @@ class NeRFSubDataset():
             normals = direction/magnitude * 0.5 + 0.5
             self.normals[i:i+h*w] = torch.nan_to_num(normals, nan=-1.0).reshape((h*w, 3))
 
-    def compute_xh(self):
+    def compute_halfangles(self):
         assert self.light_poses is not None, "Light poses info is missing"
         
         light_pos = torch.stack([c2w[:3, 3][None, None, ...].expand((self.hwf[0], self.hwf[1], 3)) for c2w in self.light_poses])
@@ -229,7 +229,7 @@ class NeRFSubDataset():
                                         for c2w in tqdm(self.light_poses, unit="pose", desc="Generating ray lights")])
         self.light_rays = self.light_rays.reshape((-1, 6))
 
-    def create_xnv_dataset(self, scene, device=torch.device("cpu")):
+    def switch_2_xnv_dataset(self, scene, device=torch.device("cpu")):
         self.compute_depths(scene, device=device)
         self.compute_normals()
 
@@ -237,6 +237,12 @@ class NeRFSubDataset():
         X = torch.cat([self.points, self.normals, viewdirs], dim=-1)
         
         self.dataset = TensorDataset(X, self.dataset.tensors[1])
+        self.dataloader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=self.shuffle)
+        self.iterator = iter(self.dataloader)
+
+    def switch_2_x_NdotL_NdotH_dataset(self, device=torch.device("cpu")):
+        x_NdotL_NdotH, rgb = self.get_x_NdotL_NdotH_rgb(i=-1, device=device)
+        self.dataset = TensorDataset(x_NdotL_NdotH, rgb)
         self.dataloader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=self.shuffle)
         self.iterator = iter(self.dataloader)
 
@@ -281,7 +287,7 @@ class NeRFSubDataset():
         w = self.hwf[1]
 
         if self.half_angles is None and self.light_poses is not None:
-            self.compute_xh()
+            self.compute_halfangles()
 
         return self.half_angles[i*h*w:(i+1)*h*w].float().to(device)
 
@@ -290,7 +296,7 @@ class NeRFSubDataset():
         w = self.hwf[1]
 
         if self.light_rays is None and self.light_poses is not None:
-            self.compute_xh()
+            self.compute_halfangles()
 
         return self.light_rays[i*h*w:(i+1)*h*w].float().to(device)
 
@@ -299,7 +305,7 @@ class NeRFSubDataset():
         w = self.hwf[1]
 
         if self.half_angles is None and self.light_poses is not None:
-            self.compute_xh()
+            self.compute_halfangles()
 
         if i >= 0:
             return torch.cat([self.get_points(i, device), 
@@ -316,7 +322,7 @@ class NeRFSubDataset():
         w = self.hwf[1]
 
         if self.half_angles is None and self.light_poses is not None:
-            self.compute_xh()
+            self.compute_halfangles()
 
         if i >= 0:
             return torch.cat([self.get_points(i, device),
@@ -481,9 +487,9 @@ class NeRFDataset():
         subdataset = [d for d in self.subdatasets if d.name == dataset][0]
         return subdataset.n_images
 
-    def compute_depths(self, scene):
+    def compute_depths(self, scene, device=torch.device('cuda')):
         for subdataset in self.subdatasets:
-            subdataset.compute_depths(scene)
+            subdataset.compute_depths(scene, device=device)
 
     def get_depths(self, dataset="val", i=0, device=torch.device('cuda')):
         subdataset = [d for d in self.subdatasets if d.name == dataset][0]
@@ -509,13 +515,17 @@ class NeRFDataset():
         subdataset = [d for d in self.subdatasets if d.name == dataset][0]
         return subdataset.get_sorted_tensors(device=device)
 
-    def create_xnv_dataset(self, scene, device=torch.device('cpu')):
+    def switch_2_xnv_dataset(self, scene, device=torch.device('cpu')):
         for d in self.subdatasets:
-            d.create_xnv_dataset(scene, device=device)
+            d.switch_2_xnv_dataset(scene, device=device)
 
-    def compute_xh(self):
+    def switch_2_x_NdotL_NdotH_dataset(self, device=torch.device('cpu')):
         for d in self.subdatasets:
-            d.compute_xh()
+            d.switch_2_x_NdotL_NdotH_dataset(device=device)
+
+    def compute_halfangles(self):
+        for d in self.subdatasets:
+            d.compute_halfangles()
 
     def sort_clusters(self, cluster_ids):
         subdataset = [d for d in self.subdatasets if d.name == "train"][0]

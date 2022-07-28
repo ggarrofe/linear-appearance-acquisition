@@ -39,7 +39,8 @@ def cast_rays(scene, rays_od):
 ####################       LINEAR MAPPING       ####################
 def filter_duplicates(xh, batch_size=1_000_000):
     xh_unique = None
-    for i in tqdm(range(0, xh.shape[0], batch_size), unit="batch", desc=f"Filtering {xh.shape[0]} points"):
+    tqdm._instances.clear()
+    for i in tqdm(range(0, xh.shape[0], batch_size), unit="batch", leave=False, desc=f"Filtering {xh.shape[0]} points"):
         xh_batch, inverse = torch.unique(xh[i:i+batch_size], sorted=True, return_inverse=True, dim=0)
         perm = torch.arange(inverse.size(0), dtype=inverse.dtype, device=inverse.device)
         inverse, perm = inverse.flip([0]), perm.flip([0])
@@ -58,5 +59,5 @@ def filter_duplicates(xh, batch_size=1_000_000):
             indices_nonrep = inverse.new_empty(xh_unique.size(0)).scatter_(0, inverse, perm)
             indices = indices[indices_nonrep]
 
-    print(f"Filtered to {xh_unique.shape[0]}")
+    print(f"Filtered {xh.shape[0]} points to {xh_unique.shape[0]}")
     return xh_unique, indices
