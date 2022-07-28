@@ -54,17 +54,20 @@ if __name__ == '__main__':
 
         scene = o3d.t.geometry.RaycastingScene()
         scene.add_triangles(o3d.t.geometry.TriangleMesh.from_legacy(mesh))
-        dataset.compute_depths(scene)
+        dataset.compute_depths(scene, device=device)
+        dataset.compute_normals()
         xh, rgb = dataset.get_xh_rgb("train", i, device=device)
         light_rays = dataset.get_light_rays("train", i, device=device)
 
         if args.test:
             print(dataset.poses.shape)
-            v.plot_rays_and_mesh(rays_od=rays_od[320400:320401],  # 800*400+400
+            '''v.plot_rays_and_mesh(rays_od=rays_od[320400:320401],  # 800*400+400
                                  mesh=mesh,
                                  pose=dataset.poses[i],
                                  light_rays=light_rays[320400:320401],
-                                 xh=xh[320400:320401])
+                                 xh=xh[320400:320401])'''
+            
+            v.render_mesh(args.mesh, dataset.poses[i])
             
         hit = utils.cast_rays(scene, rays_od)
         hit = hit.reshape(dataset.hwf[0], dataset.hwf[1])

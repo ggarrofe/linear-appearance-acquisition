@@ -131,6 +131,40 @@ def validation_view_reflectance(reflectance, specular, diffuse, target, img_shap
     
     plt.show()
 
+def validation_view_reflectance(reflectance, specular, diffuse, target, linear, img_shape, points, it=0, out_path=None, name="val_reflectance", save=True, wandb_act=True):
+    reflectance = torch.reshape(reflectance, img_shape)
+    specular = torch.reshape(specular, img_shape)
+    diffuse = torch.reshape(diffuse, img_shape)
+    target = torch.reshape(target, img_shape)
+    points = torch.reshape(points, img_shape)
+    linear = torch.reshape(linear, img_shape)
+    #points /= 7.0 # Keep the values lower than 1, constant so that all the views are scaled the same way
+
+    fig = plt.figure(figsize=(25, 10))
+    plt.subplot(231)
+    plt.imshow(diffuse.cpu().numpy())
+    plt.title(f"Diffuse - it {it}")
+    plt.subplot(232)
+    plt.imshow(specular.cpu().numpy())
+    plt.title(f"Specular - it {it}")
+    plt.subplot(233)
+    plt.imshow(linear.cpu().numpy())
+    plt.title("Linear mapping reflectance")
+    plt.subplot(234)
+    plt.imshow(reflectance.cpu().numpy())
+    plt.title("Predicted reflectance")
+    plt.subplot(235)
+    plt.imshow(target.cpu().numpy())
+    plt.title("Target reflectance")
+
+    if save:
+        if out_path is not None:
+            plt.savefig(f"{out_path}/{name}_it{it}.png", bbox_inches='tight', dpi=150)
+        if wandb_act:
+            wandb.log({f"{name}_view": fig}, step=it)
+    
+    plt.show()
+
 def dataset_view_rgb_xnv(img, img_shape, points, normals, viewdirs):
     img = torch.reshape(img, img_shape)
     points = torch.reshape(points, img_shape)

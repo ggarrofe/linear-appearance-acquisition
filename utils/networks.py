@@ -138,6 +138,41 @@ class LinearNetwork(nn.Module):
         col_indices = torch.stack([3*cluster_ids, 3*cluster_ids+1, 3*cluster_ids+2])
         return diffuse[row_indices, col_indices].T
 
+    def specular_component(self, X, cluster_ids):
+        encoded_X = self.embed_fn(X)
+        NdotH_pos = 4*2*self.num_freqs
+        encoded_X[..., :NdotH_pos] = 0.
+
+        rgb_clusters = self.linear_net(encoded_X)
+
+        row_indices = torch.arange(encoded_X.shape[0])
+        col_indices = torch.stack([3*cluster_ids, 3*cluster_ids+1, 3*cluster_ids+2])
+        return rgb_clusters[row_indices, col_indices].T
+    
+    def diffuse_component(self, X, cluster_ids):
+        encoded_X = self.embed_fn(X)
+        X_pos = 3*2*self.num_freqs
+        NdotL_pos = 4*2*self.num_freqs
+        encoded_X[..., :X_pos] = 0.
+        encoded_X[..., NdotL_pos:] = 0.
+
+        rgb_clusters = self.linear_net(encoded_X)
+
+        row_indices = torch.arange(encoded_X.shape[0])
+        col_indices = torch.stack([3*cluster_ids, 3*cluster_ids+1, 3*cluster_ids+2])
+        return rgb_clusters[row_indices, col_indices].T
+
+    def ambient_component(self, X, cluster_ids):
+        encoded_X = self.embed_fn(X)
+        X_pos = 3*2*self.num_freqs
+        encoded_X[..., X_pos:] = 0.
+
+        rgb_clusters = self.linear_net(encoded_X)
+
+        row_indices = torch.arange(encoded_X.shape[0])
+        col_indices = torch.stack([3*cluster_ids, 3*cluster_ids+1, 3*cluster_ids+2])
+        return rgb_clusters[row_indices, col_indices].T
+
 class ReflectanceNetwork(nn.Module):
     def __init__(self, in_features, linear_mappings, num_freqs):
         super(ReflectanceNetwork, self).__init__()
@@ -147,18 +182,31 @@ class ReflectanceNetwork(nn.Module):
 
         self.linear_net = nn.Linear(in_features=linear_mappings.shape[-1], out_features=linear_mappings.shape[0], bias=False)
         with torch.no_grad():
-            self.linear_net.weight = nn.Parameter(linear_mappings)
+            self.linear_net.weight = nn.Parameter(linear_mappings, requires_grad=False)
 
-        # X    \ --------------------------\
-        # NdotH \ --> linear layer + relu --\>  residual layer
-        # NdotL /  
+        # X     \ ---------------------\
+        # NdotL   > linear layer + relu  >  residual layer
+        # NdotH /  
         
         # regularizer: difference between linear layer output and final output 
-
+        '''self.layers = nn.Sequential(self.linear_net, 
+                                     nn.ReLU(), 
+                                     nn.Linear(in_features=linear_mappings.shape[0], out_features=512),
+                                     nn.ReLU(),
+                                     nn.Linear(in_features=512, out_features=3),
+                                     nn.Tanh())'''
+        self.layers = nn.Sequential(self.linear_net, 
+                                     nn.ReLU(), 
+                                     nn.Linear(in_features=linear_mappings.shape[0], out_features=3),
+                                     nn.Tanh())
         self.embed_fn, self.input_ch = emb.get_embedder(in_dim=in_features, num_freqs=num_freqs)
         self.num_freqs = num_freqs
 
-    def forward(self, X, cluster_ids):
+    def forward(self, X):
+        encoded_X = self.embed_fn(X)
+        return self.layers(encoded_X)
+
+    def linear(self, X, cluster_ids):
         encoded_X = self.embed_fn(X)
         rgb_clusters = self.linear_net(encoded_X)
 
@@ -167,25 +215,27 @@ class ReflectanceNetwork(nn.Module):
         rgb = rgb_clusters[row_indices, col_indices].T
         return rgb
 
-    def specular(self, X, cluster_ids):
+    def specular(self, X):
+
         encoded_X = self.embed_fn(X)
         X_pos = 3*2*self.num_freqs
         NdotH_pos = 4*2*self.num_freqs
-        linear_mapping_spec = torch.cat([self.linear_net.weight[..., :X_pos], 
-                                         self.linear_net.weight[..., NdotH_pos:]], dim=-1)
+        encoded_X_amb = torch.cat([encoded_X[..., :X_pos], torch.zeros((encoded_X.shape[0], 2*2*self.num_freqs)).to(encoded_X)], dim=-1)
+        encoded_X_spec = torch.cat([torch.zeros((encoded_X.shape[0], NdotH_pos)).to(encoded_X), encoded_X[..., NdotH_pos:]], dim=-1)
+        
+        amb = self.layers(encoded_X_amb)
+        spec = self.layers(encoded_X_spec)
 
-        specular = torch.cat([encoded_X[..., :X_pos], encoded_X[..., NdotH_pos:]], dim=-1) @ linear_mapping_spec.T
+        return amb+spec
 
-        row_indices = torch.arange(encoded_X.shape[0])
-        col_indices = torch.stack([3*cluster_ids, 3*cluster_ids+1, 3*cluster_ids+2])
-        return specular[row_indices, col_indices].T
-
-    def diffuse(self, X, cluster_ids):
+    def diffuse(self, X):
         encoded_X = self.embed_fn(X)
+        X_pos = 3*2*self.num_freqs
         NdotL_pos = 4*2*self.num_freqs
+        encoded_X_amb = torch.cat([encoded_X[..., :X_pos], torch.zeros((encoded_X.shape[0], 2*2*self.num_freqs)).to(encoded_X)], dim=-1)
+        encoded_X_diff = torch.cat([torch.zeros((encoded_X.shape[0], X_pos)).to(encoded_X), encoded_X[..., X_pos:NdotL_pos], torch.zeros((encoded_X.shape[0], 1*2*self.num_freqs)).to(encoded_X)], dim=-1)
+        
+        amb = self.layers(encoded_X_amb)
+        diff = self.layers(encoded_X_diff)
 
-        diffuse = encoded_X[..., :NdotL_pos] @ self.linear_net.weight[..., :NdotL_pos].T
-
-        row_indices = torch.arange(encoded_X.shape[0])
-        col_indices = torch.stack([3*cluster_ids, 3*cluster_ids+1, 3*cluster_ids+2])
-        return diffuse[row_indices, col_indices].T
+        return amb+diff

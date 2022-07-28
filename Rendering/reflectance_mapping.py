@@ -96,8 +96,9 @@ if __name__ == "__main__":
     mesh = o3d.t.geometry.TriangleMesh.from_legacy(mesh)
     scene = o3d.t.geometry.RaycastingScene()
     scene.add_triangles(mesh)
-    dataset.create_xnv_dataset(scene, device=device if args.dataset_to_gpu else torch.device("cpu"))
-    dataset.compute_xh()
+    dataset.compute_depths(scene, device=torch.device("cpu"))
+    dataset.compute_normals()
+    dataset.compute_halfangles()
     
     loss_fn = nn.MSELoss()
     mse2psnr = lambda x : -10. * torch.log(x) / torch.log(torch.Tensor([10.]).to(device))
@@ -141,6 +142,10 @@ if __name__ == "__main__":
         pred_rgb = linear_net(x_NdotL_NdotH, cluster_ids_tr)
         pred_rgb_spec = linear_net.specular(x_NdotL_NdotH, cluster_ids_tr)
         pred_rgb_diff = linear_net.diffuse(x_NdotL_NdotH, cluster_ids_tr)
+        
+        spec_comp = linear_net.specular_component(x_NdotL_NdotH, cluster_ids_tr)
+        diff_comp = linear_net.diffuse_component(x_NdotL_NdotH, cluster_ids_tr)
+        amb_comp = linear_net.ambient_component(x_NdotL_NdotH, cluster_ids_tr)
           
         loss_tr = loss_fn(pred_rgb, img_tr)
 
@@ -153,6 +158,17 @@ if __name__ == "__main__":
                                     out_path=args.out_path,
                                     it=i,
                                     name="training_reflectance",
+                                    wandb_act=False)
+        
+        v.validation_view_reflectance(reflectance=(amb_comp+spec_comp+diff_comp).detach().cpu(),
+                                    specular=(amb_comp+spec_comp).detach().cpu(), 
+                                    diffuse=(amb_comp+diff_comp).detach().cpu(), 
+                                    target=img_tr.detach().cpu(),
+                                    points=x_NdotL_NdotH[..., :3].detach().cpu(),
+                                    img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
+                                    out_path=args.out_path,
+                                    it=i,
+                                    name="training_reflectance_test",
                                     wandb_act=False)
 
     for i in range(dataset.get_n_images("val")):
