@@ -51,15 +51,18 @@ def compute_inv(xh, target, cluster_id, cluster_ids, embed_fn, device=torch.devi
     del mask
     gc.collect()
 
-    if xh.shape[0] < batch_size:
-        xh_enc_inv = torch.linalg.pinv(embed_fn(xh.to(device)))
-
-        linear_mapping = xh_enc_inv @ target.to(device)
-    else: 
+    if xh.shape[0] > batch_size:
         xh, indices = utils.filter_duplicates(xh)
         target = target[indices]
+
+    if xh.shape[0] < batch_size:
+        xh_enc_inv = torch.linalg.pinv(embed_fn(xh.to(device)))
+        linear_mapping = xh_enc_inv @ target.to(device)
+
+    else: 
         xh_enc_inv = torch.linalg.pinv(embed_fn(xh))
         linear_mapping = xh_enc_inv @ target
+
     return linear_mapping.T.to(device)
 
 def predict(xh, pred, spec_pred, diffuse_pred, linear_mapping, cluster_id, cluster_ids, embed_fn):
@@ -75,13 +78,32 @@ def predict(xh, pred, spec_pred, diffuse_pred, linear_mapping, cluster_id, clust
     linear_mapping_spec = torch.cat([linear_mapping[..., :36], linear_mapping[..., 48:]], dim=-1)
     spec_pred[cluster_ids == cluster_id] = torch.cat([xh_enc[..., :36], xh_enc[..., 48:]], dim=-1) @ linear_mapping_spec.T
 
-def get_x2cluster(X, cluster_ids, num_clusters):
-    indices = torch.stack([torch.arange(0,cluster_ids.shape[0]), cluster_ids])
-    clusters = torch.sparse_coo_tensor(indices, torch.ones((cluster_ids.shape[0],)), (cluster_ids.shape[0], num_clusters)).to_dense()
-    print(clusters.shape)
+def get_x2cluster(X, cluster_ids, num_clusters, device=torch.device("cuda"), gpu_limit=1e05):
+    X_dev = X.device
+    print("X_dev", X_dev)
+
+    if X.shape[0] > gpu_limit:
+        X, indices = utils.filter_duplicates(X)
+    else:
+        X, indices = utils.filter_duplicates(X.to(device))
+        
+    
+    if X.shape[0] > gpu_limit:
+        device = torch.device("cpu")
+
+    cluster_ids = cluster_ids.to(device)
+    indices = indices.to(device)
+    cluster_ids = cluster_ids[indices]
+
+    indices = torch.stack([torch.arange(0,cluster_ids.shape[0], device=device), cluster_ids])
+    print("indices", indices.device)
+    clusters = torch.sparse_coo_tensor(indices, torch.ones((cluster_ids.shape[0],), device=device), (cluster_ids.shape[0], num_clusters))
+    print("clusters", clusters.device)
+    clusters = clusters.to_dense()
+    print("clusters dense", clusters.device)
     x2cluster = torch.linalg.pinv(X) @ clusters  
-    print(x2cluster.shape)
-    return x2cluster
+    print("x2cluster dense", x2cluster.device)
+    return x2cluster.T
 
 if __name__ == "__main__":
     args = parse_args()
@@ -168,7 +190,6 @@ if __name__ == "__main__":
         
         cluster_ids.masked_fill_(mask.to(device), args.num_clusters-1)
         centroids[args.num_clusters-1] = torch.tensor([-1., -1., -1.]).to(x_NdotL_NdotH)
-        cluster_ids = cluster_ids.cpu()
 
         for cluster_id in tqdm(range(args.num_clusters), unit="linear mapping", desc="Computing linear mappings"):
             linear_mappings[cluster_id] = compute_inv(x_NdotL_NdotH, 
@@ -178,7 +199,8 @@ if __name__ == "__main__":
                                                     embed_fn=embed_fn,
                                                     device=device)
 
-        reflectance_net = net.ReflectanceNetwork(in_features=x_NdotL_NdotH.shape[-1], linear_mappings=linear_mappings, num_freqs=6)
+        x2cluster = get_x2cluster(embed_fn(x_NdotL_NdotH[..., :3]), cluster_ids, args.num_clusters, device=device)
+        reflectance_net = net.ClusterizedReflectance(in_features=x_NdotL_NdotH.shape[-1], linear_mappings=linear_mappings, x2cluster=x2cluster, num_freqs=6)
         linear_mappings = linear_mappings.cpu()
         reflectance_net = reflectance_net.to(device)
 
@@ -201,10 +223,11 @@ if __name__ == "__main__":
         linear_pred_rgb = reflectance_net.linear_mapping.reflectance(batch_x_NdotL_NdotH_tr.to(device), cluster_ids_tr)
         linear_pred_spec = reflectance_net.linear_mapping.specular(batch_x_NdotL_NdotH_tr.to(device), cluster_ids_tr)
         linear_pred_diff = reflectance_net.linear_mapping.diffuse(batch_x_NdotL_NdotH_tr.to(device), cluster_ids_tr)
-        loss = loss_fn(pred_rgb, target_rgb_tr) + loss_fn(pred_spec, linear_pred_spec) + loss_fn(pred_diff, linear_pred_diff)
-        print("train spec loss", 0.1 * loss_fn(pred_spec, linear_pred_spec))
-        print("train diff loss", 0.1 * loss_fn(pred_diff, linear_pred_diff))
-        print("train loss", loss_fn(pred_rgb, target_rgb_tr))
+        
+        loss_spec = 0.5*loss_fn(pred_spec, linear_pred_spec)
+        loss_diff = 0.1*loss_fn(pred_diff, linear_pred_diff)
+        loss = loss_fn(pred_rgb, target_rgb_tr) + loss_diff + loss_spec
+
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -217,7 +240,9 @@ if __name__ == "__main__":
 
         wandb.log({
                 "tr_loss": loss,
-                "tr_psnr": mse2psnr(loss)
+                "tr_psnr": mse2psnr(loss),
+                "tr_loss_spec": loss_spec,
+                "tr_loss_diff": loss_diff
                 }, step=iter)
 
         # ------------------------ VALIDATION ------------------------
@@ -232,12 +257,17 @@ if __name__ == "__main__":
         linear_pred_spec = reflectance_net.linear_mapping.specular(batch_x_NdotL_NdotH_val.to(device), cluster_ids_val)
         linear_pred_diff = reflectance_net.linear_mapping.diffuse(batch_x_NdotL_NdotH_val.to(device), cluster_ids_val)
         
+        loss_spec = 0.5*loss_fn(pred_spec, linear_pred_spec)
+        loss_diff = 0.1*loss_fn(pred_diff, linear_pred_diff)
+        loss = loss_fn(pred_rgb, target_rgb_tr) + loss_diff + loss_spec
 
         val_loss = loss_fn(pred_rgb_val, target_rgb_val) + loss_fn(pred_spec, linear_pred_spec) + loss_fn(pred_diff, linear_pred_diff)
 
         wandb.log({
                 "val_loss": val_loss,
-                "val_psnr": mse2psnr(val_loss)
+                "val_psnr": mse2psnr(val_loss),
+                "val_loss_spec": loss_spec,
+                "val_loss_diff": loss_diff
                 }, step=iter)
 
         #  ------------------------ EVALUATION ------------------------

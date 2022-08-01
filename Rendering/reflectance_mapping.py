@@ -104,7 +104,7 @@ if __name__ == "__main__":
     mse2psnr = lambda x : -10. * torch.log(x) / torch.log(torch.Tensor([10.]).to(device))
     
     # TRAINING
-    x_NdotL_NdotH, target_rgb = dataset.get_x_NdotL_NdotH_rgb("train", img=-1, device=torch.device("cpu"))
+    x_NdotL_NdotH, target_rgb = dataset.get_X_NdotL_NdotH_rgb("train", img=-1, device=torch.device("cpu"))
     embed_fn, input_ch = emb.get_embedder(in_dim=x_NdotL_NdotH.shape[-1], num_freqs=6)
     
     linear_mappings = torch.zeros([args.num_clusters, 3, input_ch]).to(device)
@@ -136,7 +136,7 @@ if __name__ == "__main__":
     # EVALUATION
     print("evaluating...")
     for i in range(5):
-        x_NdotL_NdotH, img_tr = dataset.get_x_NdotL_NdotH_rgb("train", img=i, device=device)
+        x_NdotL_NdotH, img_tr = dataset.get_X_NdotL_NdotH_rgb("train", img=i, device=device)
         
         cluster_ids_tr = kmeans_predict(x_NdotL_NdotH[..., :3], centroids, device=device)
         pred_rgb = linear_net(x_NdotL_NdotH, cluster_ids_tr)
@@ -172,7 +172,7 @@ if __name__ == "__main__":
                                     wandb_act=False)
 
     for i in range(dataset.get_n_images("val")):
-        x_NdotL_NdotH, img_val = dataset.get_x_NdotL_NdotH_rgb("val", img=i, device=device)
+        x_NdotL_NdotH, img_val = dataset.get_X_NdotL_NdotH_rgb("val", img=i, device=device)
         cluster_ids_tr = kmeans_predict(x_NdotL_NdotH[..., :3], centroids, device=device)
         pred_rgb = linear_net(x_NdotL_NdotH, cluster_ids_tr)
         pred_rgb_spec = linear_net.specular(x_NdotL_NdotH, cluster_ids_tr)

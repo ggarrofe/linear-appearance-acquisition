@@ -137,9 +137,9 @@ if __name__ == "__main__":
         x_NdotL_NdotH, target_rgb = dataset.get_X_NdotL_NdotH_rgb("train", img=-1, device=torch.device("cpu"))
         embed_fn, input_ch = emb.get_embedder(in_dim=x_NdotL_NdotH.shape[-1], num_freqs=6)
 
-        reflectance_net = net.ReflectanceNetwork(in_features=x_NdotL_NdotH.shape[-1], 
-                                        linear_mappings=torch.zeros((args.num_clusters, 3, input_ch)), 
-                                        num_freqs=6)
+        reflectance_net = net.ResidualReflectance(in_features=x_NdotL_NdotH.shape[-1], 
+                                                  linear_mappings=torch.zeros((args.num_clusters, 3, input_ch)), 
+                                                  num_freqs=6)
         reflectance_net.to(device)
         optimizer = torch.optim.Adam(reflectance_net.parameters(), lr=args.lrate)
 
@@ -178,7 +178,7 @@ if __name__ == "__main__":
                                                     embed_fn=embed_fn,
                                                     device=device)
 
-        reflectance_net = net.ReflectanceNetwork(in_features=x_NdotL_NdotH.shape[-1], linear_mappings=linear_mappings, num_freqs=6)
+        reflectance_net = net.ResidualReflectance(in_features=x_NdotL_NdotH.shape[-1], linear_mappings=linear_mappings, num_freqs=6)
         linear_mappings = linear_mappings.cpu()
         reflectance_net = reflectance_net.to(device)
 
@@ -195,16 +195,13 @@ if __name__ == "__main__":
         batch_x_NdotL_NdotH_tr, target_rgb_tr = dataset.next_batch("train", device=device)
 
         cluster_ids_tr = kmeans_predict(batch_x_NdotL_NdotH_tr[..., :3], centroids, device=device)
-        pred_rgb = reflectance_net(batch_x_NdotL_NdotH_tr)
-        pred_spec = reflectance_net.specular(batch_x_NdotL_NdotH_tr)
-        pred_diff = reflectance_net.diffuse(batch_x_NdotL_NdotH_tr)
+        pred_rgb = reflectance_net(batch_x_NdotL_NdotH_tr, cluster_ids_tr)
+        pred_spec = reflectance_net.specular(batch_x_NdotL_NdotH_tr, cluster_ids_tr)
+        pred_diff = reflectance_net.diffuse(batch_x_NdotL_NdotH_tr, cluster_ids_tr)
         linear_pred_rgb = reflectance_net.linear_mapping.reflectance(batch_x_NdotL_NdotH_tr.to(device), cluster_ids_tr)
         linear_pred_spec = reflectance_net.linear_mapping.specular(batch_x_NdotL_NdotH_tr.to(device), cluster_ids_tr)
         linear_pred_diff = reflectance_net.linear_mapping.diffuse(batch_x_NdotL_NdotH_tr.to(device), cluster_ids_tr)
-        loss = loss_fn(pred_rgb, target_rgb_tr) + loss_fn(pred_spec, linear_pred_spec) + loss_fn(pred_diff, linear_pred_diff)
-        print("train spec loss", 0.1 * loss_fn(pred_spec, linear_pred_spec))
-        print("train diff loss", 0.1 * loss_fn(pred_diff, linear_pred_diff))
-        print("train loss", loss_fn(pred_rgb, target_rgb_tr))
+        loss = loss_fn(pred_rgb, target_rgb_tr) #+ loss_fn(pred_spec, linear_pred_spec) + loss_fn(pred_diff, linear_pred_diff)
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -225,15 +222,15 @@ if __name__ == "__main__":
         batch_x_NdotL_NdotH_val, target_rgb_val = dataset.next_batch("val", device=device)
         
         cluster_ids_val = kmeans_predict(batch_x_NdotL_NdotH_val[..., :3], centroids, device=device)
-        pred_rgb_val = reflectance_net(batch_x_NdotL_NdotH_val.to(device))
-        pred_spec = reflectance_net.specular(batch_x_NdotL_NdotH_val)
-        pred_diff = reflectance_net.diffuse(batch_x_NdotL_NdotH_val)
+        pred_rgb_val = reflectance_net(batch_x_NdotL_NdotH_val.to(device), cluster_ids_val)
+        pred_spec = reflectance_net.specular(batch_x_NdotL_NdotH_val, cluster_ids_val)
+        pred_diff = reflectance_net.diffuse(batch_x_NdotL_NdotH_val, cluster_ids_val)
         linear_pred_rgb = reflectance_net.linear_mapping.reflectance(batch_x_NdotL_NdotH_val.to(device), cluster_ids_val)
         linear_pred_spec = reflectance_net.linear_mapping.specular(batch_x_NdotL_NdotH_val.to(device), cluster_ids_val)
         linear_pred_diff = reflectance_net.linear_mapping.diffuse(batch_x_NdotL_NdotH_val.to(device), cluster_ids_val)
         
 
-        val_loss = loss_fn(pred_rgb_val, target_rgb_val) + loss_fn(pred_spec, linear_pred_spec) + loss_fn(pred_diff, linear_pred_diff)
+        val_loss = loss_fn(pred_rgb_val, target_rgb_val) #+ loss_fn(pred_spec, linear_pred_spec) + loss_fn(pred_diff, linear_pred_diff)
 
         wandb.log({
                 "val_loss": val_loss,
@@ -244,9 +241,9 @@ if __name__ == "__main__":
         if iter%200 == 0:
             x_NdotL_NdotH, img = dataset.get_X_NdotL_NdotH_rgb("train", img=0, device=device)
             cluster_ids = kmeans_predict(x_NdotL_NdotH[..., :3], centroids, device=device)
-            pred_rgb = reflectance_net(x_NdotL_NdotH)
-            pred_rgb_spec = reflectance_net.specular(x_NdotL_NdotH)
-            pred_rgb_diff = reflectance_net.diffuse(x_NdotL_NdotH)
+            pred_rgb = reflectance_net(x_NdotL_NdotH, cluster_ids)
+            pred_rgb_spec = reflectance_net.specular(x_NdotL_NdotH, cluster_ids)
+            pred_rgb_diff = reflectance_net.diffuse(x_NdotL_NdotH, cluster_ids)
 
             v.validation_view_reflectance(reflectance=pred_rgb.detach().cpu(),
                                         specular=pred_rgb_spec.detach().cpu(), 
@@ -261,9 +258,9 @@ if __name__ == "__main__":
 
             x_NdotL_NdotH, img = dataset.get_X_NdotL_NdotH_rgb("val", img=0, device=device)
             cluster_ids = kmeans_predict(x_NdotL_NdotH[..., :3], centroids, device=device)
-            pred_rgb = reflectance_net(x_NdotL_NdotH)
-            pred_rgb_spec = reflectance_net.specular(x_NdotL_NdotH)
-            pred_rgb_diff = reflectance_net.diffuse(x_NdotL_NdotH)
+            pred_rgb = reflectance_net(x_NdotL_NdotH, cluster_ids)
+            pred_rgb_spec = reflectance_net.specular(x_NdotL_NdotH, cluster_ids)
+            pred_rgb_diff = reflectance_net.diffuse(x_NdotL_NdotH, cluster_ids)
 
             v.validation_view_reflectance(reflectance=pred_rgb.detach().cpu(),
                                         specular=pred_rgb_spec.detach().cpu(), 
@@ -278,9 +275,9 @@ if __name__ == "__main__":
 
             x_NdotL_NdotH, img = dataset.get_X_NdotL_NdotH_rgb("train", img=np.random.randint(0, dataset.get_n_images("train")), device=device)
             cluster_ids = kmeans_predict(x_NdotL_NdotH[..., :3], centroids, device=device)
-            pred_rgb = reflectance_net(x_NdotL_NdotH)
-            pred_rgb_spec = reflectance_net.specular(x_NdotL_NdotH)
-            pred_rgb_diff = reflectance_net.diffuse(x_NdotL_NdotH)
+            pred_rgb = reflectance_net(x_NdotL_NdotH, cluster_ids)
+            pred_rgb_spec = reflectance_net.specular(x_NdotL_NdotH, cluster_ids)
+            pred_rgb_diff = reflectance_net.diffuse(x_NdotL_NdotH, cluster_ids)
 
             v.validation_view_reflectance(reflectance=pred_rgb.detach().cpu(),
                                         specular=pred_rgb_spec.detach().cpu(), 
@@ -295,9 +292,9 @@ if __name__ == "__main__":
 
             x_NdotL_NdotH, img = dataset.get_X_NdotL_NdotH_rgb("val", img=np.random.randint(0, dataset.get_n_images("val")), device=device)
             cluster_ids = kmeans_predict(x_NdotL_NdotH[..., :3], centroids, device=device)
-            pred_rgb = reflectance_net(x_NdotL_NdotH)
-            pred_rgb_spec = reflectance_net.specular(x_NdotL_NdotH)
-            pred_rgb_diff = reflectance_net.diffuse(x_NdotL_NdotH)
+            pred_rgb = reflectance_net(x_NdotL_NdotH, cluster_ids)
+            pred_rgb_spec = reflectance_net.specular(x_NdotL_NdotH, cluster_ids)
+            pred_rgb_diff = reflectance_net.diffuse(x_NdotL_NdotH, cluster_ids)
 
             v.validation_view_reflectance(reflectance=pred_rgb.detach().cpu(),
                                         specular=pred_rgb_spec.detach().cpu(), 

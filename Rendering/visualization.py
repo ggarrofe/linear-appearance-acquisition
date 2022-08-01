@@ -162,8 +162,10 @@ def validation_view_reflectance(reflectance, specular, diffuse, target, linear, 
             plt.savefig(f"{out_path}/{name}_it{it}.png", bbox_inches='tight', dpi=150)
         if wandb_act:
             wandb.log({f"{name}_view": fig}, step=it)
-    
-    plt.show()
+    if wandb_act:
+        plt.close(fig)
+    else:
+        plt.show()
 
 def dataset_view_rgb_xnv(img, img_shape, points, normals, viewdirs):
     img = torch.reshape(img, img_shape)

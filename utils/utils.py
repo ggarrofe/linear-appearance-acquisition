@@ -37,27 +37,27 @@ def cast_rays(scene, rays_od):
     return hit
 
 ####################       LINEAR MAPPING       ####################
-def filter_duplicates(xh, batch_size=1_000_000):
-    xh_unique = None
+def filter_duplicates(X, batch_size=1_000_000):
+    X_unique = None
     tqdm._instances.clear()
-    for i in tqdm(range(0, xh.shape[0], batch_size), unit="batch", leave=False, desc=f"Filtering {xh.shape[0]} points"):
-        xh_batch, inverse = torch.unique(xh[i:i+batch_size], sorted=True, return_inverse=True, dim=0)
+    for i in tqdm(range(0, X.shape[0], batch_size), unit="batch", leave=False, desc=f"Filtering {X.shape[0]} points on {X.device}"):
+        X_batch, inverse = torch.unique(X[i:i+batch_size], sorted=True, return_inverse=True, dim=0)
         perm = torch.arange(inverse.size(0), dtype=inverse.dtype, device=inverse.device)
         inverse, perm = inverse.flip([0]), perm.flip([0])
-        indices_batch = inverse.new_empty(xh_batch.size(0)).scatter_(0, inverse, perm)
+        indices_batch = inverse.new_empty(X_batch.size(0)).scatter_(0, inverse, perm)
         indices_batch += i
         
-        if xh_unique is None:
-            xh_unique, indices = xh_batch, indices_batch
+        if X_unique is None:
+            X_unique, indices = X_batch, indices_batch
         else:
-            xh_unique_tmp = torch.cat([xh_unique, xh_batch])
+            xh_unique_tmp = torch.cat([X_unique, X_batch])
             indices = torch.cat([indices, indices_batch])
             
-            xh_unique, inverse = torch.unique(xh_unique_tmp, return_inverse=True, dim=0)
+            X_unique, inverse = torch.unique(xh_unique_tmp, return_inverse=True, dim=0)
             perm = torch.arange(inverse.size(0), dtype=inverse.dtype, device=inverse.device)
             inverse, perm = inverse.flip([0]), perm.flip([0])
-            indices_nonrep = inverse.new_empty(xh_unique.size(0)).scatter_(0, inverse, perm)
+            indices_nonrep = inverse.new_empty(X_unique.size(0)).scatter_(0, inverse, perm)
             indices = indices[indices_nonrep]
 
-    print(f"Filtered {xh.shape[0]} points to {xh_unique.shape[0]}")
-    return xh_unique, indices
+    print(f"Filtered {X.shape[0]} points to {X_unique.shape[0]}")
+    return X_unique, indices

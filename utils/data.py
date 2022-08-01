@@ -13,6 +13,8 @@ from utils.load_llff import load_llff_data
 import utils.utils as utils
 from scipy.spatial.transform import Rotation as R
 
+import open3d as o3d
+
 from pprint import pprint
 
 def _minify(basedir, subdir=None, factors=[], resolutions=[]):
@@ -240,9 +242,9 @@ class NeRFSubDataset():
         self.dataloader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=self.shuffle)
         self.iterator = iter(self.dataloader)
 
-    def switch_2_x_NdotL_NdotH_dataset(self, device=torch.device("cpu")):
-        x_NdotL_NdotH, rgb = self.get_x_NdotL_NdotH_rgb(i=-1, device=device)
-        self.dataset = TensorDataset(x_NdotL_NdotH, rgb)
+    def switch_2_X_NdotL_NdotH_dataset(self, device=torch.device("cpu")):
+        X_NdotL_NdotH, rgb = self.get_X_NdotL_NdotH_rgb(i=-1, device=device)
+        self.dataset = TensorDataset(X_NdotL_NdotH, rgb)
         self.dataloader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=self.shuffle)
         self.iterator = iter(self.dataloader)
 
@@ -300,7 +302,7 @@ class NeRFSubDataset():
 
         return self.light_rays[i*h*w:(i+1)*h*w].float().to(device)
 
-    def get_x_NdotL_NdotH_rgb(self, i, device=torch.device('cuda')):
+    def get_X_NdotL_NdotH_rgb(self, i, device=torch.device('cuda')):
         h = self.hwf[0]
         w = self.hwf[1]
 
@@ -357,19 +359,18 @@ class NeRFSubDataset():
 class NeRFDataset():
 
     def __init__(self, 
-                 args,
-                 device=torch.device('cuda')):
+                 args):
 
-        self.device = device
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu") if args.dataset_to_gpu else torch.device("cpu")
         self.subdirs_indices = []
         self.subdirs = []
         self.light_poses = None
 
         if args.dataset_type == "tiny":
-            self.load_tiny(args.dataset_path, device=device)
+            self.load_tiny(args.dataset_path, device=self.device)
         elif args.dataset_type == "synthetic":
             self.load_synthetic(args.dataset_path, 
-                                device=device, 
+                                device=self.device, 
                                 factor=args.factor,
                                 train_images=args.train_images, 
                                 val_images=args.val_images,
@@ -377,19 +378,20 @@ class NeRFDataset():
                                 load_light=args.load_light)
         elif args.dataset_type == "llff":
             self.load_llff(args.dataset_path, 
-                           device=device, 
+                           device=self.device, 
                            factor=args.factor, 
                            train_images=args.train_images, 
                            val_images=args.val_images,
                            test_images=args.test_images)
         elif args.dataset_type == "meshroom":
-            self.load_meshroom(args.dataset_path, device=device)
+            self.load_meshroom(args.dataset_path, device=self.device)
         elif args.dataset_type == "colmap":
-            self.load_colmap(args.dataset_path, device=device)
+            self.load_colmap(args.dataset_path, device=self.device)
         
-        self._create(args.batch_size, args.test, args.shuffle)
+        self.args = args
+        self._create()
     
-    def _create(self, batch_size=None, test=False, shuffle=False):
+    def _create(self):
         #focal_length = focal_length.to(self.poses)
         
         rays_od = [torch.cat(self.get_rays_origins_and_directions(c2w, self.hwf), dim=-1) for c2w in tqdm(self.poses, unit="pose", desc="Generating rays")]
@@ -408,11 +410,16 @@ class NeRFDataset():
             view_dirs = view_dirs / torch.norm(view_dirs, dim=-1, keepdim=True)
             rays_odv = torch.cat([rays, view_dirs], dim=-1)
 
-            self.subdatasets.append(NeRFSubDataset(rays_odv, images, self.hwf, name, batch_size=batch_size, shuffle=shuffle, light_poses=light_poses))
+            self.subdatasets.append(NeRFSubDataset(rays_odv, 
+                                                   images, 
+                                                   self.hwf, 
+                                                   name, 
+                                                   batch_size=self.args.batch_size, 
+                                                   shuffle=self.args.shuffle, 
+                                                   light_poses=light_poses))
         
         # Trying to free some memory to deal with big datasets
         delattr(self, "images")
-        #delattr(self, "poses")
 
         print("Datasets created successfully\n")
 
@@ -475,9 +482,9 @@ class NeRFDataset():
         subdataset = [d for d in self.subdatasets if d.name == dataset][0]
         return subdataset.get_xh_rgb(img, device=device)
     
-    def get_x_NdotL_NdotH_rgb(self, dataset="train", img=0, device=torch.device('cuda')):
+    def get_X_NdotL_NdotH_rgb(self, dataset="train", img=0, device=torch.device('cuda')):
         subdataset = [d for d in self.subdatasets if d.name == dataset][0]
-        return subdataset.get_x_NdotL_NdotH_rgb(img, device=device)
+        return subdataset.get_X_NdotL_NdotH_rgb(img, device=device)
 
     def get_light_rays(self, dataset="train", img=0, device=torch.device('cuda')):
         subdataset = [d for d in self.subdatasets if d.name == dataset][0]
@@ -487,7 +494,11 @@ class NeRFDataset():
         subdataset = [d for d in self.subdatasets if d.name == dataset][0]
         return subdataset.n_images
 
-    def compute_depths(self, scene, device=torch.device('cuda')):
+    def compute_depths(self, device=torch.device('cuda')):
+        mesh = o3d.io.read_triangle_mesh(self.args.mesh_path, print_progress=True)
+        mesh = o3d.t.geometry.TriangleMesh.from_legacy(mesh)
+        scene = o3d.t.geometry.RaycastingScene()
+        scene.add_triangles(mesh)
         for subdataset in self.subdatasets:
             subdataset.compute_depths(scene, device=device)
 
@@ -519,9 +530,9 @@ class NeRFDataset():
         for d in self.subdatasets:
             d.switch_2_xnv_dataset(scene, device=device)
 
-    def switch_2_x_NdotL_NdotH_dataset(self, device=torch.device('cpu')):
+    def switch_2_X_NdotL_NdotH_dataset(self, device=torch.device('cpu')):
         for d in self.subdatasets:
-            d.switch_2_x_NdotL_NdotH_dataset(device=device)
+            d.switch_2_X_NdotL_NdotH_dataset(device=device)
 
     def compute_halfangles(self):
         for d in self.subdatasets:
@@ -607,7 +618,6 @@ class NeRFDataset():
 
         num_images, height, width, num_channels = images.shape
         focal_length = width/(2 * np.tan(camera_angle_x/2))
-        print(f"Focal length: {focal_length}")
         focal_length = torch.from_numpy(np.array([focal_length])).to(device)
         self.images = torch.from_numpy(images).to(device)
         self.poses = torch.from_numpy(poses).to(device)

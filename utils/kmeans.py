@@ -42,12 +42,12 @@ def kmeans(
     if batch_size is None or batch_size > len(X):
         batch_size = len(X)
 
+    cluster_ids = torch.zeros((X.shape[0],), dtype=torch.long).to(X.device)
+    means = torch.zeros(num_clusters, X.shape[-1]).to(X)
+    n_samples = torch.zeros(num_clusters, 1).to(X)
+
     iteration = 0
     pbar = tqdm(desc=f'Running kmeans on {device}', unit="it")
-    means = torch.zeros(num_clusters, X.shape[-1]).to(X)
-    nearest_centroid = torch.zeros((X.shape[0],)).to(X)
-    n_samples = torch.zeros(num_clusters, 1).to(X)
-    
     while True:
         centroids_pre = centroids.clone()
         
@@ -57,14 +57,14 @@ def kmeans(
         for i in range(0, len(X), batch_size):
             # Assign each training example to the nearest centroid
             dis = distance(X[i:i+batch_size], centroids)
-            nearest_centroid[i:i+batch_size] = torch.argmin(dis, dim=1)
+            cluster_ids[i:i+batch_size] = torch.argmin(dis, dim=1)
 
             # Update the online mean value
             for cluster in range(num_clusters):
-                new_samples = X[i:i+batch_size][nearest_centroid[i:i+batch_size] == cluster].shape[0]
+                new_samples = X[i:i+batch_size][cluster_ids[i:i+batch_size] == cluster].shape[0]
 
                 if new_samples > 0:
-                    sum = X[i:i+batch_size][nearest_centroid[i:i+batch_size] == cluster].sum(dim=0)
+                    sum = X[i:i+batch_size][cluster_ids[i:i+batch_size] == cluster].sum(dim=0)
                     n_samples[cluster] += new_samples
                     means[cluster] += (sum - new_samples*means[cluster])/n_samples[cluster]
 
@@ -93,7 +93,7 @@ def kmeans(
             break
 
     pbar.close()
-    return nearest_centroid, centroids
+    return cluster_ids, centroids
 
 
 def kmeans_predict(
