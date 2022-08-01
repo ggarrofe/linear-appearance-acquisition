@@ -284,6 +284,7 @@ class LinearAutoDecoder(nn.Module):
     def compute_linear_mappings(X, y, cluster_ids, num_clusters, device=torch.device("cuda"), gpu_limit=1e07):
         linear_mappings = torch.zeros([num_clusters, 3, X.shape[-1]]).to(device)
 
+        tqdm._instances.clear()
         for cluster_id in tqdm(range(num_clusters), leave=False, unit="linear mapping", desc="Computing linear mappings"):
             X_cluster, y_cluster = X[cluster_ids == cluster_id], y[cluster_ids == cluster_id]
 

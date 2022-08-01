@@ -95,14 +95,18 @@ if __name__ == "__main__":
     loss_fn = nn.MSELoss()
     mse2psnr = lambda x : -10. * torch.log(x) / torch.log(torch.Tensor([10.]).to(device))
     
+    X_NdotL_NdotH_shape = dataset.get_X_NdotL_NdotH_rgb_shape()
+    embed_fn, input_ch = emb.get_embedder(in_dim=X_NdotL_NdotH_shape[-1], num_freqs=args.encoding_freqs)
+    input = torch.zeros((X_NdotL_NdotH_shape[0], input_ch+args.latent_size))
+
     X_NdotL_NdotH, y_rgb = dataset.get_X_NdotL_NdotH_rgb("train", img=-1, device=torch.device("cpu"))
-    embed_fn, input_ch = emb.get_embedder(in_dim=X_NdotL_NdotH.shape[-1], num_freqs=args.encoding_freqs)
-    latent_features = torch.nn.Embedding(X_NdotL_NdotH.shape[0], args.latent_size, max_norm=args.latent_bound)
+    input[:, :input_ch] = embed_fn(X_NdotL_NdotH)
+    latent_features = nn.Parameter(torch.ones(X_NdotL_NdotH_shape[0], args.latent_size), requires_grad=True)
         
     decoder = net.LinearAutoDecoder(input_ch, args.latent_size, args.num_clusters)
     optimizer = torch.optim.Adam([
         {
-            "params": latent_features.parameters(), 
+            "params": latent_features, 
             "lr": args.lrate
         },
         {
@@ -143,7 +147,7 @@ if __name__ == "__main__":
         print(f"Resuming {run.id} at epoch {epoch}")
 
     else:
-        cluster_ids = torch.zeros((X_NdotL_NdotH.shape[0],), dtype=torch.long).to(device)
+        cluster_ids = torch.zeros((X_NdotL_NdotH_shape[0],), dtype=torch.long).to(device)
         centroids = torch.zeros((args.num_clusters, 3)).to(device)
 
         mask = (X_NdotL_NdotH[:,0] == -1.) & (X_NdotL_NdotH[:,1] == -1.) & (X_NdotL_NdotH[:,2] == -1.) #not masking takes too much time
@@ -151,46 +155,44 @@ if __name__ == "__main__":
                                                                     num_clusters=args.num_clusters-1, 
                                                                     tol=args.kmeans_tol,
                                                                     device=device,
-                                                                    batch_size=args.batch_size)
+                                                                    batch_size=args.kmeans_batch_size)
         
         cluster_ids.masked_fill_(mask.to(device), args.num_clusters-1)
         centroids[args.num_clusters-1] = torch.tensor([-1., -1., -1.]).to(X_NdotL_NdotH)
         cluster_ids = cluster_ids.cpu()
 
         X_NdotL_NdotH.require_grad = False
+        print("init normal")
 
-        nn.init.normal_(
-            latent_features.weight.data,
-            0.0,
-            args.latent_std / np.sqrt(args.latent_size),
-        )
-        latent_features.requires_grad = True
     
     # TRAINING
-    indices = torch.arange(latent_features.weight.data.shape[0])
+    #batch_training_size = min(400_000, X_NdotL_NdotH.shape[0])
+    #indices = torch.tensor(np.random.choice(np.arange(latent_features.weight.data.shape[0]), size=(batch_training_size,), replace=False))
+   
+    print("indices")
     pbar = tqdm(total=args.num_epochs, unit="epoch")
     pbar.update(epoch)
     while epoch < args.num_epochs:
-        lat_features_batch = latent_features(indices)
-        
         decoder.train()
-
-        input = torch.cat([embed_fn(X_NdotL_NdotH), 
-                           lat_features_batch], dim=-1)
-        
+        print("train")
+        input[:, -args.latent_size:] = latent_features
+        print("cat")
         linear_mappings = net.LinearAutoDecoder.compute_linear_mappings(input, 
                                                                         y_rgb, 
                                                                         cluster_ids, 
                                                                         args.num_clusters, 
                                                                         device)
-        
+        print("linear  appings")
         pred_rgb = decoder(input.to(device), cluster_ids, linear_mappings)
+        print("pred rgb")
         loss = loss_fn(y_rgb.to(device), pred_rgb)
-
+        print("loss")
         optimizer.zero_grad()
+        print("zero grad")
         loss.backward()
+        print("backwards")
         optimizer.step()
-
+        print("step done")
         wandb.log({
             "tr_loss": loss,
             "tr_psnr": mse2psnr(loss)
@@ -200,12 +202,18 @@ if __name__ == "__main__":
         if epoch%100 == 0:
             decoder.eval()
             i = 0
-            lat_features_i = latent_features(torch.arange(i*dataset.hwf[0]*dataset.hwf[1], (i+1)*dataset.hwf[0]*dataset.hwf[1]))
+            h, w = dataset.hwf[0], dataset.hwf[1]
+            print("before gettuing batch")
             X_NdotL_NdotH_i, img = dataset.get_X_NdotL_NdotH_rgb("train", img=i, device=device)
+            print("have batch")
             cluster_ids_i = kmeans_predict(X_NdotL_NdotH_i[..., :3], centroids, device=device)
-            input = torch.cat([embed_fn(X_NdotL_NdotH_i), lat_features_i.to(device)], dim=-1)
-            pred_rgb = decoder(input, cluster_ids_i)
-
+            print("kmeans predict done")
+            input_i = torch.cat([embed_fn(X_NdotL_NdotH_i), 
+                                latent_features[i*h*w:(i+1)*h*w].to(device)], dim=-1)
+            print("cat done")
+            pred_rgb = decoder(input_i, cluster_ids_i)
+            print("decoder predict done")
+            
             v.validation_view_reflectance(reflectance=pred_rgb.detach().cpu(),
                                         specular=pred_rgb.detach().cpu(), 
                                         diffuse=pred_rgb.detach().cpu(), 
@@ -218,11 +226,11 @@ if __name__ == "__main__":
                                         name=f"training_reflectance_img{i}")
             
             i = np.random.randint(0, dataset.get_n_images("train"))
-            lat_features_i = latent_features(torch.arange(i*dataset.hwf[0]*dataset.hwf[1], (i+1)*dataset.hwf[0]*dataset.hwf[1]))
             X_NdotL_NdotH_i, img = dataset.get_X_NdotL_NdotH_rgb("train", img=i, device=device)
             cluster_ids_i = kmeans_predict(X_NdotL_NdotH_i[..., :3], centroids, device=device)
-            input = torch.cat([embed_fn(X_NdotL_NdotH_i), lat_features_i.to(device)], dim=-1)
-            pred_rgb = decoder(input, cluster_ids_i)
+            input_i = torch.cat([embed_fn(X_NdotL_NdotH_i), 
+                                latent_features[i*h*w:(i+1)*h*w].to(device)], dim=-1)
+            pred_rgb = decoder(input_i, cluster_ids_i)
 
             v.validation_view_reflectance(reflectance=pred_rgb.detach().cpu(),
                                         specular=pred_rgb.detach().cpu(), 

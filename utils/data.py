@@ -319,6 +319,9 @@ class NeRFSubDataset():
             return torch.cat([self.points, self.NdotL, self.NdotH], dim=-1).float().to(device), \
                    self.dataset.tensors[1].float().to(device)
 
+    def get_X_NdotL_NdotH_rgb_shape(self):
+        return (self.dataset.tensors[0].shape[0], 5)
+
     def get_xh_rgb(self, i, device=torch.device('cuda')):
         h = self.hwf[0]
         w = self.hwf[1]
@@ -485,6 +488,10 @@ class NeRFDataset():
     def get_X_NdotL_NdotH_rgb(self, dataset="train", img=0, device=torch.device('cuda')):
         subdataset = [d for d in self.subdatasets if d.name == dataset][0]
         return subdataset.get_X_NdotL_NdotH_rgb(img, device=device)
+
+    def get_X_NdotL_NdotH_rgb_shape(self, dataset="train"):
+        subdataset = [d for d in self.subdatasets if d.name == dataset][0]
+        return subdataset.get_X_NdotL_NdotH_rgb_shape()
 
     def get_light_rays(self, dataset="train", img=0, device=torch.device('cuda')):
         subdataset = [d for d in self.subdatasets if d.name == dataset][0]
