@@ -258,32 +258,36 @@ class LinearAutoDecoder(nn.Module):
     def __init__(self, in_features, latent_size, num_clusters):
         super(LinearAutoDecoder, self).__init__()
         self.pos_mapping = nn.Linear(in_features=in_features, out_features=3*num_clusters, bias=False)
-        self.latent_mapping = nn.Linear(in_features=latent_size, out_features=3*num_clusters, bias=False)
+        self.feature_mapping = nn.Linear(in_features=latent_size, out_features=3*num_clusters, bias=False)
         self.latent_size = latent_size
+        
+    def set_position_mapping(self, pos_mappings):
+        pos_mappings = pos_mappings.reshape(-1, pos_mappings.shape[-1])
+        with torch.no_grad():
+            self.pos_mapping.weight = nn.Parameter(pos_mappings, requires_grad=False)
 
-    def forward(self, X, cluster_ids, linear_mappings=None):
+    def forward(self, X, cluster_ids, feat_mappings=None):
         # linear_mappings: n_clusters x 3 x encoding_size + latent_size
         if self.training:
-            linear_mappings = linear_mappings.reshape(-1, linear_mappings.shape[-1])
-            with torch.no_grad():
-                self.pos_mapping.weight = nn.Parameter(linear_mappings[..., :-self.latent_size], requires_grad=False)
-                #print("pos_mapping shape", self.pos_mapping.weight[:2])
-            self.latent_mapping.weight = nn.Parameter(linear_mappings[..., -self.latent_size:])
+            feat_mappings = feat_mappings.reshape(-1, feat_mappings.shape[-1])
+            self.feature_mapping.weight = nn.Parameter(feat_mappings)
             #print("latent_mapping shape", self.latent_mapping.weight[:2])
 
-        rgb_clusters = self.pos_mapping(X[..., :-self.latent_size]) + self.latent_mapping(X[..., -self.latent_size:])
+        rgb_clusters = self.pos_mapping(X[..., :-self.latent_size]) + self.feature_mapping(X[..., -self.latent_size:])
         row_indices = torch.arange(X.shape[0])
         col_indices = torch.stack([3*cluster_ids, 3*cluster_ids+1, 3*cluster_ids+2])
         rgb = rgb_clusters[row_indices, col_indices].T
         return rgb
 
     def learnable_parameters(self):
-        return self.latent_mapping.parameters()
+        return self.feature_mapping.parameters()
 
     @staticmethod
-    def compute_linear_mappings(X, y, cluster_ids, num_clusters, device=torch.device("cuda"), gpu_limit=1e07):
-        linear_mappings = torch.zeros([num_clusters, 3, X.shape[-1]]).to(device)
-
+    def compute_linear_mappings(X, y, cluster_ids, num_clusters, device=torch.device("cuda"), gpu_limit=1e06, embed_fn=None, input_ch=None):
+        if input_ch is None:
+            linear_mappings = torch.zeros([num_clusters, 3, X.shape[-1]]).to(device)
+        else:
+            linear_mappings = torch.zeros([num_clusters, 3, input_ch]).to(device)
         tqdm._instances.clear()
         for cluster_id in tqdm(range(num_clusters), leave=False, unit="linear mapping", desc="Computing linear mappings"):
             X_cluster, y_cluster = X[cluster_ids == cluster_id], y[cluster_ids == cluster_id]
@@ -293,10 +297,10 @@ class LinearAutoDecoder(nn.Module):
                 y_cluster = y_cluster[indices]
 
             if X_cluster.shape[0] < gpu_limit:
-                X_inv = torch.linalg.pinv(X_cluster.to(device))
+                X_inv = torch.linalg.pinv(X_cluster.to(device) if embed_fn is None else embed_fn(X_cluster).to(device))
                 linear_mappings[cluster_id] = (X_inv @ y_cluster.to(device)).T
             else:
-                X_inv = torch.linalg.pinv(X_cluster)
+                X_inv = torch.linalg.pinv(X_cluster if embed_fn is None else embed_fn(X_cluster))
                 linear_mappings[cluster_id] = (X_inv @ y_cluster).T.to(device)
 
         return linear_mappings

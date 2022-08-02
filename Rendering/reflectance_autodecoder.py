@@ -95,18 +95,15 @@ if __name__ == "__main__":
     loss_fn = nn.MSELoss()
     mse2psnr = lambda x : -10. * torch.log(x) / torch.log(torch.Tensor([10.]).to(device))
     
-    X_NdotL_NdotH_shape = dataset.get_X_NdotL_NdotH_rgb_shape()
-    embed_fn, input_ch = emb.get_embedder(in_dim=X_NdotL_NdotH_shape[-1], num_freqs=args.encoding_freqs)
-    input = torch.zeros((X_NdotL_NdotH_shape[0], input_ch+args.latent_size))
-
     X_NdotL_NdotH, y_rgb = dataset.get_X_NdotL_NdotH_rgb("train", img=-1, device=torch.device("cpu"))
-    input[:, :input_ch] = embed_fn(X_NdotL_NdotH)
-    latent_features = nn.Parameter(torch.ones(X_NdotL_NdotH_shape[0], args.latent_size), requires_grad=True)
+    X_NdotL_NdotH_val, y_rgb_val = dataset.get_X_NdotL_NdotH_rgb("val", img=-1, device=torch.device("cpu"))
+    embed_fn, input_ch = emb.get_embedder(in_dim=X_NdotL_NdotH.shape[-1], num_freqs=args.encoding_freqs)
+    latent_features = torch.nn.Embedding(args.num_clusters, args.latent_size, max_norm=args.latent_bound)
         
     decoder = net.LinearAutoDecoder(input_ch, args.latent_size, args.num_clusters)
     optimizer = torch.optim.Adam([
         {
-            "params": latent_features, 
+            "params": latent_features.parameters(), 
             "lr": args.lrate
         },
         {
@@ -147,7 +144,7 @@ if __name__ == "__main__":
         print(f"Resuming {run.id} at epoch {epoch}")
 
     else:
-        cluster_ids = torch.zeros((X_NdotL_NdotH_shape[0],), dtype=torch.long).to(device)
+        cluster_ids = torch.zeros((X_NdotL_NdotH.shape[0],), dtype=torch.long).to(device)
         centroids = torch.zeros((args.num_clusters, 3)).to(device)
 
         mask = (X_NdotL_NdotH[:,0] == -1.) & (X_NdotL_NdotH[:,1] == -1.) & (X_NdotL_NdotH[:,2] == -1.) #not masking takes too much time
@@ -162,86 +159,151 @@ if __name__ == "__main__":
         cluster_ids = cluster_ids.cpu()
 
         X_NdotL_NdotH.require_grad = False
-        print("init normal")
+        
+        nn.init.normal_(
+            latent_features.weight.data,
+            0.0,
+            args.latent_std / np.sqrt(args.latent_size),
+        )
+        latent_features.requires_grad = True
+
+        pos_mappings = net.LinearAutoDecoder.compute_linear_mappings(X_NdotL_NdotH, 
+                                                                     y_rgb,
+                                                                     cluster_ids,
+                                                                     args.num_clusters,
+                                                                     embed_fn=embed_fn,
+                                                                     input_ch=input_ch,
+                                                                     device=device)
+        decoder.set_position_mapping(pos_mappings)
 
     
     # TRAINING
-    #batch_training_size = min(400_000, X_NdotL_NdotH.shape[0])
-    #indices = torch.tensor(np.random.choice(np.arange(latent_features.weight.data.shape[0]), size=(batch_training_size,), replace=False))
-   
-    print("indices")
+    batch_size = min(args.batch_size, X_NdotL_NdotH.shape[0])
     pbar = tqdm(total=args.num_epochs, unit="epoch")
     pbar.update(epoch)
     while epoch < args.num_epochs:
+        #  ------------------------ TRAINING ------------------------
         decoder.train()
-        print("train")
-        input[:, -args.latent_size:] = latent_features
-        print("cat")
-        linear_mappings = net.LinearAutoDecoder.compute_linear_mappings(input, 
-                                                                        y_rgb, 
-                                                                        cluster_ids, 
+        indices = torch.tensor(np.random.choice(np.arange(cluster_ids.shape[0]), size=(batch_size,), replace=False))
+        input = torch.cat([embed_fn(X_NdotL_NdotH[indices]), latent_features(cluster_ids[indices])], dim=-1)
+        
+        
+        position_pred = decoder.position_mapping(input[..., :input_ch].to(device), cluster_ids[indices])
+        feat_mappings = net.LinearAutoDecoder.compute_linear_mappings(input[..., -args.latent_size:], 
+                                                                        y_rgb[indices].to(device)-position_pred, 
+                                                                        cluster_ids[indices], 
                                                                         args.num_clusters, 
                                                                         device)
-        print("linear  appings")
-        pred_rgb = decoder(input.to(device), cluster_ids, linear_mappings)
-        print("pred rgb")
-        loss = loss_fn(y_rgb.to(device), pred_rgb)
-        print("loss")
+        pred_rgb = torch.zeros((input.shape[0], 3)).to(device)
+        pred_rgb = decoder(input.to(device), 
+                            cluster_ids[indices], 
+                            feat_mappings)
+
+        l2_size_loss = torch.sum(torch.norm(input[..., -args.latent_size:], dim=1))
+        reg_loss = (1e-04 * min(1, epoch / 100) * l2_size_loss)/input.shape[0]
+        #linear_loss = loss_fn(y_rgb[indices].to(device), linear_pred)
+        overall_loss = loss_fn(y_rgb[indices].to(device), pred_rgb)
+        loss = overall_loss + reg_loss #+ linear_loss 
+
         optimizer.zero_grad()
-        print("zero grad")
         loss.backward()
-        print("backwards")
         optimizer.step()
-        print("step done")
+        
         wandb.log({
             "tr_loss": loss,
-            "tr_psnr": mse2psnr(loss)
+            "tr_psnr": mse2psnr(overall_loss),
+            "reg_loss": reg_loss
+            }, step=epoch)
+        
+        #  ------------------------ VALIDATION ------------------------
+        decoder.eval()
+        indices = torch.tensor(np.random.choice(np.arange(X_NdotL_NdotH_val.shape[0]), size=(min(args.batch_size, X_NdotL_NdotH_val.shape[0]),), replace=False))
+        
+        cluster_ids_val = kmeans_predict(X_NdotL_NdotH_val[indices, :3], centroids, device=device).cpu()
+        input = torch.cat([embed_fn(X_NdotL_NdotH_val[indices]), latent_features(cluster_ids_val)], dim=-1)
+
+        pred_rgb = decoder(input.to(device), cluster_ids_val, feat_mappings)
+        linear_pred = decoder.position_mapping(input[..., :input_ch].to(device), cluster_ids_val)
+
+        l2_size_loss = torch.sum(torch.norm(input[..., -args.latent_size:], dim=1))
+        reg_loss = (1e-04 * min(1, epoch / 100) * l2_size_loss)/input.shape[0]
+        overall_loss = loss_fn(y_rgb_val[indices].to(device), pred_rgb)
+        linear_loss = loss_fn(y_rgb_val[indices].to(device), linear_pred)
+        loss_val = overall_loss + reg_loss # + linear_loss
+        wandb.log({
+            "val_loss": loss_val,
+            "val_psnr": mse2psnr(overall_loss)
             }, step=epoch)
 
         #  ------------------------ EVALUATION ------------------------
-        if epoch%100 == 0:
-            decoder.eval()
+        if epoch%10 == 0:
             i = 0
             h, w = dataset.hwf[0], dataset.hwf[1]
-            print("before gettuing batch")
             X_NdotL_NdotH_i, img = dataset.get_X_NdotL_NdotH_rgb("train", img=i, device=device)
-            print("have batch")
             cluster_ids_i = kmeans_predict(X_NdotL_NdotH_i[..., :3], centroids, device=device)
-            print("kmeans predict done")
-            input_i = torch.cat([embed_fn(X_NdotL_NdotH_i), 
-                                latent_features[i*h*w:(i+1)*h*w].to(device)], dim=-1)
-            print("cat done")
-            pred_rgb = decoder(input_i, cluster_ids_i)
-            print("decoder predict done")
+            
+            input = torch.cat([embed_fn(X_NdotL_NdotH_i), 
+                                latent_features(cluster_ids[i*h*w: (i+1)*h*w]).to(device)], dim=-1)
+            pred_rgb = decoder(input, cluster_ids_i)
             
             v.validation_view_reflectance(reflectance=pred_rgb.detach().cpu(),
-                                        specular=pred_rgb.detach().cpu(), 
-                                        diffuse=pred_rgb.detach().cpu(), 
                                         target=img.detach().cpu(),
-                                        points=X_NdotL_NdotH_i[..., :3].detach().cpu(),
                                         linear=decoder.position_mapping(embed_fn(X_NdotL_NdotH_i), cluster_ids_i).detach().cpu(),
                                         img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
                                         out_path=args.out_path,
                                         it=epoch,
-                                        name=f"training_reflectance_img{i}")
+                                        name=f"training_reflectance_img{i}",
+                                        save=False)
             
             i = np.random.randint(0, dataset.get_n_images("train"))
             X_NdotL_NdotH_i, img = dataset.get_X_NdotL_NdotH_rgb("train", img=i, device=device)
             cluster_ids_i = kmeans_predict(X_NdotL_NdotH_i[..., :3], centroids, device=device)
-            input_i = torch.cat([embed_fn(X_NdotL_NdotH_i), 
-                                latent_features[i*h*w:(i+1)*h*w].to(device)], dim=-1)
-            pred_rgb = decoder(input_i, cluster_ids_i)
+            input = torch.cat([embed_fn(X_NdotL_NdotH_i), 
+                                latent_features(cluster_ids[i*h*w: (i+1)*h*w]).to(device)], dim=-1)
+            pred_rgb = decoder(input, cluster_ids_i)
 
             v.validation_view_reflectance(reflectance=pred_rgb.detach().cpu(),
-                                        specular=pred_rgb.detach().cpu(), 
-                                        diffuse=pred_rgb.detach().cpu(), 
                                         target=img.detach().cpu(),
-                                        points=X_NdotL_NdotH_i[..., :3].detach().cpu(),
                                         linear=decoder.position_mapping(embed_fn(X_NdotL_NdotH_i), cluster_ids_i).detach().cpu(),
                                         img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
                                         out_path=args.out_path,
                                         it=epoch,
-                                        name=f"training_random_reflectance")
+                                        name=f"training_random_reflectance",
+                                        save=False)
+
+            i = 0
+            h, w = dataset.hwf[0], dataset.hwf[1]
+            X_NdotL_NdotH_i, img = dataset.get_X_NdotL_NdotH_rgb("val", img=i, device=device)
+            cluster_ids_i = kmeans_predict(X_NdotL_NdotH_i[..., :3], centroids, device=device)
+            
+            input = torch.cat([embed_fn(X_NdotL_NdotH_i), 
+                                latent_features(cluster_ids[i*h*w: (i+1)*h*w]).to(device)], dim=-1)
+            pred_rgb = decoder(input, cluster_ids_i)
+            
+            v.validation_view_reflectance(reflectance=pred_rgb.detach().cpu(),
+                                        target=img.detach().cpu(),
+                                        linear=decoder.position_mapping(embed_fn(X_NdotL_NdotH_i), cluster_ids_i).detach().cpu(),
+                                        img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
+                                        out_path=args.out_path,
+                                        it=epoch,
+                                        name=f"validation_reflectance_img{i}",
+                                        save=False)
+            
+            i = np.random.randint(0, dataset.get_n_images("val"))
+            X_NdotL_NdotH_i, img = dataset.get_X_NdotL_NdotH_rgb("val", img=i, device=device)
+            cluster_ids_i = kmeans_predict(X_NdotL_NdotH_i[..., :3], centroids, device=device)
+            input = torch.cat([embed_fn(X_NdotL_NdotH_i), 
+                                latent_features(cluster_ids[i*h*w: (i+1)*h*w]).to(device)], dim=-1)
+            pred_rgb = decoder(input, cluster_ids_i)
+
+            v.validation_view_reflectance(reflectance=pred_rgb.detach().cpu(),
+                                        target=img.detach().cpu(),
+                                        linear=decoder.position_mapping(embed_fn(X_NdotL_NdotH_i), cluster_ids_i).detach().cpu(),
+                                        img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
+                                        out_path=args.out_path,
+                                        it=epoch,
+                                        name=f"validation_random_reflectance",
+                                        save=False)
 
             torch.save({ # Save our checkpoint loc
                 'epoch': epoch,

@@ -167,6 +167,31 @@ def validation_view_reflectance(reflectance, specular, diffuse, target, linear, 
     else:
         plt.show()
 
+def validation_view_reflectance(reflectance, target, linear, img_shape, it=0, out_path=None, name="val_reflectance", save=True, wandb_act=True):
+    reflectance = torch.reshape(reflectance, img_shape)
+    target = torch.reshape(target, img_shape)
+    linear = torch.reshape(linear, img_shape)
+
+    fig = plt.figure(figsize=(25, 10))
+    plt.subplot(131)
+    plt.imshow(linear.cpu().numpy())
+    plt.title("Linear mapping reflectance")
+    plt.subplot(132)
+    plt.imshow(reflectance.cpu().numpy())
+    plt.title("Predicted reflectance")
+    plt.subplot(133)
+    plt.imshow(target.cpu().numpy())
+    plt.title("Target reflectance")
+
+    if save and out_path is not None:
+        plt.savefig(f"{out_path}/{name}_it{it}.png", bbox_inches='tight', dpi=150)
+
+    if wandb_act:
+        wandb.log({f"{name}_view": fig}, step=it)
+        plt.close(fig)
+    else:
+        plt.show()
+
 def dataset_view_rgb_xnv(img, img_shape, points, normals, viewdirs):
     img = torch.reshape(img, img_shape)
     points = torch.reshape(points, img_shape)
