@@ -23,7 +23,7 @@ if __name__ == "__main__":
     density_mesh.vertex_colors = o3d.utility.Vector3dVector(density_colors)
     o3d.visualization.draw_geometries([density_mesh])
 
-    vertices_to_remove = densities < np.quantile(densities, 0.03)
+    vertices_to_remove = densities < np.quantile(densities, 0.1)
     mesh.remove_vertices_by_mask(vertices_to_remove)
     o3d.visualization.draw_geometries([mesh])
 

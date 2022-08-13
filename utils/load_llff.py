@@ -1,6 +1,6 @@
 import numpy as np
 import os, imageio
-import utils.utils as utils
+import torch
 
 def _minify(basedir, subdir=None, factors=[], resolutions=[]):
     needtoload = False
@@ -59,11 +59,13 @@ def _minify(basedir, subdir=None, factors=[], resolutions=[]):
  
 def _load_data(basedir, poses, images, factor=None, width=None, height=None, load_imgs=True, subdir=None, n_imgs=-1):
     fileposes = 'poses_bounds.npy' if subdir is None else f'poses_bounds_{subdir}.npy'
-    
+    print(f"Fileposes:  {basedir}/{fileposes}")
     poses_arr = np.load(os.path.join(basedir, fileposes))
+    
     if n_imgs == -1:
         n_imgs = poses_arr.shape[0]
-        print("n_imgs", n_imgs)
+    elif n_imgs == 0:
+        return torch.zeros((3,)), torch.zeros(3, 4, 0)
     
     pos = poses_arr[:n_imgs, :-2].reshape([-1, 3, 5])
     hwf = pos[0, :3, -1]
@@ -101,18 +103,18 @@ def _load_data(basedir, poses, images, factor=None, width=None, height=None, loa
     
     if not os.path.exists(imgdir):
         print( imgdir, 'does not exist, returning' )
-        return
+        return hwf, torch.zeros(3, 4, 0)
     
     imgfiles = [os.path.join(imgdir, f) for f in sorted(os.listdir(imgdir)) if f.endswith('JPG') or f.endswith('jpg') or f.endswith('png')][:n_imgs]
     if poses.shape[-1] != len(imgfiles):
         print( 'Mismatch between imgs {} and poses {} !!!!'.format(len(imgfiles), poses.shape[-1]) )
-        return
+        return hwf, torch.zeros(3, 4, 0)
     
     # Focal length refactor
     hwf *= (1./factor)
 
     if not load_imgs:
-        return hwf
+        return hwf, torch.zeros(3, 4, 0)
     
     def imread(f):
         if f.endswith('png'):

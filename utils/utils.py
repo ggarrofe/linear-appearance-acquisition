@@ -3,6 +3,7 @@ import numpy as np
 import open3d.core as o3c
 
 import torch
+import torch.nn.functional as F
 from tqdm import tqdm
 
 def append_dict(dict, new_dict):
@@ -61,3 +62,72 @@ def filter_duplicates(X, batch_size=1_000_000):
 
     print(f"Filtered {X.shape[0]} points to {X_unique.shape[0]}")
     return X_unique, indices
+
+def compute_ssim(
+    img0,
+    img1,
+    max_val=1.0,
+    filter_size=11,
+    filter_sigma=1.5,
+    k1=0.01,
+    k2=0.03,
+    return_map=False,
+):
+    
+    device = img0.device
+    ori_shape = img0.size()
+    print("ori_shape", ori_shape)
+    width, height, num_channels = ori_shape[-3:]
+    img0 = img0.view(-1, width, height, num_channels).permute(0, 3, 1, 2)
+    img1 = img1.view(-1, width, height, num_channels).permute(0, 3, 1, 2)
+    batch_size = img0.shape[0]
+
+    # Construct a 1D Gaussian blur filter.
+    hw = filter_size // 2
+    shift = (2 * hw - filter_size + 1) / 2
+    f_i = ((torch.arange(filter_size, device=device) - hw + shift) / filter_sigma) ** 2
+    filt = torch.exp(-0.5 * f_i)
+    filt /= torch.sum(filt)
+
+    # Blur in x and y (faster than the 2D convolution).
+    # z is a tensor of size [B, H, W, C]
+    filt_fn1 = lambda z: F.conv2d(
+        z, filt.view(1, 1, -1, 1).repeat(num_channels, 1, 1, 1),
+        padding=[hw, 0], groups=num_channels)
+    filt_fn2 = lambda z: F.conv2d(
+        z, filt.view(1, 1, 1, -1).repeat(num_channels, 1, 1, 1),
+        padding=[0, hw], groups=num_channels)
+
+    # Vmap the blurs to the tensor size, and then compose them.
+    filt_fn = lambda z: filt_fn1(filt_fn2(z))
+    mu0 = filt_fn(img0)
+    mu1 = filt_fn(img1)
+    mu00 = mu0 * mu0
+    mu11 = mu1 * mu1
+    mu01 = mu0 * mu1
+    sigma00 = filt_fn(img0 ** 2) - mu00
+    sigma11 = filt_fn(img1 ** 2) - mu11
+    sigma01 = filt_fn(img0 * img1) - mu01
+
+    # Clip the variances and covariances to valid values.
+    # Variance must be non-negative:
+    sigma00 = torch.clamp(sigma00, min=0.0)
+    sigma11 = torch.clamp(sigma11, min=0.0)
+    sigma01 = torch.sign(sigma01) * torch.min(
+        torch.sqrt(sigma00 * sigma11), torch.abs(sigma01)
+    )
+
+    c1 = (k1 * max_val) ** 2
+    c2 = (k2 * max_val) ** 2
+    numer = (2 * mu01 + c1) * (2 * sigma01 + c2)
+    denom = (mu00 + mu11 + c1) * (sigma00 + sigma11 + c2)
+    ssim_map = numer / denom
+    ssim = torch.mean(ssim_map.reshape([-1, num_channels*width*height]), dim=-1)
+    return ssim_map if return_map else ssim.item()
+
+import lpips
+def compute_lpips(img0, img1, device=torch.device("cuda")):
+    lpips_vgg = lpips.LPIPS(net="vgg").eval().to(device)
+    return lpips_vgg(img0.permute([2, 0, 1]).cuda().contiguous(),
+            img1.permute([2, 0, 1]).cuda().contiguous(),
+            normalize=True).item()

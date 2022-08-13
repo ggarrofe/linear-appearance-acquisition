@@ -3,6 +3,7 @@ from matplotlib.patches import Rectangle
 import torch
 import wandb
 import numpy as np
+from PIL import Image
 
 import sys
 sys.path.append('../')
@@ -92,14 +93,19 @@ def validation_view_rgb_xndv(rgb_map, val_target, img_shape, points, normals, de
     plt.imshow(depths.cpu().numpy())
     plt.title("Depths")
 
-    if save:
-        if out_path is not None:
-            plt.savefig(f"{out_path}/{name}_it{it}.png", bbox_inches='tight', dpi=150)
-        if wandb_act:
-            wandb.log({f"{name}_view": fig}, step=it)
+    if save and out_path is not None:
+        plt.savefig(f"{out_path}/{name}_it{it}.png", bbox_inches='tight', dpi=150)
+        im = Image.fromarray((rgb_map.cpu().numpy() * 255).astype(np.uint8))
+        im.save(f"{out_path}/{name}_pred_it{it}.png")
+
+    if wandb_act:
+        wandb.log({f"{name}_view": fig}, step=it)
+        plt.close(fig)
+    else:
+        plt.show()
 
     
-    plt.show()
+    
 
 def validation_view_reflectance(reflectance, specular, diffuse, target, img_shape, points, it=0, out_path=None, name="val_reflectance", save=True, wandb_act=True):
     reflectance = torch.reshape(reflectance, img_shape)

@@ -35,7 +35,7 @@ def reduce_dataset(basedir="../data/lego_llff/", smalldir="../data/lego_llff_sma
         np.save(os.path.join(smalldir, f"poses_bounds_{subdir}.npy"), smallposes)
         print("Done")
 
-def split_dataset(basedir="../COLMAP/lego_llff", destdir="../data/lego_llff"):
+def split_dataset(basedir="../COLMAP/lego_llff", destdir="../data/lego"):
     subdirs = ["train", "val", "test"]
     images = [list(range(0, 100)), list(range(100, 200)), list(range(200, 400))]
 
@@ -455,4 +455,5 @@ if __name__ == "__main__":
     #merge_images("../data/lego_llff", "../RealityCapture/lego", is_synthetic=False)
     #merge_images_realitycapture()
     #xmp2transforms("../RealityCapture/hotdog", "../RealityCapture/hotdog_xmp/", "../RealityCapture/hotdog_transforms/")
-    transforms2xmp("../data/hotdog", "../RealityCapture/hotdog_xmp", "../RealityCapture/hotdog_known_xmp")
+    #transforms2xmp("../data/hotdog", "../RealityCapture/hotdog_xmp", "../RealityCapture/hotdog_known_xmp")
+    split_dataset()

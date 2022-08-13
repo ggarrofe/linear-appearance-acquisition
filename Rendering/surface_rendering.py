@@ -9,35 +9,43 @@ import wandb
 import open3d as o3d
 
 import visualization as v
-
-import matplotlib.pyplot as plt
-
 import sys
 sys.path.append('../')
 
 def parse_args():
     parser = configargparse.ArgumentParser(description="Initializes the geometry with a given mesh")
     parser.add_argument('-c', '--config', is_config_file=True, help='config file path')
-    parser.add_argument('--mesh', type=str, help='initial mesh path')
+    parser.add_argument('--mesh_path', type=str, help='initial mesh path')
     parser.add_argument('--dataset_path', type=str, help='path to dataset')
     parser.add_argument('--out_path', type=str, help='path to the output folder', default="./out")
+    
     parser.add_argument('--dataset_type', type=str, help='type of dataset', choices=['synthetic', 'llff', 'tiny', 'meshroom', 'colmap'])
     parser.add_argument('--factor', type=int, default=1)
-    parser.add_argument('--batch_size', type=int, default=16384, help='number of images whose rays would be used at once')
-    parser.add_argument('--shuffle', type=bool, default=False)
+    parser.add_argument('--encoding_freqs', type=int, help='number of frequencies used in the positional encoding', default=6)
+    parser.add_argument('--dataset_to_gpu', default=False, action="store_true")
+    parser.add_argument('--load_light', action='store_true', help='load light sources positions')
+    parser.add_argument("--test", action='store_true', help='use reduced number of images')
+
+    parser.add_argument('--batch_size', type=int, default=200_000, help='number of points whose rays would be used at once')
+    parser.add_argument('--num_iters', type=int, help='number of iterations to train the network', default=1000)
     parser.add_argument("--lrate", type=float, default=5e-4, help='learning rate')
     parser.add_argument("--lrate_decay", type=int, default=250, help='exponential learning rate decay (in 1000 steps)')
-    parser.add_argument('--N_iters', type=int, help='number of iterations to train the network', default=1000)
-    parser.add_argument('--dataset_to_gpu', default=False, action="store_true")
-    parser.add_argument('--colab', action="store_true")
+    parser.add_argument('--shuffle', type=bool, default=False)
+    
     parser.add_argument('--colab_path', type=str, help='google colab base dir')
-    parser.add_argument("--test", action='store_true', help='use reduced number of images')
-    parser.add_argument("--resume", action='store_true', help='Resume the run from the last checkpoint')
+    parser.add_argument('--colab', action="store_true")
+
     parser.add_argument("--run_id", type=str, help='Id of the run that must be resumed')
     parser.add_argument('--checkpoint_path', type=str, help='Path where checkpoints are saved')
+    parser.add_argument("--resume", action='store_true', help='Resume the run from the last checkpoint')
+    
+    parser.add_argument('--val_images', type=int, help='number of validation images', default=100)
+    parser.add_argument('--train_images', type=int, help='number of training images', default=100)
+    parser.add_argument('--test_images', type=int, help='number of test images', default=100)
+    
     args = parser.parse_args()
-
     return args
+
 
 if __name__ == "__main__":
     args = parse_args()
@@ -47,56 +55,14 @@ if __name__ == "__main__":
     import utils.data as data
     import utils.networks as net
     import utils.utils as utils
+    import utils.embedder as emb
    
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f'Using {device}')
      
     # Load data
-    print("dataset to: ", device if args.dataset_to_gpu == True else torch.device("cpu"))
-    dataset = data.NeRFDataset(args, device=device if args.dataset_to_gpu else torch.device("cpu"))
-    
-    mesh = o3d.io.read_triangle_mesh(args.mesh, print_progress=True)
-    mesh = o3d.t.geometry.TriangleMesh.from_legacy(mesh)
-    scene = o3d.t.geometry.RaycastingScene()
-    scene.add_triangles(mesh)
-    dataset.create_xnv_dataset(scene)
-
-    if args.test:
-        points = dataset.get_points("train", 2, device=torch.device("cpu"))
-        pcd2 = o3d.t.geometry.PointCloud(utils.torch2open3d(points))
-        points = dataset.get_points("train", 6, device=torch.device("cpu"))
-        pcd6 = o3d.t.geometry.PointCloud(utils.torch2open3d(points))
-        points = dataset.get_points("train", 5, device=torch.device("cpu"))
-        pcd5 = o3d.t.geometry.PointCloud(utils.torch2open3d(points))
-        o3d.visualization.draw_geometries([pcd2.to_legacy(), pcd6.to_legacy(), pcd5.to_legacy()])
-
-        for i in range(2,3):
-            #depths = dataset.get_depths("train", i, device=torch.device("cpu"))
-            #normals = dataset.get_normals("train", i, device=torch.device("cpu"))
-            #img = dataset.get_image("train", i, device=torch.device("cpu"))
-            #v.print_depths(depths, img, dataset.hwf, args.out_path+f"/depths_{i}.png")
-            #v.print_normals(normals, img, dataset.hwf, args.out_path+f"/norms_{i}.png")
-            points = dataset.get_points("train", i, device=torch.device("cpu"))
-            pcd = o3d.t.geometry.PointCloud(utils.torch2open3d(points))
-
-            points = points.reshape(dataset.hwf[0], dataset.hwf[1], 3)
-            depths = dataset.get_depths("train", i, device=torch.device("cpu"))
-            depths = depths.reshape(dataset.hwf[0], dataset.hwf[1])
-            img = dataset.get_image("train", i, device=torch.device("cpu"))
-            img = img.reshape(dataset.hwf[0], dataset.hwf[1], 3)
-
-            plt.figure(figsize=(15, 4))
-            plt.subplot(131)
-            plt.imshow(img[20:35,60:80,...].numpy())
-            plt.title(f"Image")
-            plt.subplot(132)
-            plt.imshow(points[20:35,60:80,...].numpy()/10.0)
-            plt.title("3D points")
-            plt.subplot(133)
-            plt.imshow(depths[20:35,60:80,...].numpy())
-            plt.title("Depths")
-            plt.show()
-            plt.savefig(f"{args.out_path}/test.png")
+    dataset = data.NeRFDataset(args)
+    dataset.switch_2_xnv_dataset()
 
     if args.resume:
         run = wandb.init(project="controllable-neural-rendering", 
@@ -109,17 +75,18 @@ if __name__ == "__main__":
                 entity="guillemgarrofe",
                 config = {
                         "learning_rate": args.lrate,
-                        "num_iters": args.N_iters,
-                        "batch_size": dataset.hwf[0]*dataset.hwf[1] if args.batch_size is None else args.batch_size,
+                        "num_iters": args.num_iters,
+                        "batch_size": args.batch_size,
                         "dataset_type": args.dataset_type,
                         "dataset_path": args.dataset_path 
                     })
 
     # Create models
-    rend_net = net.SurfaceRenderingNetwork(input_ch=9,
+    embed_fn, input_ch = emb.get_embedder(in_dim=6, num_freqs=args.encoding_freqs)
+    rend_net = net.SurfaceRenderingNetwork(input_ch=input_ch+3,
                                            out_ch=3,
                                            hidden_ch=[512, 512, 512, 512],
-                                           enc_dim=6)
+                                           embed_fn=embed_fn)
     rend_net.to(device)
 
     # Create optimizer
@@ -137,10 +104,9 @@ if __name__ == "__main__":
         iter = checkpoint['iter']
         print(f"Resuming {run.id} at iteration {iter}")
 
-    pbar = tqdm(total=args.N_iters, unit="iteration")
+    pbar = tqdm(total=args.num_iters, unit="iteration")
     pbar.update(iter)
-    while iter < args.N_iters:
-        # By default each batch will correspond to the rays of a single image
+    while iter < args.num_iters:
         batch_xnv_tr, target_rgb_tr = dataset.next_batch("train", device=device)
         
         rend_net.train()
@@ -159,8 +125,8 @@ if __name__ == "__main__":
             param_group['lr'] = new_lrate
 
         wandb.log({
-                "loss": loss,
-                "psnr": mse2psnr(loss)
+                "tr_loss": loss,
+                "tr_psnr": mse2psnr(loss),
                 }, step=iter)
 
         #  --------------- VALIDATION --------------
@@ -177,7 +143,7 @@ if __name__ == "__main__":
                 }, step=iter)
 
         # --------------- EVALUATION --------------
-        if iter%2000 == 0:
+        if (iter < 200 and iter%20 == 0) or iter%2000 == 0:
             xnv, img, depths = dataset.get_X_target("train", 0, device=device)
             rgb_map = None
             for i in range(0, xnv.shape[0], args.batch_size):
@@ -219,6 +185,14 @@ if __name__ == "__main__":
                                       it=iter, 
                                       out_path=args.out_path,
                                       name="training_random_xnv")
+            
+            img_shape=(dataset.hwf[0], dataset.hwf[1], 3)
+            wandb.log({
+                "tr_ssim": utils.compute_ssim(torch.reshape(img, img_shape), 
+                                              torch.reshape(rgb_map, img_shape)),
+                "tr_lpips": utils.compute_lpips(torch.reshape(img, img_shape), 
+                                                torch.reshape(rgb_map, img_shape))
+                }, step=iter)
 
             xnv, img, depths = dataset.get_X_target("val", 0, device=device)
             rgb_map = None
@@ -260,6 +234,12 @@ if __name__ == "__main__":
                                       it=iter, 
                                       out_path=args.out_path,
                                       name="val_random_xnv")
+            wandb.log({
+                "val_ssim": utils.compute_ssim(torch.reshape(img, img_shape), 
+                                               torch.reshape(rgb_map, img_shape)),
+                "val_lpips": utils.compute_lpips(torch.reshape(img, img_shape), 
+                                                 torch.reshape(rgb_map, img_shape))
+                }, step=iter)
 
         
             torch.save({ # Save our checkpoint loc

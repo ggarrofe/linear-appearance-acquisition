@@ -100,14 +100,11 @@ if __name__ == "__main__":
     embed_fn, input_ch = emb.get_embedder(in_dim=X_NdotL_NdotH.shape[-1], num_freqs=args.encoding_freqs)
     latent_features = torch.nn.Embedding(args.num_clusters, args.latent_size, max_norm=args.latent_bound)
         
-    decoder = net.LinearAutoDecoder(input_ch, args.latent_size, args.num_clusters)
+    decoder = net.LinearAutoDecoder(pos_size=input_ch, latent_size=args.latent_size, num_clusters=args.num_clusters)
+    
     optimizer = torch.optim.Adam([
         {
             "params": latent_features.parameters(), 
-            "lr": args.lrate
-        },
-        {
-            "params": decoder.learnable_parameters(),
             "lr": args.lrate
         }
     ])
@@ -167,14 +164,14 @@ if __name__ == "__main__":
         )
         latent_features.requires_grad = True
 
-        pos_mappings = net.LinearAutoDecoder.compute_linear_mappings(X_NdotL_NdotH, 
+        '''pos_mappings = net.LinearAutoDecoder.compute_linear_mappings(X_NdotL_NdotH, 
                                                                      y_rgb,
                                                                      cluster_ids,
                                                                      args.num_clusters,
                                                                      embed_fn=embed_fn,
                                                                      input_ch=input_ch,
                                                                      device=device)
-        decoder.set_position_mapping(pos_mappings)
+        decoder.set_position_mapping(pos_mappings)'''
 
     
     # TRAINING
@@ -187,23 +184,20 @@ if __name__ == "__main__":
         indices = torch.tensor(np.random.choice(np.arange(cluster_ids.shape[0]), size=(batch_size,), replace=False))
         input = torch.cat([embed_fn(X_NdotL_NdotH[indices]), latent_features(cluster_ids[indices])], dim=-1)
         
-        
-        position_pred = decoder.position_mapping(input[..., :input_ch].to(device), cluster_ids[indices])
-        feat_mappings = net.LinearAutoDecoder.compute_linear_mappings(input[..., -args.latent_size:], 
-                                                                        y_rgb[indices].to(device)-position_pred, 
-                                                                        cluster_ids[indices], 
-                                                                        args.num_clusters, 
-                                                                        device)
+        linear_mappings = net.LinearAutoDecoder.compute_linear_mappings(input, 
+                                                                      y_rgb[indices].to(device), 
+                                                                      cluster_ids[indices], 
+                                                                      args.num_clusters, 
+                                                                      device)
         pred_rgb = torch.zeros((input.shape[0], 3)).to(device)
         pred_rgb = decoder(input.to(device), 
                             cluster_ids[indices], 
-                            feat_mappings)
+                            linear_mappings)
 
         l2_size_loss = torch.sum(torch.norm(input[..., -args.latent_size:], dim=1))
         reg_loss = (1e-04 * min(1, epoch / 100) * l2_size_loss)/input.shape[0]
-        #linear_loss = loss_fn(y_rgb[indices].to(device), linear_pred)
-        overall_loss = loss_fn(y_rgb[indices].to(device), pred_rgb)
-        loss = overall_loss + reg_loss #+ linear_loss 
+        mse_loss = loss_fn(y_rgb[indices].to(device), pred_rgb)
+        loss = mse_loss + reg_loss #+ linear_loss 
 
         optimizer.zero_grad()
         loss.backward()
@@ -211,7 +205,7 @@ if __name__ == "__main__":
         
         wandb.log({
             "tr_loss": loss,
-            "tr_psnr": mse2psnr(overall_loss),
+            "tr_psnr": mse2psnr(mse_loss),
             "reg_loss": reg_loss
             }, step=epoch)
         
@@ -222,17 +216,15 @@ if __name__ == "__main__":
         cluster_ids_val = kmeans_predict(X_NdotL_NdotH_val[indices, :3], centroids, device=device).cpu()
         input = torch.cat([embed_fn(X_NdotL_NdotH_val[indices]), latent_features(cluster_ids_val)], dim=-1)
 
-        pred_rgb = decoder(input.to(device), cluster_ids_val, feat_mappings)
-        linear_pred = decoder.position_mapping(input[..., :input_ch].to(device), cluster_ids_val)
+        pred_rgb = decoder(input.to(device), cluster_ids_val, linear_mappings)
 
         l2_size_loss = torch.sum(torch.norm(input[..., -args.latent_size:], dim=1))
         reg_loss = (1e-04 * min(1, epoch / 100) * l2_size_loss)/input.shape[0]
-        overall_loss = loss_fn(y_rgb_val[indices].to(device), pred_rgb)
-        linear_loss = loss_fn(y_rgb_val[indices].to(device), linear_pred)
-        loss_val = overall_loss + reg_loss # + linear_loss
+        mse_loss = loss_fn(y_rgb_val[indices].to(device), pred_rgb)
+        loss_val = mse_loss + reg_loss # + linear_loss
         wandb.log({
             "val_loss": loss_val,
-            "val_psnr": mse2psnr(overall_loss)
+            "val_psnr": mse2psnr(mse_loss)
             }, step=epoch)
 
         #  ------------------------ EVALUATION ------------------------

@@ -165,7 +165,7 @@ class NeRFSubDataset():
         self.depths = torch.zeros((self.dataset.tensors[0].shape[0])).to(device)
         self.points = torch.zeros((self.dataset.tensors[0].shape[0], 3)).to(device)
         
-        for i in range(0, self.dataset.tensors[0].shape[0], h*w):
+        for i in tqdm(range(0, self.dataset.tensors[0].shape[0], h*w), desc="Computing depths", leave=False):
             rays_od = self.dataset.tensors[0][i:i+h*w, :6]
             
             hit = utils.cast_rays(scene, rays_od)
@@ -231,10 +231,7 @@ class NeRFSubDataset():
                                         for c2w in tqdm(self.light_poses, unit="pose", desc="Generating ray lights")])
         self.light_rays = self.light_rays.reshape((-1, 6))
 
-    def switch_2_xnv_dataset(self, scene, device=torch.device("cpu")):
-        self.compute_depths(scene, device=device)
-        self.compute_normals()
-
+    def switch_2_xnv_dataset(self, device=torch.device("cpu")):
         viewdirs = self.dataset.tensors[0][..., 6:].to(device)
         X = torch.cat([self.points, self.normals, viewdirs], dim=-1)
         
@@ -506,6 +503,7 @@ class NeRFDataset():
         mesh = o3d.t.geometry.TriangleMesh.from_legacy(mesh)
         scene = o3d.t.geometry.RaycastingScene()
         scene.add_triangles(mesh)
+        print("scene created")
         for subdataset in self.subdatasets:
             subdataset.compute_depths(scene, device=device)
 
@@ -533,9 +531,12 @@ class NeRFDataset():
         subdataset = [d for d in self.subdatasets if d.name == dataset][0]
         return subdataset.get_sorted_tensors(device=device)
 
-    def switch_2_xnv_dataset(self, scene, device=torch.device('cpu')):
+    def switch_2_xnv_dataset(self, device=torch.device('cpu')):
+        self.compute_depths(device=device)
+        self.compute_normals()
+
         for d in self.subdatasets:
-            d.switch_2_xnv_dataset(scene, device=device)
+            d.switch_2_xnv_dataset(device=device)
 
     def switch_2_X_NdotL_NdotH_dataset(self, device=torch.device('cpu')):
         for d in self.subdatasets:
@@ -666,6 +667,7 @@ class NeRFDataset():
         i_imgs = 0
 
         for i_dir, dir in enumerate(subdirs):
+            if num_images[i_dir] == 0: continue
             poses_old = poses.copy()
             print(f"Loading {dir} - {num_images[i_dir]} images...")
             
