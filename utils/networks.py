@@ -114,9 +114,33 @@ class SurfaceRenderingNetwork(nn.Module):
 
         return self.layers[0](torch.cat([points, view_dirs, normals], dim=-1))
 
-class LinearNetwork(nn.Module):
+class VoxelisedLinearNetwork(nn.Module):
     def __init__(self, in_features, linear_mappings, num_freqs):
-        super(LinearNetwork, self).__init__()
+        super(VoxelisedLinearNetwork, self).__init__()
+
+        # linear_mappings: n_voxels x 3 x encoding_size
+        linear_mappings = linear_mappings.reshape(-1, linear_mappings.shape[-1])
+
+        self.linear_net = nn.Linear(in_features=linear_mappings.shape[-1], out_features=linear_mappings.shape[0], bias=False)
+        with torch.no_grad():
+            self.linear_net.weight = nn.Parameter(linear_mappings)
+
+        self.embed_fn, self.input_ch = emb.get_posenc_embedder(in_dim=in_features, num_freqs=num_freqs)
+        self.num_freqs = num_freqs
+
+    def forward(self, X, row_ids, voxel_ids):
+        encoded_X = self.embed_fn(X)
+        rgb_clusters = self.linear_net(encoded_X)
+        
+        rgb = torch.zeros((X.shape[0], 3)).to(X)
+        col_indices = torch.stack([3*voxel_ids, 3*voxel_ids+1, 3*voxel_ids+2])
+        rgb[row_ids] = rgb_clusters[row_ids, col_indices].T
+
+        return rgb
+
+class ClusterisedLinearNetwork(nn.Module):
+    def __init__(self, in_features, linear_mappings, num_freqs):
+        super(ClusterisedLinearNetwork, self).__init__()
 
         # linear_mappings: n_clusters x 3 x encoding_size
         linear_mappings = linear_mappings.reshape(-1, linear_mappings.shape[-1])
@@ -125,7 +149,7 @@ class LinearNetwork(nn.Module):
         with torch.no_grad():
             self.linear_net.weight = nn.Parameter(linear_mappings)
 
-        self.embed_fn, self.input_ch = emb.get_embedder(in_dim=in_features, num_freqs=num_freqs)
+        self.embed_fn, self.input_ch = emb.get_posenc_embedder(in_dim=in_features, num_freqs=num_freqs)
         self.num_freqs = num_freqs
 
     def forward(self, X, cluster_ids):
@@ -159,6 +183,16 @@ class LinearNetwork(nn.Module):
         row_indices = torch.arange(encoded_X.shape[0])
         col_indices = torch.stack([3*cluster_ids, 3*cluster_ids+1, 3*cluster_ids+2])
         return diffuse[row_indices, col_indices].T
+
+    def linear(self, X, cluster_ids):
+        encoded_X = self.embed_fn(X)
+        X_pos = 3*2*self.num_freqs
+
+        linear = encoded_X[..., :X_pos] @ self.linear_net.weight[..., :X_pos].T
+
+        row_indices = torch.arange(encoded_X.shape[0])
+        col_indices = torch.stack([3*cluster_ids, 3*cluster_ids+1, 3*cluster_ids+2])
+        return linear[row_indices, col_indices].T
 
     def specular_component(self, X, cluster_ids):
         encoded_X = self.embed_fn(X)
@@ -195,6 +229,78 @@ class LinearNetwork(nn.Module):
         col_indices = torch.stack([3*cluster_ids, 3*cluster_ids+1, 3*cluster_ids+2])
         return rgb_clusters[row_indices, col_indices].T
 
+
+class EnhancedReflectanceNetwork(nn.Module):
+    def __init__(self, in_features, linear_mappings, num_freqs):
+        super(EnhancedReflectanceNetwork, self).__init__()
+
+        # linear_mappings: n_clusters x 3 x encoding_size
+        linear_mappings = linear_mappings.reshape(-1, linear_mappings.shape[-1])
+
+        self.linear_net = nn.Linear(in_features=linear_mappings.shape[-1], out_features=linear_mappings.shape[0], bias=False)
+        with torch.no_grad():
+            self.linear_net.weight = nn.Parameter(linear_mappings, requires_grad=False)
+            
+        self.embed_fn_input, self.input_ch_input = emb.get_posenc_embedder(in_dim=in_features, num_freqs=num_freqs)
+        self.ReLU = nn.ReLU()
+
+        # X     \ ---------------------\
+        # NdotL   > linear layer + relu  >  residual layer
+        # NdotH /  
+        
+        # regularizer: difference between linear layer output and final output 
+        self.embed_fn_pos, self.input_ch_pos = emb.get_posenc_embedder(in_dim=3, num_freqs=num_freqs)
+        self.extra_layers = nn.Sequential(nn.Linear(in_features=linear_mappings.shape[0] + self.input_ch_pos, out_features=3),
+                                          nn.Tanh())
+        self.num_freqs = num_freqs
+
+    def forward(self, X_NdotL_NdotH):
+        encoded_input = self.embed_fn_input(X_NdotL_NdotH)
+        linear_output = self.linear_net(encoded_input)
+        linear_output = self.ReLU(linear_output)
+        extra_layers_in = torch.cat((linear_output, self.embed_fn_pos(X_NdotL_NdotH[..., :3])), dim=1)
+        return self.extra_layers(extra_layers_in)
+
+    def forward_encoded(self, encoded_input, encoded_pos):
+        linear_output = self.linear_net(encoded_input)
+        linear_output = self.ReLU(linear_output)
+        extra_layers_in = torch.cat((linear_output, encoded_pos), dim=1)
+        return self.extra_layers(extra_layers_in)
+
+    def specular(self, X_NdotL_NdotH):
+        encoded_input = self.embed_fn_input(X_NdotL_NdotH)
+        X_pos = 3*2*self.num_freqs
+        NdotH_pos = 4*2*self.num_freqs
+        encoded_input_amb = torch.cat([encoded_input[..., :X_pos], torch.zeros((encoded_input.shape[0], 2*2*self.num_freqs)).to(encoded_input)], dim=-1)
+        encoded_input_spec = torch.cat([torch.zeros((encoded_input.shape[0], NdotH_pos)).to(encoded_input), encoded_input[..., NdotH_pos:]], dim=-1)
+        
+        amb = self.forward_encoded(encoded_input_amb, encoded_input[..., :X_pos])
+        spec = self.forward_encoded(encoded_input_spec, encoded_input[..., :X_pos])
+
+        return amb+spec
+
+    def diffuse(self, X_NdotL_NdotH):
+        encoded_input = self.embed_fn_input(X_NdotL_NdotH)
+        X_pos = 3*2*self.num_freqs
+        NdotL_pos = 4*2*self.num_freqs
+        encoded_input_amb = torch.cat([encoded_input[..., :X_pos], torch.zeros((encoded_input.shape[0], 2*2*self.num_freqs)).to(encoded_input)], dim=-1)
+        encoded_input_diff = torch.cat([torch.zeros((encoded_input.shape[0], X_pos)).to(encoded_input), encoded_input[..., X_pos:NdotL_pos], torch.zeros((encoded_input.shape[0], 1*2*self.num_freqs)).to(encoded_input)], dim=-1)
+        
+        amb = self.forward_encoded(encoded_input_amb, encoded_input[..., :X_pos])
+        diff = self.forward_encoded(encoded_input_diff, encoded_input[..., :X_pos])
+
+        return amb+diff
+    
+    def linear(self, X_NdotL_NdotH, cluster_ids):
+        encoded_input = self.embed_fn_input(X_NdotL_NdotH)
+        linear = self.linear_net(encoded_input)
+
+        row_indices = torch.arange(encoded_input.shape[0])
+        col_indices = torch.stack([3*cluster_ids, 3*cluster_ids+1, 3*cluster_ids+2])
+        return linear[row_indices, col_indices].T
+
+
+
 class LinearMapping(nn.Module):
     def __init__(self, in_features, linear_mappings, num_freqs):
         super(LinearMapping, self).__init__()
@@ -205,7 +311,7 @@ class LinearMapping(nn.Module):
         self.linear_net = nn.Linear(in_features=linear_mappings.shape[-1], out_features=linear_mappings.shape[0], bias=False)
         self.linear_net.weight = nn.Parameter(linear_mappings)
 
-        self.embed_fn, self.input_ch = emb.get_embedder(in_dim=in_features, num_freqs=num_freqs)
+        self.embed_fn, self.input_ch = emb.get_posenc_embedder(in_dim=in_features, num_freqs=num_freqs)
         self.num_freqs = num_freqs
 
     def forward(self, encoded_X):
@@ -391,7 +497,7 @@ class ReflectanceNetwork(nn.Module):
                                      nn.ReLU(), 
                                      nn.Linear(in_features=linear_mappings.shape[0], out_features=3),
                                      nn.Tanh())
-        self.embed_fn, self.input_ch = emb.get_embedder(in_dim=in_features, num_freqs=num_freqs)
+        self.embed_fn, self.input_ch = emb.get_posenc_embedder(in_dim=in_features, num_freqs=num_freqs)
         self.num_freqs = num_freqs
 
     def forward(self, X_NdotL_NdotH):
@@ -435,7 +541,7 @@ class ClusterizedReflectance(nn.Module):
         with torch.no_grad():
             self.x2cluster_net.weight = nn.Parameter(x2cluster)
             
-        self.embed_fn, self.input_ch = emb.get_embedder(in_dim=in_features, num_freqs=num_freqs)
+        self.embed_fn, self.input_ch = emb.get_posenc_embedder(in_dim=in_features, num_freqs=num_freqs)
         self.num_freqs = num_freqs
         
 
@@ -489,7 +595,7 @@ class ResidualReflectance(nn.Module):
 
         # linear_mappings: n_clusters x 3 x encoding_size
         self.linear_mapping = LinearMapping(in_features, linear_mappings, num_freqs)
-        self.embed_fn, self.input_ch = emb.get_embedder(in_dim=in_features, num_freqs=num_freqs)
+        self.embed_fn, self.input_ch = emb.get_posenc_embedder(in_dim=in_features, num_freqs=num_freqs)
         self.num_freqs = num_freqs
 
         self.residual_net = MLP(input_ch=self.input_ch, #X (3) NdotL (1) NdotH (1)

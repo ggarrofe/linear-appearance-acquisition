@@ -103,11 +103,9 @@ def validation_view_rgb_xndv(rgb_map, val_target, img_shape, points, normals, de
         plt.close(fig)
     else:
         plt.show()
-
-    
     
 
-def validation_view_reflectance(reflectance, specular, diffuse, target, img_shape, points, it=0, out_path=None, name="val_reflectance", save=True, wandb_act=True):
+'''def validation_view_reflectance(reflectance, specular, diffuse, target, img_shape, points, it=0, out_path=None, name="val_reflectance", save=True, wandb_act=True):
     reflectance = torch.reshape(reflectance, img_shape)
     specular = torch.reshape(specular, img_shape)
     diffuse = torch.reshape(diffuse, img_shape)
@@ -129,13 +127,21 @@ def validation_view_reflectance(reflectance, specular, diffuse, target, img_shap
     plt.imshow(target.cpu().numpy())
     plt.title("Target reflectance")
 
-    if save:
-        if out_path is not None:
-            plt.savefig(f"{out_path}/{name}_it{it}.png", bbox_inches='tight', dpi=150)
-        if wandb_act:
-            wandb.log({f"{name}_view": fig}, step=it)
-    
-    plt.show()
+    if save and out_path is not None:
+        plt.savefig(f"{out_path}/{name}_it{it}.png", bbox_inches='tight', dpi=150)
+        plt.close(fig)
+        im = Image.fromarray((diffuse.cpu().numpy() * 255).astype(np.uint8))
+        im.save(f"{out_path}/{name}_diffuse_it{it}.png")
+        im = Image.fromarray((specular.cpu().numpy() * 255).astype(np.uint8))
+        im.save(f"{out_path}/{name}_specular_it{it}.png")
+        im = Image.fromarray((reflectance.cpu().numpy() * 255).astype(np.uint8))
+        im.save(f"{out_path}/{name}_reflectance_it{it}.png")
+    else:
+        plt.show()
+            
+    if wandb_act:
+        wandb.log({f"{name}_view": fig}, step=it)
+'''
 
 def validation_view_reflectance(reflectance, specular, diffuse, target, linear, img_shape, points, it=0, out_path=None, name="val_reflectance", save=True, wandb_act=True):
     reflectance = torch.reshape(reflectance, img_shape)
@@ -163,17 +169,22 @@ def validation_view_reflectance(reflectance, specular, diffuse, target, linear, 
     plt.imshow(target.cpu().numpy())
     plt.title("Target reflectance")
 
-    if save:
-        if out_path is not None:
-            plt.savefig(f"{out_path}/{name}_it{it}.png", bbox_inches='tight', dpi=150)
-        if wandb_act:
-            wandb.log({f"{name}_view": fig}, step=it)
-    if wandb_act:
+    if save and out_path is not None:
+        plt.savefig(f"{out_path}/{name}_it{it}.png", bbox_inches='tight', dpi=150)
         plt.close(fig)
+        im = Image.fromarray((diffuse.cpu().numpy() * 255).astype(np.uint8))
+        im.save(f"{out_path}/{name}_diffuse_it{it}.png")
+        im = Image.fromarray((specular.cpu().numpy() * 255).astype(np.uint8))
+        im.save(f"{out_path}/{name}_specular_it{it}.png")
+        im = Image.fromarray((linear.cpu().numpy() * 255).astype(np.uint8))
+        im.save(f"{out_path}/{name}_reflectance_it{it}.png")
     else:
         plt.show()
+            
+    if wandb_act:
+        wandb.log({f"{name}_view": fig}, step=it)
 
-def validation_view_reflectance(reflectance, target, linear, img_shape, it=0, out_path=None, name="val_reflectance", save=True, wandb_act=True):
+'''def validation_view_reflectance(reflectance, target, linear, img_shape, it=0, out_path=None, name="val_reflectance", save=True, wandb_act=True):
     reflectance = torch.reshape(reflectance, img_shape)
     target = torch.reshape(target, img_shape)
     linear = torch.reshape(linear, img_shape)
@@ -197,6 +208,7 @@ def validation_view_reflectance(reflectance, target, linear, img_shape, it=0, ou
         plt.close(fig)
     else:
         plt.show()
+'''
 
 def dataset_view_rgb_xnv(img, img_shape, points, normals, viewdirs):
     img = torch.reshape(img, img_shape)
@@ -255,7 +267,7 @@ def plot_clusters_3Dpoints(points, cluster_ids, num_clusters, colab=False, out_p
         points = points.cpu().numpy()
         colors = colors.cpu().numpy()
         ax = plt.axes(projection='3d')
-        ax.view_init(90, -90)
+        ax.view_init(-85, -15)
         ax.axis("off")
         ax.scatter(points[:,0], points[:,1], points[:,2], s=1, c=colors)
 
@@ -270,6 +282,35 @@ def plot_clusters_3Dpoints(points, cluster_ids, num_clusters, colab=False, out_p
         pcd = o3d.t.geometry.PointCloud(utils.torch2open3d(points))
         pcd.point["colors"] = utils.torch2open3d(colors)
         o3d.visualization.draw_geometries([pcd.to_legacy()])
+
+
+def plot_voxels_3Dpoints(points, row_ids, voxel_ids, colab=False, out_path=None, filename=None):
+    colors = torch.zeros((points.shape[0], 3))
+    
+    for id in set(voxel_ids):
+        color = torch.rand((3,))
+        colors[row_ids[voxel_ids == id]] = color
+    
+    if colab == True:
+        points = points.cpu().numpy()
+        colors = colors.cpu().numpy()
+        ax = plt.axes(projection='3d')
+        ax.view_init(-85, -15)
+        ax.axis("off")
+        ax.scatter(points[:,0], points[:,1], points[:,2], s=1, c=colors)
+
+        if out_path is not None:
+            filename = "surface_voxels_3D.png" if filename is None else filename
+            plt.savefig(f"{out_path}/{filename}", dpi=300)
+
+        plt.show()
+    else:
+        import open3d as o3d
+
+        pcd = o3d.t.geometry.PointCloud(utils.torch2open3d(points))
+        pcd.point["colors"] = utils.torch2open3d(colors)
+        o3d.visualization.draw_geometries([pcd.to_legacy()])
+
 
 def closepoints_pointcloud(points_pairs, points, colab=False, out_path="./out", filename=None):
     points_pcl = []
@@ -287,7 +328,7 @@ def closepoints_pointcloud(points_pairs, points, colab=False, out_path="./out", 
 
     if colab == True:
         ax = plt.axes(projection='3d')
-        ax.view_init(90, -90)
+        ax.view_init(-130, -130)
         ax.axis("off")
         ax.scatter(points_pcl[:,0], points_pcl[:,1], points_pcl[:,2], s=1, c=colors_pcl)
 

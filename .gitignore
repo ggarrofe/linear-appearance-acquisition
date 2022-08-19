@@ -14,3 +14,4 @@ checkpoints
 wandb
 *xmp
 RealityCapture/**/*.txt
+*.db

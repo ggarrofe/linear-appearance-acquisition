@@ -98,7 +98,7 @@ if __name__ == "__main__":
     
     X_NdotL_NdotH, y_rgb = dataset.get_X_NdotL_NdotH_rgb("train", img=-1, device=torch.device("cpu"))
     X_NdotL_NdotH_val, y_rgb_val = dataset.get_X_NdotL_NdotH_rgb("val", img=-1, device=torch.device("cpu"))
-    embed_fn, input_ch = emb.get_embedder(in_dim=X_NdotL_NdotH.shape[-1], num_freqs=args.encoding_freqs)
+    embed_fn, input_ch = emb.get_posenc_embedder(in_dim=X_NdotL_NdotH.shape[-1], num_freqs=args.encoding_freqs)
         
     autoencoder = net.LinearAutoEncoder(pos_size=input_ch, latent_size=args.latent_size, num_clusters=args.num_clusters).to(device)
     optimizer = torch.optim.Adam([

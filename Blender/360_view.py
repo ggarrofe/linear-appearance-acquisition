@@ -121,6 +121,7 @@ scene.render.resolution_y = RESOLUTION
 scene.render.resolution_percentage = 100
 
 cam = scene.objects['Camera']
+# Remember to group camera and light in the scene
 light = scene.objects['Light']
 cam_constraint = cam.constraints.new(type='TRACK_TO')
 cam_constraint.track_axis = 'TRACK_NEGATIVE_Z'

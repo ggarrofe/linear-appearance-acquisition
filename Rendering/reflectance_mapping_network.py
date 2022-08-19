@@ -135,7 +135,7 @@ if __name__ == "__main__":
     iter=0
     if wandb.run.resumed:
         x_NdotL_NdotH, target_rgb = dataset.get_X_NdotL_NdotH_rgb("train", img=-1, device=torch.device("cpu"))
-        embed_fn, input_ch = emb.get_embedder(in_dim=x_NdotL_NdotH.shape[-1], num_freqs=6)
+        embed_fn, input_ch = emb.get_posenc_embedder(in_dim=x_NdotL_NdotH.shape[-1], num_freqs=6)
 
         reflectance_net = net.ReflectanceNetwork(in_features=x_NdotL_NdotH.shape[-1], 
                                         linear_mappings=torch.zeros((args.num_clusters, 3, input_ch)), 
@@ -153,7 +153,7 @@ if __name__ == "__main__":
 
     else:
         x_NdotL_NdotH, target_rgb = dataset.get_X_NdotL_NdotH_rgb("train", img=-1, device=torch.device("cpu"))
-        embed_fn, input_ch = emb.get_embedder(in_dim=x_NdotL_NdotH.shape[-1], num_freqs=6)
+        embed_fn, input_ch = emb.get_posenc_embedder(in_dim=x_NdotL_NdotH.shape[-1], num_freqs=6)
         
         linear_mappings = torch.zeros([args.num_clusters, 3, input_ch]).to(device)
         cluster_ids = torch.zeros((x_NdotL_NdotH.shape[0],),).to(device)

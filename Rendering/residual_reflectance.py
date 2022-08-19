@@ -156,7 +156,7 @@ if __name__ == "__main__":
 
     else:
         # ---------------------- LINEAR MAPPINGS ----------------------
-        embed_fn, input_ch = emb.get_embedder(in_dim=9, num_freqs=6)
+        embed_fn, input_ch = emb.get_posenc_embedder(in_dim=9, num_freqs=6)
         xnv, target_rgb, depths = dataset.get_tensors("train", device=device)
         
         linear_mappings = torch.zeros([args.num_clusters, input_ch, 3]).to(device)

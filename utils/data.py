@@ -503,7 +503,7 @@ class NeRFDataset():
         mesh = o3d.t.geometry.TriangleMesh.from_legacy(mesh)
         scene = o3d.t.geometry.RaycastingScene()
         scene.add_triangles(mesh)
-        print("scene created")
+        
         for subdataset in self.subdatasets:
             subdataset.compute_depths(scene, device=device)
 
@@ -589,6 +589,7 @@ class NeRFDataset():
         i_imgs = 0
         
         for i_dir, subdir in enumerate(subdirs):
+            if num_images[i_dir] == 0: continue
             imgdir = os.path.join(basedir, subdir + sfx)
     
             if not os.path.exists(imgdir):

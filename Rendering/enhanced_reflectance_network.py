@@ -13,37 +13,53 @@ import wandb
 import sys
 sys.path.append('../')
 
-print(sys.path)
 
 def parse_args():
-    parser = configargparse.ArgumentParser(description="Initializes the geometry with a given mesh")
-    parser.add_argument('-c', '--config', is_config_file=True, help='config file path')
-    parser.add_argument('--mesh', type=str, help='initial mesh path')
+    parser = configargparse.ArgumentParser(
+        description="Initializes the geometry with a given mesh")
+    parser.add_argument('-c', '--config', is_config_file=True,
+                        help='config file path')
+    parser.add_argument('--mesh_path', type=str, help='initial mesh path')
     parser.add_argument('--dataset_path', type=str, help='path to dataset')
-    parser.add_argument('--out_path', type=str, help='path to the output folder', default="./out")
-    parser.add_argument('--dataset_type', type=str, help='type of dataset', choices=['synthetic', 'llff', 'tiny', 'meshroom', 'colmap'])
+    parser.add_argument('--out_path', type=str,
+                        help='path to the output folder', default="./out")
+
+    parser.add_argument('--dataset_type', type=str, help='type of dataset',
+                        choices=['synthetic', 'llff', 'tiny', 'meshroom', 'colmap'])
     parser.add_argument('--factor', type=int, default=1)
-    parser.add_argument('--batch_size', type=int, default=16384, help='number of images whose rays would be used at once')
-    parser.add_argument('--shuffle', type=bool, default=False)
+    parser.add_argument('--encoding_freqs', type=int,
+                        help='number of frequencies used in the positional encoding', default=6)
+    parser.add_argument('--dataset_to_gpu', default=False, action="store_true")
+    parser.add_argument('--load_light', action='store_true',
+                        help='load light sources positions')
+    parser.add_argument("--test", action='store_true', help='use reduced number of images')
+    parser.add_argument("--only_eval", action='store_true', help='load a model and evaluate it')
+
+    parser.add_argument('--batch_size', type=int, default=200_000, help='number of points whose rays would be used at once')
+    parser.add_argument('--num_iters', type=int, help='number of iterations to train the network', default=1000)
+    parser.add_argument('--num_epochs', type=int, help='number of epochs used to learn the latent features', default=100)
     parser.add_argument("--lrate", type=float, default=5e-4, help='learning rate')
     parser.add_argument("--lrate_decay", type=int, default=250, help='exponential learning rate decay (in 1000 steps)')
-    parser.add_argument('--N_iters', type=int, help='number of iterations to train the network', default=1000)
-    parser.add_argument('--dataset_to_gpu', default=False, action="store_true")
-    parser.add_argument('--colab', action="store_true")
+    parser.add_argument('--shuffle', type=bool, default=False)
+
     parser.add_argument('--colab_path', type=str, help='google colab base dir')
-    parser.add_argument("--test", action='store_true', help='use reduced number of images')
-    parser.add_argument("--resume", action='store_true', help='Resume the run from the last checkpoint')
+    parser.add_argument('--colab', action="store_true")
+
     parser.add_argument("--run_id", type=str, help='Id of the run that must be resumed')
     parser.add_argument('--checkpoint_path', type=str, help='Path where checkpoints are saved')
+    parser.add_argument("--resume", action='store_true', help='Resume the run from the last checkpoint')
+
     parser.add_argument('--val_images', type=int, help='number of validation images', default=100)
     parser.add_argument('--train_images', type=int, help='number of training images', default=100)
     parser.add_argument('--test_images', type=int, help='number of test images', default=100)
-    parser.add_argument('--kmeans_tol', type=float, help='number of validation images', default=1e-04)
+
     parser.add_argument('--num_clusters', type=int, help='number of clusters of the surface points', default=10)
+    parser.add_argument('--kmeans_tol', type=float, help='threshold to stop iterating the kmeans algorithm', default=1e-04)
     parser.add_argument('--kmeans_batch_size', type=int, default=200000, help='number of points to cluster at once')
-    parser.add_argument('--load_light', action='store_true', help='load light sources positions')
+
     args = parser.parse_args()
     return args
+
 
 def compute_inv(xh, target, cluster_id, cluster_ids, embed_fn, device=torch.device("cuda"), batch_size=1e07):
     mask = cluster_ids == cluster_id
@@ -99,13 +115,8 @@ if __name__ == "__main__":
      
     # Load data
     print("dataset to: ", device if args.dataset_to_gpu == True else torch.device("cpu"))
-    dataset = data.NeRFDataset(args, device=device if args.dataset_to_gpu else torch.device("cpu"))
-
-    mesh = o3d.io.read_triangle_mesh(args.mesh, print_progress=True)
-    mesh = o3d.t.geometry.TriangleMesh.from_legacy(mesh)
-    scene = o3d.t.geometry.RaycastingScene()
-    scene.add_triangles(mesh)
-    dataset.compute_depths(scene, device=torch.device("cpu"))
+    dataset = data.NeRFDataset(args)
+    dataset.compute_depths(device=torch.device("cpu"))
     dataset.compute_normals()
     dataset.compute_halfangles()
     
@@ -123,7 +134,7 @@ if __name__ == "__main__":
                 entity="guillemgarrofe",
                 config = {
                         "learning_rate": args.lrate,
-                        "num_iters": args.N_iters,
+                        "num_iters": args.num_iters,
                         "batch_size": args.batch_size,
                         "kmeans_batch_size": args.kmeans_batch_size,
                         "dataset_type": args.dataset_type,
@@ -137,9 +148,9 @@ if __name__ == "__main__":
         x_NdotL_NdotH, target_rgb = dataset.get_X_NdotL_NdotH_rgb("train", img=-1, device=torch.device("cpu"))
         embed_fn, input_ch = emb.get_posenc_embedder(in_dim=x_NdotL_NdotH.shape[-1], num_freqs=6)
 
-        reflectance_net = net.ResidualReflectance(in_features=x_NdotL_NdotH.shape[-1], 
-                                                  linear_mappings=torch.zeros((args.num_clusters, 3, input_ch)), 
-                                                  num_freqs=6)
+        reflectance_net = net.ReflectanceNetwork(in_features=x_NdotL_NdotH.shape[-1], 
+                                        linear_mappings=torch.zeros((args.num_clusters, 3, input_ch)), 
+                                        num_freqs=6)
         reflectance_net.to(device)
         optimizer = torch.optim.Adam(reflectance_net.parameters(), lr=args.lrate)
 
@@ -152,11 +163,11 @@ if __name__ == "__main__":
         print(f"Resuming {run.id} at iteration {iter}")
 
     else:
-        x_NdotL_NdotH, target_rgb = dataset.get_X_NdotL_NdotH_rgb("train", img=-1, device=torch.device("cpu"))
+        x_NdotL_NdotH, target_rgb = dataset.get_X_NdotL_NdotH_rgb("train", img=-1, device=device)
         embed_fn, input_ch = emb.get_posenc_embedder(in_dim=x_NdotL_NdotH.shape[-1], num_freqs=6)
         
         linear_mappings = torch.zeros([args.num_clusters, 3, input_ch]).to(device)
-        cluster_ids = torch.zeros((x_NdotL_NdotH.shape[0],),).to(device)
+        cluster_ids = torch.zeros((x_NdotL_NdotH.shape[0],), dtype=torch.long).to(device)
         centroids = torch.zeros((args.num_clusters, 3)).to(device)
 
         mask = (x_NdotL_NdotH[:,0] == -1.) & (x_NdotL_NdotH[:,1] == -1.) & (x_NdotL_NdotH[:,2] == -1.) #not masking takes too much time
@@ -178,30 +189,35 @@ if __name__ == "__main__":
                                                     embed_fn=embed_fn,
                                                     device=device)
 
-        reflectance_net = net.ResidualReflectance(in_features=x_NdotL_NdotH.shape[-1], linear_mappings=linear_mappings, num_freqs=6)
+        reflectance_net = net.EnhancedReflectanceNetwork(in_features=x_NdotL_NdotH.shape[-1], linear_mappings=linear_mappings, num_freqs=6)
         linear_mappings = linear_mappings.cpu()
         reflectance_net = reflectance_net.to(device)
 
         # Create optimizer
         optimizer = torch.optim.Adam(reflectance_net.parameters(), lr=args.lrate)
 
-    pbar = tqdm(total=args.N_iters, unit="iteration")
+    pbar = tqdm(total=args.num_iters, unit="iteration")
     pbar.update(iter)
     dataset.switch_2_X_NdotL_NdotH_dataset(device=device if args.dataset_to_gpu else torch.device("cpu"))
 
-    while iter < args.N_iters:
+    while iter < args.num_iters:
         # ------------------------ TRAINING -------------------------
         reflectance_net.train()
         batch_x_NdotL_NdotH_tr, target_rgb_tr = dataset.next_batch("train", device=device)
 
         cluster_ids_tr = kmeans_predict(batch_x_NdotL_NdotH_tr[..., :3], centroids, device=device)
-        pred_rgb = reflectance_net(batch_x_NdotL_NdotH_tr, cluster_ids_tr)
-        pred_spec = reflectance_net.specular(batch_x_NdotL_NdotH_tr, cluster_ids_tr)
-        pred_diff = reflectance_net.diffuse(batch_x_NdotL_NdotH_tr, cluster_ids_tr)
-        linear_pred_rgb = reflectance_net.linear_mapping.reflectance(batch_x_NdotL_NdotH_tr.to(device), cluster_ids_tr)
+        pred_rgb = reflectance_net(batch_x_NdotL_NdotH_tr)
+        pred_spec = reflectance_net.specular(batch_x_NdotL_NdotH_tr)
+        pred_diff = reflectance_net.diffuse(batch_x_NdotL_NdotH_tr)
+        pred_linear = reflectance_net.linear(batch_x_NdotL_NdotH_tr, cluster_ids_tr)
+        '''linear_pred_rgb = reflectance_net.linear_mapping.reflectance(batch_x_NdotL_NdotH_tr.to(device), cluster_ids_tr)
         linear_pred_spec = reflectance_net.linear_mapping.specular(batch_x_NdotL_NdotH_tr.to(device), cluster_ids_tr)
         linear_pred_diff = reflectance_net.linear_mapping.diffuse(batch_x_NdotL_NdotH_tr.to(device), cluster_ids_tr)
-        loss = loss_fn(pred_rgb, target_rgb_tr) #+ loss_fn(pred_spec, linear_pred_spec) + loss_fn(pred_diff, linear_pred_diff)
+        '''
+        loss = loss_fn(pred_rgb, target_rgb_tr) #+ loss_fn(pred_spec, linear_pred_spec) + loss_fn(pred_diff, linear_pred_diff)'''
+        '''print("train spec loss", 0.1 * loss_fn(pred_spec, linear_pred_spec))
+        print("train diff loss", 0.1 * loss_fn(pred_diff, linear_pred_diff))
+        print("train loss", loss_fn(pred_rgb, target_rgb_tr))'''
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -214,7 +230,8 @@ if __name__ == "__main__":
 
         wandb.log({
                 "tr_loss": loss,
-                "tr_psnr": mse2psnr(loss)
+                "tr_psnr": mse2psnr(loss),
+                "tr_linear_loss": loss_fn(pred_linear, target_rgb_tr)
                 }, step=iter)
 
         # ------------------------ VALIDATION ------------------------
@@ -222,52 +239,54 @@ if __name__ == "__main__":
         batch_x_NdotL_NdotH_val, target_rgb_val = dataset.next_batch("val", device=device)
         
         cluster_ids_val = kmeans_predict(batch_x_NdotL_NdotH_val[..., :3], centroids, device=device)
-        pred_rgb_val = reflectance_net(batch_x_NdotL_NdotH_val.to(device), cluster_ids_val)
-        pred_spec = reflectance_net.specular(batch_x_NdotL_NdotH_val, cluster_ids_val)
-        pred_diff = reflectance_net.diffuse(batch_x_NdotL_NdotH_val, cluster_ids_val)
-        linear_pred_rgb = reflectance_net.linear_mapping.reflectance(batch_x_NdotL_NdotH_val.to(device), cluster_ids_val)
+        pred_rgb_val = reflectance_net(batch_x_NdotL_NdotH_val.to(device))
+        pred_spec = reflectance_net.specular(batch_x_NdotL_NdotH_val)
+        pred_diff = reflectance_net.diffuse(batch_x_NdotL_NdotH_val)
+        pred_linear = reflectance_net.linear(batch_x_NdotL_NdotH_val, cluster_ids_val)
+        '''linear_pred_rgb = reflectance_net.linear_mapping.reflectance(batch_x_NdotL_NdotH_val.to(device), cluster_ids_val)
         linear_pred_spec = reflectance_net.linear_mapping.specular(batch_x_NdotL_NdotH_val.to(device), cluster_ids_val)
         linear_pred_diff = reflectance_net.linear_mapping.diffuse(batch_x_NdotL_NdotH_val.to(device), cluster_ids_val)
-        
+        '''
 
         val_loss = loss_fn(pred_rgb_val, target_rgb_val) #+ loss_fn(pred_spec, linear_pred_spec) + loss_fn(pred_diff, linear_pred_diff)
 
         wandb.log({
                 "val_loss": val_loss,
-                "val_psnr": mse2psnr(val_loss)
+                "val_psnr": mse2psnr(val_loss),
+                "val_linear_loss": loss_fn(pred_linear, target_rgb_val)
                 }, step=iter)
 
         #  ------------------------ EVALUATION ------------------------
-        if iter%200 == 0:
+        if (iter < 200 and iter%20 == 0) or iter%2000 == 0:
             x_NdotL_NdotH, img = dataset.get_X_NdotL_NdotH_rgb("train", img=0, device=device)
             cluster_ids = kmeans_predict(x_NdotL_NdotH[..., :3], centroids, device=device)
-            pred_rgb = reflectance_net(x_NdotL_NdotH, cluster_ids)
-            pred_rgb_spec = reflectance_net.specular(x_NdotL_NdotH, cluster_ids)
-            pred_rgb_diff = reflectance_net.diffuse(x_NdotL_NdotH, cluster_ids)
+            pred_rgb = reflectance_net(x_NdotL_NdotH)
+            pred_rgb_spec = reflectance_net.specular(x_NdotL_NdotH)
+            pred_rgb_diff = reflectance_net.diffuse(x_NdotL_NdotH)
 
             v.validation_view_reflectance(reflectance=pred_rgb.detach().cpu(),
-                                        specular=pred_rgb_spec.detach().cpu(), 
-                                        diffuse=pred_rgb_diff.detach().cpu(), 
-                                        target=img.detach().cpu(),
-                                        points=x_NdotL_NdotH[..., :3].detach().cpu(),
-                                        linear=reflectance_net.linear_mapping.reflectance(x_NdotL_NdotH, cluster_ids).detach().cpu(),
-                                        img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
-                                        out_path=args.out_path,
-                                        it=iter,
-                                        name="training_reflectance")
+                                          specular=pred_rgb_spec.detach().cpu(), 
+                                          diffuse=pred_rgb_diff.detach().cpu(), 
+                                          target=img.detach().cpu(),
+                                          points=x_NdotL_NdotH[..., :3].detach().cpu(),
+                                          linear=reflectance_net.linear(x_NdotL_NdotH, cluster_ids).detach().cpu(),
+                                          img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
+                                          out_path=args.out_path,
+                                          it=iter,
+                                          name="training_reflectance")
 
             x_NdotL_NdotH, img = dataset.get_X_NdotL_NdotH_rgb("val", img=0, device=device)
             cluster_ids = kmeans_predict(x_NdotL_NdotH[..., :3], centroids, device=device)
-            pred_rgb = reflectance_net(x_NdotL_NdotH, cluster_ids)
-            pred_rgb_spec = reflectance_net.specular(x_NdotL_NdotH, cluster_ids)
-            pred_rgb_diff = reflectance_net.diffuse(x_NdotL_NdotH, cluster_ids)
+            pred_rgb = reflectance_net(x_NdotL_NdotH)
+            pred_rgb_spec = reflectance_net.specular(x_NdotL_NdotH)
+            pred_rgb_diff = reflectance_net.diffuse(x_NdotL_NdotH)
 
             v.validation_view_reflectance(reflectance=pred_rgb.detach().cpu(),
                                         specular=pred_rgb_spec.detach().cpu(), 
                                         diffuse=pred_rgb_diff.detach().cpu(), 
                                         target=img.detach().cpu(),
                                         points=x_NdotL_NdotH[..., :3].detach().cpu(),
-                                        linear=reflectance_net.linear_mapping.reflectance(x_NdotL_NdotH, cluster_ids).detach().cpu(),
+                                        linear=reflectance_net.linear(x_NdotL_NdotH, cluster_ids).detach().cpu(),
                                         img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
                                         out_path=args.out_path,
                                         it=iter,
@@ -275,16 +294,16 @@ if __name__ == "__main__":
 
             x_NdotL_NdotH, img = dataset.get_X_NdotL_NdotH_rgb("train", img=np.random.randint(0, dataset.get_n_images("train")), device=device)
             cluster_ids = kmeans_predict(x_NdotL_NdotH[..., :3], centroids, device=device)
-            pred_rgb = reflectance_net(x_NdotL_NdotH, cluster_ids)
-            pred_rgb_spec = reflectance_net.specular(x_NdotL_NdotH, cluster_ids)
-            pred_rgb_diff = reflectance_net.diffuse(x_NdotL_NdotH, cluster_ids)
+            pred_rgb = reflectance_net(x_NdotL_NdotH)
+            pred_rgb_spec = reflectance_net.specular(x_NdotL_NdotH)
+            pred_rgb_diff = reflectance_net.diffuse(x_NdotL_NdotH)
 
             v.validation_view_reflectance(reflectance=pred_rgb.detach().cpu(),
                                         specular=pred_rgb_spec.detach().cpu(), 
                                         diffuse=pred_rgb_diff.detach().cpu(), 
                                         target=img.detach().cpu(),
                                         points=x_NdotL_NdotH[..., :3].detach().cpu(),
-                                        linear=reflectance_net.linear_mapping.reflectance(x_NdotL_NdotH, cluster_ids).detach().cpu(),
+                                        linear=reflectance_net.linear(x_NdotL_NdotH, cluster_ids).detach().cpu(),
                                         img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
                                         out_path=args.out_path,
                                         it=iter,
@@ -292,16 +311,16 @@ if __name__ == "__main__":
 
             x_NdotL_NdotH, img = dataset.get_X_NdotL_NdotH_rgb("val", img=np.random.randint(0, dataset.get_n_images("val")), device=device)
             cluster_ids = kmeans_predict(x_NdotL_NdotH[..., :3], centroids, device=device)
-            pred_rgb = reflectance_net(x_NdotL_NdotH, cluster_ids)
-            pred_rgb_spec = reflectance_net.specular(x_NdotL_NdotH, cluster_ids)
-            pred_rgb_diff = reflectance_net.diffuse(x_NdotL_NdotH, cluster_ids)
+            pred_rgb = reflectance_net(x_NdotL_NdotH)
+            pred_rgb_spec = reflectance_net.specular(x_NdotL_NdotH)
+            pred_rgb_diff = reflectance_net.diffuse(x_NdotL_NdotH)
 
             v.validation_view_reflectance(reflectance=pred_rgb.detach().cpu(),
                                         specular=pred_rgb_spec.detach().cpu(), 
                                         diffuse=pred_rgb_diff.detach().cpu(), 
                                         target=img.detach().cpu(),
                                         points=x_NdotL_NdotH[..., :3].detach().cpu(),
-                                        linear=reflectance_net.linear_mapping.reflectance(x_NdotL_NdotH, cluster_ids).detach().cpu(),
+                                        linear=reflectance_net.linear(x_NdotL_NdotH, cluster_ids).detach().cpu(),
                                         img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
                                         out_path=args.out_path,
                                         it=iter,

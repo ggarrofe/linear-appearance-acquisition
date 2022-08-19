@@ -7,6 +7,7 @@ import configargparse
 import wandb
 
 import open3d as o3d
+import lpips
 
 import visualization as v
 import sys
@@ -82,7 +83,7 @@ if __name__ == "__main__":
                     })
 
     # Create models
-    embed_fn, input_ch = emb.get_embedder(in_dim=6, num_freqs=args.encoding_freqs)
+    embed_fn, input_ch = emb.get_posenc_embedder(in_dim=6, num_freqs=args.encoding_freqs)
     rend_net = net.SurfaceRenderingNetwork(input_ch=input_ch+3,
                                            out_ch=3,
                                            hidden_ch=[512, 512, 512, 512],
@@ -106,6 +107,7 @@ if __name__ == "__main__":
 
     pbar = tqdm(total=args.num_iters, unit="iteration")
     pbar.update(iter)
+    lpips_vgg = lpips.LPIPS(net="vgg").eval().to(device)
     while iter < args.num_iters:
         batch_xnv_tr, target_rgb_tr = dataset.next_batch("train", device=device)
         
@@ -191,7 +193,9 @@ if __name__ == "__main__":
                 "tr_ssim": utils.compute_ssim(torch.reshape(img, img_shape), 
                                               torch.reshape(rgb_map, img_shape)),
                 "tr_lpips": utils.compute_lpips(torch.reshape(img, img_shape), 
-                                                torch.reshape(rgb_map, img_shape))
+                                                torch.reshape(rgb_map, img_shape),
+                                                lpips_vgg,
+                                                device)
                 }, step=iter)
 
             xnv, img, depths = dataset.get_X_target("val", 0, device=device)
@@ -234,14 +238,36 @@ if __name__ == "__main__":
                                       it=iter, 
                                       out_path=args.out_path,
                                       name="val_random_xnv")
+
+            ssip_mean = 0.0
+            lpips_mean = 0.0
+            for i in range(dataset.get_n_images("val")):
+                xnv, img, depths = dataset.get_X_target("val", i, device=device)
+                rgb_map = None
+                for i in range(0, xnv.shape[0], args.batch_size):
+                    pred = rend_net(xnv[i:i+args.batch_size, :3], xnv[i:i+args.batch_size, 3:6], xnv[i:i+args.batch_size, 6:])
+                    
+                    if rgb_map is None:
+                        rgb_map = pred
+                    else:
+                        rgb_map = torch.cat((rgb_map, pred), dim=0)
+
+                ssip_val = utils.compute_ssim(torch.reshape(img, img_shape), 
+                                               torch.reshape(rgb_map, img_shape))
+                lpips_val = utils.compute_lpips(torch.reshape(img, img_shape), 
+                                                 torch.reshape(rgb_map, img_shape),
+                                                 lpips_vgg,
+                                                 device)
+                print("ssip val-mean", ssip_val, ssip_mean)
+                print("lpips val-mean", lpips_val, lpips_mean)
+                ssip_mean += (ssip_val - ssip_mean)/(i+1)
+                lpips_mean += (lpips_val - lpips_mean)/(i+1)
+
             wandb.log({
-                "val_ssim": utils.compute_ssim(torch.reshape(img, img_shape), 
-                                               torch.reshape(rgb_map, img_shape)),
-                "val_lpips": utils.compute_lpips(torch.reshape(img, img_shape), 
-                                                 torch.reshape(rgb_map, img_shape))
+                "val_ssim": ssip_mean,
+                "val_lpips": lpips_mean
                 }, step=iter)
 
-        
             torch.save({ # Save our checkpoint loc
                 'iter': iter,
                 'model_state_dict': rend_net.state_dict(),

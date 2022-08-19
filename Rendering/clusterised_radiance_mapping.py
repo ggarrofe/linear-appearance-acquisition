@@ -1,22 +1,18 @@
-from tracemalloc import start
 import torch
 import torch.nn as nn
 
 import configargparse
-import open3d as o3d
 import visualization as v
 from tqdm import tqdm
 import gc
-import time
 import lpips
-import json
 
-import matplotlib.pyplot as plt
+import time
+import json
 
 import sys
 sys.path.append('../')
 
-print(sys.path)
 
 def parse_args():
     parser = configargparse.ArgumentParser(
@@ -77,31 +73,26 @@ def compute_inv(xh, target, cluster_id, cluster_ids, embed_fn, device=torch.devi
         xh_enc_inv = torch.linalg.pinv(embed_fn(xh.to(device)))
 
         linear_mapping = xh_enc_inv @ target.to(device)
-    else: 
+    else:
         xh, indices = utils.filter_duplicates(xh)
         target = target[indices]
         xh_enc_inv = torch.linalg.pinv(embed_fn(xh))
         linear_mapping = xh_enc_inv @ target
     return linear_mapping.T.to(device)
 
-def predict(xh, pred, spec_pred, diffuse_pred, linear_mapping, cluster_id, cluster_ids, embed_fn):
-    if not torch.any(cluster_ids == cluster_id): return
 
-    xh_enc = embed_fn(xh[cluster_ids == cluster_id])
-    pred[cluster_ids == cluster_id] = xh_enc @ linear_mapping.T
+def predict(xnv, pred, linear_mapping, cluster_id, cluster_ids, embed_fn):
+    mask = (cluster_ids == cluster_id)
+    if not torch.any(mask):
+        return
 
-    # First half of the linear mapping will predict the diffuse color (only depends on the position)
-    diffuse_pred[cluster_ids == cluster_id] = xh_enc[..., :48] @ linear_mapping[..., :48].T
-
-    # Second half of the linear mapping will predict the specular color (depends on the half-angle vector)
-    linear_mapping_spec = torch.cat([linear_mapping[..., :36], linear_mapping[..., 48:]], dim=-1)
-    spec_pred[cluster_ids == cluster_id] = torch.cat([xh_enc[..., :36], xh_enc[..., 48:]], dim=-1) @ linear_mapping_spec.T
-
+    xnv_enc = embed_fn(xnv[mask])
+    pred[mask] = xnv_enc @ linear_mapping
 
 
 if __name__ == "__main__":
     args = parse_args()
-    
+
     if args.colab:
         sys.path.append(args.colab_path)
     import utils.data as data
@@ -109,116 +100,104 @@ if __name__ == "__main__":
     import utils.utils as utils
     import utils.embedder as emb
     from utils.kmeans import kmeans, kmeans_predict
-    
-   
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f'Using {device}')
-     
+
     # Load data
-    print("dataset to: ", device if args.dataset_to_gpu == True else torch.device("cpu"))
+    print("dataset to: ", device if args.dataset_to_gpu ==
+          True else torch.device("cpu"))
     dataset = data.NeRFDataset(args)
-    dataset.compute_depths(torch.device("cpu"))
-    dataset.compute_normals()
-    dataset.compute_halfangles()
-    
+    dataset.switch_2_xnv_dataset(device if args.dataset_to_gpu else torch.device("cpu"))
+
     loss_fn = nn.MSELoss()
-    mse2psnr = lambda x : -10. * torch.log(x) / torch.log(torch.Tensor([10.]).to(device))
-    
+
+    def mse2psnr(x): return -10. * torch.log(x) / torch.log(torch.Tensor([10.]).to(device))
+
     # TRAINING
-    embed_fn, input_ch = emb.get_posenc_embedder(in_dim=5, num_freqs=6)
+    embed_fn, input_ch = emb.get_posenc_embedder(in_dim=9, num_freqs=6)
     if not args.only_eval:
-        x_NdotL_NdotH, target_rgb = dataset.get_X_NdotL_NdotH_rgb("train", img=-1, device=device)
-        
+        xnv, target_rgb, depths = dataset.get_tensors("train", device=device)
+
         linear_mappings = torch.zeros([args.num_clusters, 3, input_ch]).to(device)
-        cluster_ids = torch.zeros((x_NdotL_NdotH.shape[0],), dtype=torch.long).to(device)
+        cluster_ids = torch.zeros((xnv.shape[0],), dtype=torch.long).to(device)
         centroids = torch.zeros((args.num_clusters, 3)).to(device)
 
-        mask = (x_NdotL_NdotH[:,0] == -1.) & (x_NdotL_NdotH[:,1] == -1.) & (x_NdotL_NdotH[:,2] == -1.) #not masking takes too much time
+        mask = (xnv[:, 0] == -1.) & (xnv[:, 1] == -1.) & (xnv[:, 2]
+                                                        == -1.)  # not masking takes too much time
+
         start_time = time.time()
-        cluster_ids[~mask], centroids[:args.num_clusters-1] = kmeans(x_NdotL_NdotH[~mask, :3],
-                                                                    num_clusters=args.num_clusters-1, 
+        cluster_ids[~mask], centroids[:args.num_clusters-1] = kmeans(X=xnv[~mask, :3],
+                                                                    num_clusters=args.num_clusters-1,
                                                                     tol=args.kmeans_tol,
                                                                     device=device,
                                                                     batch_size=args.batch_size)
-        
-        cluster_ids.masked_fill_(mask.to(device), args.num_clusters-1)
-        centroids[args.num_clusters-1] = torch.tensor([-1., -1., -1.]).to(x_NdotL_NdotH)
-        lin_map_time = time.time() - start_time
 
-        for cluster_id in tqdm(range(args.num_clusters), unit="linear mapping", desc="Computing linear mappings"):
-            linear_mappings[cluster_id] = compute_inv(x_NdotL_NdotH, 
-                                                    target_rgb, 
-                                                    cluster_id, 
-                                                    cluster_ids, 
-                                                    embed_fn=embed_fn,
-                                                    device=device)
+        cluster_ids.masked_fill_(mask.to(device), args.num_clusters-1)
+        centroids[args.num_clusters-1] = torch.tensor([-1., -1., -1.]).to(xnv)
+        lin_map_time = time.time()
+        for cluster_id in tqdm(range(args.num_clusters-1), unit="linear mapping", desc="Computing linear mappings"):
+            linear_mappings[cluster_id] = compute_inv(xnv, target_rgb, cluster_id, cluster_ids, embed_fn=embed_fn, device=device)
+        
         train_time = time.time() - start_time
-        kmeans_time = train_time - lin_map_time
+        kmeans_time = lin_map_time - start_time
         print("Training time: %s seconds. Including %s of K-means training." % (train_time, kmeans_time))
 
+        xnv_tr, img_tr, depths_tr = dataset.get_X_target("train", 0, device=device)
+        cluster_ids_tr = kmeans_predict(xnv_tr[..., :3], centroids, device=device)
+        v.plot_clusters_3Dpoints(xnv_tr[..., :3], cluster_ids_tr, args.num_clusters,
+                                colab=args.colab, out_path=args.out_path, filename="train_clusters.png")
+    
     else:
         checkpoint = torch.load(f"{args.checkpoint_path}/{args.num_clusters}clusters.tar")
         linear_mappings = checkpoint['linear_mappings']
         centroids = checkpoint['centroids']
-
+    
     linear_net = net.ClusterisedLinearNetwork(in_features=input_ch, linear_mappings=linear_mappings, num_freqs=6)
     linear_net.to(device)
     
     # EVALUATION
     lpips_vgg = lpips.LPIPS(net="vgg").eval().to(device)
-    print("evaluating...")
-    x_NdotL_NdotH, img_tr = dataset.get_X_NdotL_NdotH_rgb("train", img=0, device=device)
-    
-    cluster_ids_tr = kmeans_predict(x_NdotL_NdotH[..., :3], centroids, device=device)
-    pred_rgb_tr = linear_net(x_NdotL_NdotH, cluster_ids_tr)
-    pred_rgb_spec = linear_net.specular(x_NdotL_NdotH, cluster_ids_tr)
-    pred_rgb_diff = linear_net.diffuse(x_NdotL_NdotH, cluster_ids_tr)
-    pred_rgb_lin = linear_net.linear(x_NdotL_NdotH, cluster_ids_tr)
-    
-    spec_comp = linear_net.specular_component(x_NdotL_NdotH, cluster_ids_tr)
-    diff_comp = linear_net.diffuse_component(x_NdotL_NdotH, cluster_ids_tr)
-    amb_comp = linear_net.ambient_component(x_NdotL_NdotH, cluster_ids_tr)
-        
-    loss_tr = loss_fn(pred_rgb_tr, img_tr)
-
-    v.validation_view_reflectance(reflectance=pred_rgb_tr.detach().cpu(),
-                                specular=pred_rgb_spec.detach().cpu(), 
-                                diffuse=pred_rgb_diff.detach().cpu(), 
-                                linear=pred_rgb_lin.detach().cpu(),
-                                target=img_tr.detach().cpu(),
-                                points=x_NdotL_NdotH[..., :3].detach().cpu(),
-                                img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
-                                out_path=args.out_path,
-                                it=args.num_clusters,
-                                name="training_reflectance",
-                                wandb_act=False)
-                                
-
-    x_NdotL_NdotH, img_val = dataset.get_X_NdotL_NdotH_rgb("val", img=0, device=device)
+    xnv_tr, img_tr, depths_tr = dataset.get_X_target("train", 0, device=device)
     start_time = time.time()
-    cluster_ids_tr = kmeans_predict(x_NdotL_NdotH[..., :3], centroids, device=device)
-    pred_rgb_val = linear_net(x_NdotL_NdotH, cluster_ids_tr)
+    cluster_ids_tr = kmeans_predict(xnv_tr[..., :3], centroids, device=device)
+    pred_rgb_tr = linear_net(xnv_tr, cluster_ids_tr)
     pred_time = time.time() - start_time
     print("Prediction time: %s seconds" % (pred_time))
 
-    pred_rgb_spec = linear_net.specular(x_NdotL_NdotH, cluster_ids_tr)
-    pred_rgb_diff = linear_net.diffuse(x_NdotL_NdotH, cluster_ids_tr)
-    pred_rgb_lin = linear_net.linear(x_NdotL_NdotH, cluster_ids_tr)
+    loss_tr = loss_fn(pred_rgb_tr, img_tr)
+    img_shape = (dataset.hwf[0], dataset.hwf[1], 3)
+    v.validation_view_rgb_xndv(pred_rgb_tr.detach().cpu(),
+                            img_tr.detach().cpu(),
+                            points=xnv_tr[..., :3].detach().cpu(),
+                            normals=xnv_tr[..., 3:6].detach().cpu(),
+                            depths=depths_tr,
+                            viewdirs=xnv_tr[..., 6:].detach().cpu(),
+                            img_shape=img_shape,
+                            it=args.num_clusters,
+                            out_path=args.out_path,
+                            name="training_xnv",
+                            wandb_act=False)
 
-    v.validation_view_reflectance(reflectance=pred_rgb_val.detach().cpu(),
-                                    specular=pred_rgb_spec.detach().cpu(),
-                                    diffuse=pred_rgb_diff.detach().cpu(),
-                                    linear=pred_rgb_lin.detach().cpu(),
-                                    target=img_val.detach().cpu(),
-                                    points=x_NdotL_NdotH[..., :3].detach().cpu(),
-                                    it=args.num_clusters,
-                                    img_shape=(dataset.hwf[0], dataset.hwf[1], 3),
-                                    out_path=args.out_path,
-                                    name="val_reflectance",
-                                    wandb_act=False)
-    
+    xnv_val, img_val, depths_val = dataset.get_X_target("val", 0, device=device)
+    cluster_ids_val = kmeans_predict(xnv_val[..., :3], centroids, device=device)
+    pred_rgb_val = linear_net(xnv_val, cluster_ids_val)
+
     loss_val = loss_fn(pred_rgb_val, img_val)
-    img_shape=(dataset.hwf[0], dataset.hwf[1], 3)
+
+    v.validation_view_rgb_xndv(pred_rgb_val.detach().cpu(),
+                            img_val.detach().cpu(),
+                            points=xnv_val[..., :3].detach().cpu(),
+                            normals=xnv_val[..., 3:6].detach().cpu(),
+                            depths=depths_val,
+                            viewdirs=xnv_val[..., 6:].detach().cpu(),
+                            img_shape=(
+        dataset.hwf[0], dataset.hwf[1], 3),
+        it=args.num_clusters,
+        out_path=args.out_path,
+        name="val_xnv",
+        wandb_act=False)
+
     if not args.only_eval:
         results = {
             "loss_tr": loss_tr.item(),
@@ -258,10 +237,10 @@ if __name__ == "__main__":
         pred_time_mean = 0.0
 
         for i in range(dataset.get_n_images("val")):
-            x_NdotL_NdotH, img_val = dataset.get_X_NdotL_NdotH_rgb("val", img=i, device=device)
+            xnv_val, img_val, depths_val = dataset.get_X_target("val", i, device=device)
             start_time = time.time()
-            cluster_ids_val = kmeans_predict(x_NdotL_NdotH[..., :3], centroids, device=device)
-            pred_rgb_val = linear_net(x_NdotL_NdotH, cluster_ids_val)
+            cluster_ids_val = kmeans_predict(xnv_val[..., :3], centroids, device=device)
+            pred_rgb_val = linear_net(xnv_val, cluster_ids_val)
             pred_time = time.time() - start_time
             
             pred_time_mean += (pred_time - pred_time_mean)/(i+1)
