@@ -1,6 +1,7 @@
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 import sys
 sys.path.append('../')
@@ -139,7 +140,7 @@ class VoxelisedLinearNetwork(nn.Module):
         return rgb
 
 class ClusterisedLinearNetwork(nn.Module):
-    def __init__(self, in_features, linear_mappings, num_freqs):
+    def __init__(self, linear_mappings, **kwargs):
         super(ClusterisedLinearNetwork, self).__init__()
 
         # linear_mappings: n_clusters x 3 x encoding_size
@@ -149,8 +150,9 @@ class ClusterisedLinearNetwork(nn.Module):
         with torch.no_grad():
             self.linear_net.weight = nn.Parameter(linear_mappings)
 
-        self.embed_fn, self.input_ch = emb.get_posenc_embedder(in_dim=in_features, num_freqs=num_freqs)
-        self.num_freqs = num_freqs
+        self.embed_fn = kwargs['embed_fn']
+        self.num_freqs = kwargs['num_freqs']
+        self.kwargs = kwargs
 
     def forward(self, X, cluster_ids):
         encoded_X = self.embed_fn(X)
@@ -163,12 +165,16 @@ class ClusterisedLinearNetwork(nn.Module):
 
     def specular(self, X, cluster_ids):
         encoded_X = self.embed_fn(X)
-        X_pos = 3*2*self.num_freqs
-        NdotH_pos = 4*2*self.num_freqs
-        linear_mapping_spec = torch.cat([self.linear_net.weight[..., :X_pos], 
-                                         self.linear_net.weight[..., NdotH_pos:]], dim=-1)
+        pos_boundaries = (0, 3*2*self.num_freqs) if 'pos_boundaries' not in self.kwargs else self.kwargs['pos_boundaries']
+        spec_boundaries = (4*2*self.num_freqs, encoded_X.shape[-1]) if 'spec_boundaries' not in self.kwargs else self.kwargs['spec_boundaries']
+        print("Spec boundaries")
+        print("x shape", encoded_X.shape)
+        print("pos", pos_boundaries)
+        print("spec", spec_boundaries)
+        print("boundaries in kwarfs", 'pos_boundaries' in self.kwargs)
+        linear_mapping_spec = self.linear_net.weight[..., spec_boundaries[0]:spec_boundaries[1]]
 
-        specular = torch.cat([encoded_X[..., :X_pos], encoded_X[..., NdotH_pos:]], dim=-1) @ linear_mapping_spec.T
+        specular = encoded_X[..., spec_boundaries[0]:spec_boundaries[1]] @ linear_mapping_spec.T
 
         row_indices = torch.arange(encoded_X.shape[0])
         col_indices = torch.stack([3*cluster_ids, 3*cluster_ids+1, 3*cluster_ids+2])
@@ -176,19 +182,26 @@ class ClusterisedLinearNetwork(nn.Module):
 
     def diffuse(self, X, cluster_ids):
         encoded_X = self.embed_fn(X)
-        NdotL_pos = 4*2*self.num_freqs
+        pos_boundaries = (0, 3*2*self.num_freqs) if 'pos_boundaries' not in self.kwargs else self.kwargs['pos_boundaries']
+        diff_boundaries = (3*2*self.num_freqs, 4*2*self.num_freqs) if 'diff_boundaries' not in self.kwargs is None else self.kwargs['diff_boundaries']
+        print("Spec boundaries")
+        print("x shape", encoded_X.shape)
+        print("pos", pos_boundaries)
+        print("diff", diff_boundaries)
+        print("boundaries in kwargs", 'pos_boundaries' in self.kwargs)
+        linear_mapping_diff = self.linear_net.weight[..., diff_boundaries[0]:diff_boundaries[1]]
 
-        diffuse = encoded_X[..., :NdotL_pos] @ self.linear_net.weight[..., :NdotL_pos].T
-
+        diffuse = encoded_X[..., diff_boundaries[0]:diff_boundaries[1]] @ linear_mapping_diff.T
+        
         row_indices = torch.arange(encoded_X.shape[0])
         col_indices = torch.stack([3*cluster_ids, 3*cluster_ids+1, 3*cluster_ids+2])
         return diffuse[row_indices, col_indices].T
 
     def linear(self, X, cluster_ids):
         encoded_X = self.embed_fn(X)
-        X_pos = 3*2*self.num_freqs
-
-        linear = encoded_X[..., :X_pos] @ self.linear_net.weight[..., :X_pos].T
+        pos_boundaries = (0, 3*2*self.num_freqs) if 'pos_boundaries' not in self.kwargs else self.kwargs['pos_boundaries']
+        
+        linear = encoded_X[..., pos_boundaries[0]:pos_boundaries[1]] @ self.linear_net.weight[..., pos_boundaries[0]:pos_boundaries[1]].T
 
         row_indices = torch.arange(encoded_X.shape[0])
         col_indices = torch.stack([3*cluster_ids, 3*cluster_ids+1, 3*cluster_ids+2])
@@ -230,11 +243,81 @@ class ClusterisedLinearNetwork(nn.Module):
         return rgb_clusters[row_indices, col_indices].T
 
 
+class ClusterisedSelfAttentionLinearNetwork(nn.Module):
+    def __init__(self, linear_mappings, **kwargs):
+        super(ClusterisedSelfAttentionLinearNetwork, self).__init__()
+
+        # linear_mappings: n_clusters x 3 x encoding_size
+        linear_mappings = linear_mappings.reshape(-1, linear_mappings.shape[-1])
+
+        self.linear_net = nn.Linear(in_features=linear_mappings.shape[-1], out_features=linear_mappings.shape[0], bias=False)
+        with torch.no_grad():
+            self.linear_net.weight = nn.Parameter(linear_mappings)
+
+        self.embed_fn = kwargs['embed_fn']
+        self.num_freqs = kwargs['num_freqs']
+        self.kwargs = kwargs
+
+    def forward(self, X, cluster_ids):
+        encoded_X = self.embed_fn(X)
+        rgb_clusters = self.linear_net(encoded_X)
+        print("rgbclusters", rgb_clusters.shape)
+        print("centroids", self.kwargs['centroids'].shape)
+        print("xyz T", X[..., :3].T.shape)
+        scores = self.kwargs['centroids'] @ X[..., :3].T
+        print("scores", scores.shape)
+        attention_weights = F.softmax(scores, dim=-1)
+        print("attention_weights", attention_weights.shape)
+        rgb_clusters = torch.reshape(rgb_clusters, [3, -1]) # this reshape may be wrong maybe needs to be transposed before
+        print("rgb reshape", rgb_clusters.shape)
+        rgb = attention_weights @ rgb_clusters 
+        print("rgb out", rgb.shape)
+        #row_indices = torch.arange(encoded_X.shape[0])
+        #col_indices = torch.stack([3*cluster_ids, 3*cluster_ids+1, 3*cluster_ids+2])
+        #rgb = rgb_clusters[row_indices, cluster_ids].T
+        return rgb
+
+    def specular(self, X, cluster_ids):
+        encoded_X = self.embed_fn(X)
+        pos_boundaries = (0, 3*2*self.num_freqs) if 'pos_boundaries' not in self.kwargs else self.kwargs['pos_boundaries']
+        spec_boundaries = (4*2*self.num_freqs, encoded_X.shape[-1]) if 'spec_boundaries' not in self.kwargs else self.kwargs['spec_boundaries']
+        linear_mapping_spec = self.linear_net.weight[..., spec_boundaries[0]:spec_boundaries[1]]
+
+        specular = encoded_X[..., spec_boundaries[0]:spec_boundaries[1]] @ linear_mapping_spec.T
+
+        row_indices = torch.arange(encoded_X.shape[0])
+        col_indices = torch.stack([3*cluster_ids, 3*cluster_ids+1, 3*cluster_ids+2])
+        return specular[row_indices, col_indices].T
+
+    def diffuse(self, X, cluster_ids):
+        encoded_X = self.embed_fn(X)
+        pos_boundaries = (0, 3*2*self.num_freqs) if 'pos_boundaries' not in self.kwargs else self.kwargs['pos_boundaries']
+        diff_boundaries = (3*2*self.num_freqs, 4*2*self.num_freqs) if 'diff_boundaries' not in self.kwargs is None else self.kwargs['diff_boundaries']
+        linear_mapping_diff = self.linear_net.weight[..., diff_boundaries[0]:diff_boundaries[1]]
+
+        diffuse = encoded_X[..., diff_boundaries[0]:diff_boundaries[1]] @ linear_mapping_diff.T
+        
+        row_indices = torch.arange(encoded_X.shape[0])
+        col_indices = torch.stack([3*cluster_ids, 3*cluster_ids+1, 3*cluster_ids+2])
+        return diffuse[row_indices, col_indices].T
+
+    def linear(self, X, cluster_ids):
+        encoded_X = self.embed_fn(X)
+        pos_boundaries = (0, 3*2*self.num_freqs) if 'pos_boundaries' not in self.kwargs else self.kwargs['pos_boundaries']
+        
+        linear = encoded_X[..., pos_boundaries[0]:pos_boundaries[1]] @ self.linear_net.weight[..., pos_boundaries[0]:pos_boundaries[1]].T
+
+        row_indices = torch.arange(encoded_X.shape[0])
+        col_indices = torch.stack([3*cluster_ids, 3*cluster_ids+1, 3*cluster_ids+2])
+        return linear[row_indices, col_indices].T
+
+
 class EnhancedReflectanceNetwork(nn.Module):
     def __init__(self, in_features, linear_mappings, num_freqs):
         super(EnhancedReflectanceNetwork, self).__init__()
 
         # linear_mappings: n_clusters x 3 x encoding_size
+        self.num_clusters = linear_mappings.shape[0]
         linear_mappings = linear_mappings.reshape(-1, linear_mappings.shape[-1])
 
         self.linear_net = nn.Linear(in_features=linear_mappings.shape[-1], out_features=linear_mappings.shape[0], bias=False)
@@ -250,15 +333,17 @@ class EnhancedReflectanceNetwork(nn.Module):
         
         # regularizer: difference between linear layer output and final output 
         self.embed_fn_pos, self.input_ch_pos = emb.get_posenc_embedder(in_dim=3, num_freqs=num_freqs)
-        self.extra_layers = nn.Sequential(nn.Linear(in_features=linear_mappings.shape[0] + self.input_ch_pos, out_features=3),
+        self.cluster_encoder = nn.Sequential(nn.Linear(in_features=self.input_ch_pos, out_features=self.num_clusters),
                                           nn.Tanh())
+        self.Tanh = nn.Tanh()
         self.num_freqs = num_freqs
 
     def forward(self, X_NdotL_NdotH):
         encoded_input = self.embed_fn_input(X_NdotL_NdotH)
         linear_output = self.linear_net(encoded_input)
         linear_output = self.ReLU(linear_output)
-        extra_layers_in = torch.cat((linear_output, self.embed_fn_pos(X_NdotL_NdotH[..., :3])), dim=1)
+        cluster_ids = self.cluster_encoder(self.embed_fn_pos(X_NdotL_NdotH[..., :3]))
+        extra_layers_in = torch.cat((linear_output, ), dim=1)
         return self.extra_layers(extra_layers_in)
 
     def forward_encoded(self, encoded_input, encoded_pos):

@@ -182,7 +182,8 @@ def add_to_id(basedir="../data/lego_lighting/val", offset=300):
         shutil.copyfile(f"{basedir}/{f}", f"../COLMAP/lego_lighting/images/{filename}")
 
 def merge_images(sourcedir="../data/hotdog", destdir="../COLMAP/hotdog/images", is_synthetic=True):
-    subdirs = ["train", "val", "test"]
+    #subdirs = ["train", "val", "test"]
+    subdirs = ["train_1", "train_2", "train_3", "train_4", "train_5"]
     i_img = 0
     transforms = None
     for subdir in subdirs:

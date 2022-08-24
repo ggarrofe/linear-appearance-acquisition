@@ -181,20 +181,6 @@ class NeRFSubDataset():
         self.points = torch.nan_to_num(self.points, posinf=self.inf_value, neginf=self.inf_value, nan=-1.0)
 
     def compute_normals(self):
-        """
-        Consider your range image is a function z(x,y).
-        The normal to the surface is in the direction (-dz/dx,-dz/dy,1). (Where by dz/dx I mean 
-        the differential: the rate of change of z with x). And then normals are conventionally 
-        normalized to unit length.
-
-        Incidentally, if you're wondering where that (-dz/dx,-dz/dy,1) comes from... if you take 
-        the 2 orthogonal tangent vectors in the plane parellel to the x and y axes, those are (1,0,dzdx) 
-        and (0,1,dzdy). The normal is perpendicular to the tangents, so should be (1,0,dzdx)X(0,1,dzdy) 
-        - where 'X' is cross-product - which is (-dzdx,-dzdy,1). So there's your cross product derived 
-        normal, but there's little need to compute it so explicitly in code when you can just use the 
-        resulting expression for the normal directly.
-        """
-
         h, w, f = self.hwf
         self.normals = torch.zeros_like(self.points, requires_grad=False, device=self.depths.device)
             
@@ -221,11 +207,11 @@ class NeRFSubDataset():
         cam_pos = self.dataset.tensors[0][..., :3]
 
         V = (cam_pos - self.points).float()
-        L = (light_pos - self.points).float()
-        self.half_angles = F.normalize((V + L), dim=1).float()
+        self.L = (light_pos - self.points).float()
+        self.half_angles = F.normalize((V + self.L), dim=1).float()
 
         self.NdotH = torch.bmm(self.normals.unsqueeze(1), self.half_angles.unsqueeze(2)).squeeze(2)
-        self.NdotL = torch.bmm(self.normals.unsqueeze(1), L.unsqueeze(2)).squeeze(2)
+        self.NdotL = torch.bmm(self.normals.unsqueeze(1), self.L.unsqueeze(2)).squeeze(2)
 
         self.light_rays = torch.stack([torch.cat(NeRFDataset.get_rays_origins_and_directions(c2w, self.hwf), dim=-1) 
                                         for c2w in tqdm(self.light_poses, unit="pose", desc="Generating ray lights")])
@@ -239,8 +225,30 @@ class NeRFSubDataset():
         self.dataloader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=self.shuffle)
         self.iterator = iter(self.dataloader)
 
+    def switch_2_xv_dataset(self, device=torch.device("cpu")):
+        viewdirs = self.dataset.tensors[0][..., 6:].to(device)
+        X = torch.cat([self.points, viewdirs], dim=-1)
+        
+        self.dataset = TensorDataset(X, self.dataset.tensors[1])
+        self.dataloader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=self.shuffle)
+        self.iterator = iter(self.dataloader)
+    
+    def switch_2_xn_dataset(self, device=torch.device("cpu")):
+        viewdirs = self.dataset.tensors[0][..., 6:].to(device)
+        X = torch.cat([self.points, self.normals], dim=-1)
+        
+        self.dataset = TensorDataset(X, self.dataset.tensors[1])
+        self.dataloader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=self.shuffle)
+        self.iterator = iter(self.dataloader)
+
     def switch_2_X_NdotL_NdotH_dataset(self, device=torch.device("cpu")):
         X_NdotL_NdotH, rgb = self.get_X_NdotL_NdotH_rgb(i=-1, device=device)
+        self.dataset = TensorDataset(X_NdotL_NdotH, rgb)
+        self.dataloader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=self.shuffle)
+        self.iterator = iter(self.dataloader)
+
+    def switch_2_X_H_dataset(self, device=torch.device("cpu")):
+        X_NdotL_NdotH, rgb = self.get_X_H_rgb(i=-1, device=device)
         self.dataset = TensorDataset(X_NdotL_NdotH, rgb)
         self.dataloader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=self.shuffle)
         self.iterator = iter(self.dataloader)
@@ -314,6 +322,57 @@ class NeRFSubDataset():
 
         else:
             return torch.cat([self.points, self.NdotL, self.NdotH], dim=-1).float().to(device), \
+                   self.dataset.tensors[1].float().to(device)
+
+    def get_X_L_N_H_rgb(self, i, device=torch.device('cuda')):
+        h = self.hwf[0]
+        w = self.hwf[1]
+
+        if self.half_angles is None and self.light_poses is not None:
+            self.compute_halfangles()
+
+        if i >= 0:
+            return torch.cat([self.get_points(i, device), 
+                              self.L[i*h*w:(i+1)*h*w].float().to(device),
+                              self.normals[i*h*w:(i+1)*h*w].float().to(device),
+                              self.half_angles[i*h*w:(i+1)*h*w].float().to(device)], dim=-1), \
+                   self.dataset.tensors[1][i*h*w:(i+1)*h*w].float().to(device)
+
+        else:
+            return torch.cat([self.points, self.L, self.normals, self.half_angles], dim=-1).float().to(device), \
+                   self.dataset.tensors[1].float().to(device)
+    
+    def get_X_N_H_rgb(self, i, device=torch.device('cuda')):
+        h = self.hwf[0]
+        w = self.hwf[1]
+
+        if self.half_angles is None and self.light_poses is not None:
+            self.compute_halfangles()
+
+        if i >= 0:
+            return torch.cat([self.get_points(i, device), 
+                              self.normals[i*h*w:(i+1)*h*w].float().to(device),
+                              self.half_angles[i*h*w:(i+1)*h*w].float().to(device)], dim=-1), \
+                   self.dataset.tensors[1][i*h*w:(i+1)*h*w].float().to(device)
+
+        else:
+            return torch.cat([self.points, self.normals, self.half_angles], dim=-1).float().to(device), \
+                   self.dataset.tensors[1].float().to(device)
+    
+    def get_X_H_rgb(self, i, device=torch.device('cuda')):
+        h = self.hwf[0]
+        w = self.hwf[1]
+
+        if self.half_angles is None and self.light_poses is not None:
+            self.compute_halfangles()
+
+        if i >= 0:
+            return torch.cat([self.get_points(i, device), 
+                              self.half_angles[i*h*w:(i+1)*h*w].float().to(device)], dim=-1), \
+                   self.dataset.tensors[1][i*h*w:(i+1)*h*w].float().to(device)
+
+        else:
+            return torch.cat([self.points, self.half_angles], dim=-1).float().to(device), \
                    self.dataset.tensors[1].float().to(device)
 
     def get_X_NdotL_NdotH_rgb_shape(self):
@@ -414,7 +473,7 @@ class NeRFDataset():
                                                    images, 
                                                    self.hwf, 
                                                    name, 
-                                                   batch_size=self.args.batch_size, 
+                                                   batch_size=min(self.args.batch_size, rays_odv.shape[0]), 
                                                    shuffle=self.args.shuffle, 
                                                    light_poses=light_poses))
         
@@ -490,6 +549,18 @@ class NeRFDataset():
         subdataset = [d for d in self.subdatasets if d.name == dataset][0]
         return subdataset.get_X_NdotL_NdotH_rgb_shape()
 
+    def get_X_L_N_H_rgb(self, dataset="train", img=0, device=torch.device('cuda')):
+        subdataset = [d for d in self.subdatasets if d.name == dataset][0]
+        return subdataset.get_X_L_N_H_rgb(img, device=device)
+
+    def get_X_N_H_rgb(self, dataset="train", img=0, device=torch.device('cuda')):
+        subdataset = [d for d in self.subdatasets if d.name == dataset][0]
+        return subdataset.get_X_N_H_rgb(img, device=device)
+
+    def get_X_H_rgb(self, dataset="train", img=0, device=torch.device('cuda')):
+        subdataset = [d for d in self.subdatasets if d.name == dataset][0]
+        return subdataset.get_X_H_rgb(img, device=device)
+
     def get_light_rays(self, dataset="train", img=0, device=torch.device('cuda')):
         subdataset = [d for d in self.subdatasets if d.name == dataset][0]
         return subdataset.get_light_rays(img, device=device)
@@ -538,9 +609,25 @@ class NeRFDataset():
         for d in self.subdatasets:
             d.switch_2_xnv_dataset(device=device)
 
+    def switch_2_xv_dataset(self, device=torch.device('cpu')):
+        self.compute_depths(device=device)
+
+        for d in self.subdatasets:
+            d.switch_2_xv_dataset(device=device)
+
+    def switch_2_xn_dataset(self, device=torch.device('cpu')):
+        self.compute_depths(device=device)
+
+        for d in self.subdatasets:
+            d.switch_2_xn_dataset(device=device)
+
     def switch_2_X_NdotL_NdotH_dataset(self, device=torch.device('cpu')):
         for d in self.subdatasets:
             d.switch_2_X_NdotL_NdotH_dataset(device=device)
+
+    def switch_2_X_H_dataset(self, device=torch.device('cpu')):
+        for d in self.subdatasets:
+            d.switch_2_X_H_dataset(device=device)
 
     def compute_halfangles(self):
         for d in self.subdatasets:

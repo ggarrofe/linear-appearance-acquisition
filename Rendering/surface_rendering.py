@@ -11,6 +11,7 @@ import lpips
 
 import visualization as v
 import sys
+import time
 sys.path.append('../')
 
 def parse_args():
@@ -243,6 +244,8 @@ if __name__ == "__main__":
             lpips_mean = 0.0
             for i in range(dataset.get_n_images("val")):
                 xnv, img, depths = dataset.get_X_target("val", i, device=device)
+
+                start_time = time.time()
                 rgb_map = None
                 for i in range(0, xnv.shape[0], args.batch_size):
                     pred = rend_net(xnv[i:i+args.batch_size, :3], xnv[i:i+args.batch_size, 3:6], xnv[i:i+args.batch_size, 6:])
@@ -251,6 +254,7 @@ if __name__ == "__main__":
                         rgb_map = pred
                     else:
                         rgb_map = torch.cat((rgb_map, pred), dim=0)
+                pred_time = time.time() - start_time
 
                 ssip_val = utils.compute_ssim(torch.reshape(img, img_shape), 
                                                torch.reshape(rgb_map, img_shape))
@@ -258,10 +262,12 @@ if __name__ == "__main__":
                                                  torch.reshape(rgb_map, img_shape),
                                                  lpips_vgg,
                                                  device)
-                print("ssip val-mean", ssip_val, ssip_mean)
-                print("lpips val-mean", lpips_val, lpips_mean)
-                ssip_mean += (ssip_val - ssip_mean)/(i+1)
-                lpips_mean += (lpips_val - lpips_mean)/(i+1)
+                psnr_val = mse2psnr(loss_fn(rgb_map.to(device), pred_rgb))
+
+                ssip_mean = (ssip_mean*i + ssip_val)/(i+1)
+                lpips_mean = (lpips_mean*i + lpips_val)/(i+1)
+                psnr_mean = (psnr_mean*i + psnr_val)/(i+1)
+                pred_time_mean = (pred_time_mean*i + pred_time)/(i+1)
 
             wandb.log({
                 "val_ssim": ssip_mean,
