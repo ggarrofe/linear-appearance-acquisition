@@ -161,7 +161,12 @@ if __name__ == "__main__":
         linear_mappings = checkpoint['linear_mappings']
         centroids = checkpoint['centroids']
 
-    linear_net = net.ClusterisedLinearNetwork(in_features=input_ch, linear_mappings=linear_mappings, num_freqs=6)
+    linear_net = net.ClusterisedLinearNetwork(linear_mappings=linear_mappings, 
+                                                num_freqs=args.encoding_freqs,
+                                                embed_fn=embed_fn,
+                                                pos_boundaries=(0, 3*2*args.encoding_freqs),
+                                                diff_boundaries=(0, 4*2*args.encoding_freqs),
+                                                spec_boundaries=(4*2*args.encoding_freqs, 5*2*args.encoding_freqs))
     linear_net.to(device)
     
     # EVALUATION

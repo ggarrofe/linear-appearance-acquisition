@@ -117,7 +117,6 @@ if __name__ == "__main__":
     train_time = time.time() - start_time
     print("Training time: %s seconds." % (train_time))
 
-    xnv_tr, img_tr, depths_tr = dataset.get_X_target("train", 0, device=device)
     linear_net = net.LinearMapping(in_features=xnv.shape[-1], 
                                    linear_mappings=linear_mapping, 
                                    num_freqs=6)
@@ -161,6 +160,20 @@ if __name__ == "__main__":
                                it=1,
                                out_path=args.out_path,
                                name="val_xnv",
+                               wandb_act=False)
+
+    for i in range(1, 5):
+        xnv_val, img_val, depths_val = dataset.get_X_target("val", i, device=device)
+        v.validation_view_rgb_xndv(img_val.detach().cpu(),
+                               img_val.detach().cpu(),
+                               points=xnv_val[..., :3].detach().cpu(),
+                               normals=xnv_val[..., 3:6].detach().cpu(),
+                               depths=depths_val,
+                               viewdirs=xnv_val[..., 6:].detach().cpu(),
+                               img_shape=(dataset.hwf[0], dataset.hwf[1], 3),
+                               it=1,
+                               out_path=args.out_path,
+                               name=f"val_xnv_{i}_",
                                wandb_act=False)
 
     results = {

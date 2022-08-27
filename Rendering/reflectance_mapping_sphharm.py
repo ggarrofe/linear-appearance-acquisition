@@ -156,7 +156,7 @@ if __name__ == "__main__":
                                               num_freqs=6, 
                                               pos_boundaries=(0, input_ch_posenc),
                                               diff_boundaries=(0, input_ch_posenc),
-                                              spec_boundaries=(input_ch_posenc, input_ch_sphharm))
+                                              spec_boundaries=(input_ch_posenc, input_ch_posenc+input_ch_sphharm))
     linear_net.to(device)
     
     # EVALUATION
@@ -169,10 +169,6 @@ if __name__ == "__main__":
     pred_rgb_spec = linear_net.specular(x_H, cluster_ids_tr)
     pred_rgb_diff = linear_net.diffuse(x_H, cluster_ids_tr)
     pred_rgb_lin = linear_net.linear(x_H, cluster_ids_tr)
-    
-    spec_comp = linear_net.specular_component(x_H, cluster_ids_tr)
-    diff_comp = linear_net.diffuse_component(x_H, cluster_ids_tr)
-    amb_comp = linear_net.ambient_component(x_H, cluster_ids_tr)
         
     loss_tr = loss_fn(pred_rgb_tr, img_tr)
 

@@ -16,7 +16,7 @@ def load_mesh(path):
 def parse_args():
     parser = configargparse.ArgumentParser(description="Initializes the geometry with a given mesh")
     parser.add_argument('-c', '--config', is_config_file=True, help='config file path')
-    parser.add_argument('--mesh', type=str, help='initial mesh path')
+    parser.add_argument('--mesh_path', type=str, help='initial mesh path')
     parser.add_argument('--dataset_path', type=str, help='path to dataset')
     parser.add_argument("--test", action='store_true', help='display tests')
     parser.add_argument('--dataset_type', type=str, help='type of dataset', choices=['synthetic', 'llff', 'tiny', 'meshroom', 'colmap'])
@@ -30,6 +30,8 @@ def parse_args():
     parser.add_argument('--train_images', type=int, help='number of training images', default=100)
     parser.add_argument('--test_images', type=int, help='number of test images', default=100)
     parser.add_argument('--load_light', action='store_true', help='load light sources positions')
+    parser.add_argument('--dataset_to_gpu', default=False, action="store_true")
+    
 
     args = parser.parse_args()
     return args
@@ -46,15 +48,15 @@ if __name__ == '__main__':
     device = "cpu" 
     print(f'Using {device}')
 
-    mesh = load_mesh(args.mesh)
-    dataset = data.NeRFDataset(args, device=device)
+    mesh = load_mesh(args.mesh_path)
+    dataset = data.NeRFDataset(args)
 
     for i in range(dataset.get_n_images()):
         rays_od = dataset.get_rays_od("train", i, device=device)
 
         scene = o3d.t.geometry.RaycastingScene()
         scene.add_triangles(o3d.t.geometry.TriangleMesh.from_legacy(mesh))
-        dataset.compute_depths(scene, device=device)
+        dataset.compute_depths(device=device)
         dataset.compute_normals()
         xh, rgb = dataset.get_xh_rgb("train", i, device=device)
         light_rays = dataset.get_light_rays("train", i, device=device)
@@ -67,7 +69,7 @@ if __name__ == '__main__':
                                  light_rays=light_rays[320400:320401],
                                  xh=xh[320400:320401])'''
             
-            v.render_mesh(args.mesh, dataset.poses[i])
+            v.render_mesh(args.mesh_path, dataset.poses[i])
             
         hit = utils.cast_rays(scene, rays_od)
         hit = hit.reshape(dataset.hwf[0], dataset.hwf[1])

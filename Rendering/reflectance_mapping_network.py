@@ -198,9 +198,9 @@ if __name__ == "__main__":
         pred_rgb = reflectance_net(batch_x_NdotL_NdotH_tr)
         pred_spec = reflectance_net.specular(batch_x_NdotL_NdotH_tr)
         pred_diff = reflectance_net.diffuse(batch_x_NdotL_NdotH_tr)
-        linear_pred_rgb = reflectance_net.linear_mapping.reflectance(batch_x_NdotL_NdotH_tr.to(device), cluster_ids_tr)
-        linear_pred_spec = reflectance_net.linear_mapping.specular(batch_x_NdotL_NdotH_tr.to(device), cluster_ids_tr)
-        linear_pred_diff = reflectance_net.linear_mapping.diffuse(batch_x_NdotL_NdotH_tr.to(device), cluster_ids_tr)
+        linear_pred_rgb = reflectance_net.linear_net.reflectance(batch_x_NdotL_NdotH_tr.to(device), cluster_ids_tr)
+        linear_pred_spec = reflectance_net.linear_net.specular(batch_x_NdotL_NdotH_tr.to(device), cluster_ids_tr)
+        linear_pred_diff = reflectance_net.linear_net.diffuse(batch_x_NdotL_NdotH_tr.to(device), cluster_ids_tr)
         loss = loss_fn(pred_rgb, target_rgb_tr) + loss_fn(pred_spec, linear_pred_spec) + loss_fn(pred_diff, linear_pred_diff)
         print("train spec loss", 0.1 * loss_fn(pred_spec, linear_pred_spec))
         print("train diff loss", 0.1 * loss_fn(pred_diff, linear_pred_diff))
@@ -228,9 +228,9 @@ if __name__ == "__main__":
         pred_rgb_val = reflectance_net(batch_x_NdotL_NdotH_val.to(device))
         pred_spec = reflectance_net.specular(batch_x_NdotL_NdotH_val)
         pred_diff = reflectance_net.diffuse(batch_x_NdotL_NdotH_val)
-        linear_pred_rgb = reflectance_net.linear_mapping.reflectance(batch_x_NdotL_NdotH_val.to(device), cluster_ids_val)
-        linear_pred_spec = reflectance_net.linear_mapping.specular(batch_x_NdotL_NdotH_val.to(device), cluster_ids_val)
-        linear_pred_diff = reflectance_net.linear_mapping.diffuse(batch_x_NdotL_NdotH_val.to(device), cluster_ids_val)
+        linear_pred_rgb = reflectance_net.linear_net.reflectance(batch_x_NdotL_NdotH_val.to(device), cluster_ids_val)
+        linear_pred_spec = reflectance_net.linear_net.specular(batch_x_NdotL_NdotH_val.to(device), cluster_ids_val)
+        linear_pred_diff = reflectance_net.linear_net.diffuse(batch_x_NdotL_NdotH_val.to(device), cluster_ids_val)
         
 
         val_loss = loss_fn(pred_rgb_val, target_rgb_val) + loss_fn(pred_spec, linear_pred_spec) + loss_fn(pred_diff, linear_pred_diff)
@@ -253,7 +253,7 @@ if __name__ == "__main__":
                                         diffuse=pred_rgb_diff.detach().cpu(), 
                                         target=img.detach().cpu(),
                                         points=x_NdotL_NdotH[..., :3].detach().cpu(),
-                                        linear=reflectance_net.linear_mapping.reflectance(x_NdotL_NdotH, cluster_ids).detach().cpu(),
+                                        linear=reflectance_net.linear_net.reflectance(x_NdotL_NdotH, cluster_ids).detach().cpu(),
                                         img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
                                         out_path=args.out_path,
                                         it=iter,
@@ -270,7 +270,7 @@ if __name__ == "__main__":
                                         diffuse=pred_rgb_diff.detach().cpu(), 
                                         target=img.detach().cpu(),
                                         points=x_NdotL_NdotH[..., :3].detach().cpu(),
-                                        linear=reflectance_net.linear_mapping.reflectance(x_NdotL_NdotH, cluster_ids).detach().cpu(),
+                                        linear=reflectance_net.linear_net.reflectance(x_NdotL_NdotH, cluster_ids).detach().cpu(),
                                         img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
                                         out_path=args.out_path,
                                         it=iter,
@@ -287,7 +287,7 @@ if __name__ == "__main__":
                                         diffuse=pred_rgb_diff.detach().cpu(), 
                                         target=img.detach().cpu(),
                                         points=x_NdotL_NdotH[..., :3].detach().cpu(),
-                                        linear=reflectance_net.linear_mapping.reflectance(x_NdotL_NdotH, cluster_ids).detach().cpu(),
+                                        linear=reflectance_net.linear_net.reflectance(x_NdotL_NdotH, cluster_ids).detach().cpu(),
                                         img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
                                         out_path=args.out_path,
                                         it=iter,
@@ -304,7 +304,7 @@ if __name__ == "__main__":
                                         diffuse=pred_rgb_diff.detach().cpu(), 
                                         target=img.detach().cpu(),
                                         points=x_NdotL_NdotH[..., :3].detach().cpu(),
-                                        linear=reflectance_net.linear_mapping.reflectance(x_NdotL_NdotH, cluster_ids).detach().cpu(),
+                                        linear=reflectance_net.linear_net.reflectance(x_NdotL_NdotH, cluster_ids).detach().cpu(),
                                         img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
                                         out_path=args.out_path,
                                         it=iter,

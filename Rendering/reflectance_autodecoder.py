@@ -103,7 +103,12 @@ if __name__ == "__main__":
     input_ch=input_ch_posenc+input_ch_sphharm
     latent_features = torch.nn.Embedding(args.num_clusters, args.latent_size, max_norm=args.latent_bound)
        
-    decoder = net.LinearAutoDecoder(pos_size=input_ch, latent_size=args.latent_size, num_clusters=args.num_clusters)
+    decoder = net.LinearAutoDecoder(pos_size=input_ch, 
+                                    latent_size=args.latent_size,
+                                    num_clusters=args.num_clusters, 
+                                    pos_boundaries=(0, input_ch_posenc),
+                                    diff_boundaries=(0, input_ch_posenc),
+                                    spec_boundaries=(input_ch_posenc, input_ch_posenc+input_ch_sphharm))
     
     optimizer = torch.optim.Adam([
         {
@@ -124,7 +129,7 @@ if __name__ == "__main__":
                     entity="guillemgarrofe",
                     config = {
                             "learning_rate": args.lrate,
-                            "num_epochs": args.num_epochs,
+                            "num_iters": args.num_iters,
                             "batch_size": args.batch_size,
                             "kmeans_batch_size": args.kmeans_batch_size,
                             "dataset_type": args.dataset_type,
@@ -133,15 +138,15 @@ if __name__ == "__main__":
                         })
 
         # INITIALIZING THE LINEAR LAYER
-        epoch=0
+        iter=0
         if wandb.run.resumed:
             wandb.restore(f"{args.checkpoint_path}/{args.run_id}.tar")
             checkpoint = torch.load(f"{args.checkpoint_path}/{args.run_id}.tar")
             decoder.load_state_dict(checkpoint['deocder_state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             centroids = checkpoint['centroids']
-            epoch = checkpoint['epoch']
-            print(f"Resuming {run.id} at epoch {epoch}")
+            iter = checkpoint['iter']
+            print(f"Resuming {run.id} at iter {iter}")
 
         else:
             X_H, target_rgb = dataset.get_X_H_rgb("train", img=-1, device=device)
@@ -164,16 +169,17 @@ if __name__ == "__main__":
             )
             latent_features.requires_grad = True
 
-        pbar = tqdm(total=args.num_epochs, unit="epoch")
-        pbar.update(epoch)
+        pbar = tqdm(total=args.num_iters, unit="iter")
+        pbar.update(iter)
         lpips_vgg = lpips.LPIPS(net="vgg").eval().to(device)
-        while epoch < args.num_epochs:
+        while iter < args.num_iters:
             #  ------------------------ TRAINING ------------------------
             decoder.train()
             batch_X_H, target_rgb = dataset.next_batch("train", device=device)
 
             cluster_ids = kmeans_predict(batch_X_H[..., :3], centroids, device=device).cpu()
-            input = torch.cat([embed_fn(X_H), latent_features(cluster_ids)], dim=-1)
+            print(embed_fn(batch_X_H).device, latent_features(cluster_ids).to(device).device)
+            input = torch.cat([embed_fn(batch_X_H), latent_features(cluster_ids).to(device)], dim=-1)
 
             linear_mappings = net.LinearAutoDecoder.compute_linear_mappings(input, 
                                                                             target_rgb.to(device), 
@@ -183,7 +189,7 @@ if __name__ == "__main__":
             pred_rgb = decoder(input.to(device), cluster_ids, linear_mappings)
 
             l2_size_loss = torch.sum(torch.norm(input[..., -args.latent_size:], dim=1))
-            reg_loss = (1e-04 * min(1, epoch / 100) * l2_size_loss)/input.shape[0]
+            reg_loss = (1e-04 * min(1, iter / 100) * l2_size_loss)/input.shape[0]
             mse_loss = loss_fn(target_rgb.to(device), pred_rgb)
             loss = mse_loss + reg_loss #+ linear_loss 
 
@@ -195,19 +201,19 @@ if __name__ == "__main__":
                 "tr_loss": loss,
                 "tr_psnr": mse2psnr(mse_loss),
                 "tr_reg_loss": reg_loss
-                }, step=epoch)
+                }, step=iter)
             
             #  ------------------------ VALIDATION ------------------------
             decoder.eval()
             batch_X_H, target_rgb = dataset.next_batch("val", device=device)
 
             cluster_ids = kmeans_predict(batch_X_H[..., :3], centroids, device=device).cpu()
-            input = torch.cat([embed_fn(X_H), latent_features(cluster_ids)], dim=-1)
+            input = torch.cat([embed_fn(batch_X_H), latent_features(cluster_ids).to(device)], dim=-1)
 
             pred_rgb = decoder(input.to(device), cluster_ids, linear_mappings)
 
             l2_size_loss = torch.sum(torch.norm(input[..., -args.latent_size:], dim=1))
-            reg_loss = (1e-04 * min(1, epoch / 100) * l2_size_loss)/input.shape[0]
+            reg_loss = (1e-04 * min(1, iter / 100) * l2_size_loss)/input.shape[0]
             mse_loss = loss_fn(target_rgb.to(device), pred_rgb)
             loss = mse_loss + reg_loss #+ linear_loss 
 
@@ -215,77 +221,94 @@ if __name__ == "__main__":
                 "val_loss": loss,
                 "val_psnr": mse2psnr(mse_loss),
                 "val_reg_loss": reg_loss
-                }, step=epoch)
+                }, step=iter)
 
             #  ------------------------ EVALUATION ------------------------
-            if epoch%10 == 0:
+            if iter%10 == 0:
                 i = 0
                 h, w = dataset.hwf[0], dataset.hwf[1]
                 X_H_i, img = dataset.get_X_H_rgb("train", img=i, device=device)
-                cluster_ids_i = kmeans_predict(X_H_i[..., :3], centroids, device=device)
-                
+                cluster_ids_i = kmeans_predict(X_H_i[..., :3], centroids, device=device).cpu()
+                print(X_H_i.device, cluster_ids_i.device, latent_features.weight.device)
+                print(embed_fn(X_H_i).device, latent_features(cluster_ids_i).to(device).device)
                 input = torch.cat([embed_fn(X_H_i), 
                                     latent_features(cluster_ids_i).to(device)], dim=-1)
                 pred_rgb = decoder(input, cluster_ids_i)
+                pred_rgb_spec = decoder.specular(input, cluster_ids_i)
+                pred_rgb_diff = decoder.diffuse(input, cluster_ids_i)
                 
-                v.validation_view_reflectance(reflectance=pred_rgb.detach().cpu(),
-                                            target=img.detach().cpu(),
-                                            linear=decoder.position_mapping(embed_fn(X_H_i), cluster_ids_i).detach().cpu(),
-                                            img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
-                                            out_path=args.out_path,
-                                            it=epoch,
-                                            name=f"training_reflectance_img{i}",
-                                            save=False)
+                v.validation_view_reflectance_enh(reflectance=pred_rgb.detach().cpu(),
+                                                  target=img.detach().cpu(),
+                                                  linear=decoder.position_mapping(embed_fn(X_H_i), cluster_ids_i).detach().cpu(),
+                                                  diffuse=pred_rgb_diff,
+                                                  specular=pred_rgb_spec,
+                                                  img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
+                                                  out_path=args.out_path,
+                                                  it=iter,
+                                                  name=f"training_reflectance_img{i}",
+                                                  save=True)
                 
                 i = np.random.randint(0, dataset.get_n_images("train"))
                 X_H_i, img = dataset.get_X_H_rgb("train", img=i, device=device)
-                cluster_ids_i = kmeans_predict(X_H_i[..., :3], centroids, device=device)
+                cluster_ids_i = kmeans_predict(X_H_i[..., :3], centroids, device=device).cpu()
                 input = torch.cat([embed_fn(X_H_i), 
                                     latent_features(cluster_ids_i).to(device)], dim=-1)
                 pred_rgb = decoder(input, cluster_ids_i)
+                pred_rgb_spec = decoder.specular(input, cluster_ids_i)
+                pred_rgb_diff = decoder.diffuse(input, cluster_ids_i)
 
-                v.validation_view_reflectance(reflectance=pred_rgb.detach().cpu(),
+                v.validation_view_reflectance_enh(reflectance=pred_rgb.detach().cpu(),
                                             target=img.detach().cpu(),
                                             linear=decoder.position_mapping(embed_fn(X_H_i), cluster_ids_i).detach().cpu(),
+                                            diffuse=pred_rgb_diff,
+                                            specular=pred_rgb_spec,
                                             img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
                                             out_path=args.out_path,
-                                            it=epoch,
+                                            it=iter,
                                             name=f"training_random_reflectance",
-                                            save=False)
+                                            save=True)
 
                 i = 0
                 h, w = dataset.hwf[0], dataset.hwf[1]
                 X_H_i, img = dataset.get_X_H_rgb("val", img=i, device=device)
-                cluster_ids_i = kmeans_predict(X_H_i[..., :3], centroids, device=device)
+                cluster_ids_i = kmeans_predict(X_H_i[..., :3], centroids, device=device).cpu()
                 
                 input = torch.cat([embed_fn(X_H_i), 
                                     latent_features(cluster_ids_i).to(device)], dim=-1)
                 pred_rgb = decoder(input, cluster_ids_i)
+                pred_rgb_spec = decoder.specular(input, cluster_ids_i)
+                pred_rgb_diff = decoder.diffuse(input, cluster_ids_i)
                 
-                v.validation_view_reflectance(reflectance=pred_rgb.detach().cpu(),
+                v.validation_view_reflectance_enh(reflectance=pred_rgb.detach().cpu(),
                                             target=img.detach().cpu(),
                                             linear=decoder.position_mapping(embed_fn(X_H_i), cluster_ids_i).detach().cpu(),
+                                            diffuse=pred_rgb_diff,
+                                            specular=pred_rgb_spec,
                                             img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
                                             out_path=args.out_path,
-                                            it=epoch,
+                                            it=iter,
                                             name=f"validation_reflectance_img{i}",
-                                            save=False)
+                                            save=True)
                 
                 i = np.random.randint(0, dataset.get_n_images("val"))
                 X_H_i, img = dataset.get_X_H_rgb("val", img=i, device=device)
-                cluster_ids_i = kmeans_predict(X_H_i[..., :3], centroids, device=device)
+                cluster_ids_i = kmeans_predict(X_H_i[..., :3], centroids, device=device).cpu()
                 input = torch.cat([embed_fn(X_H_i), 
                                     latent_features(cluster_ids_i).to(device)], dim=-1)
                 pred_rgb = decoder(input, cluster_ids_i)
+                pred_rgb_spec = decoder.specular(input, cluster_ids_i)
+                pred_rgb_diff = decoder.diffuse(input, cluster_ids_i)
 
-                v.validation_view_reflectance(reflectance=pred_rgb.detach().cpu(),
+                v.validation_view_reflectance_enh(reflectance=pred_rgb.detach().cpu(),
                                             target=img.detach().cpu(),
                                             linear=decoder.position_mapping(embed_fn(X_H_i), cluster_ids_i).detach().cpu(),
+                                            diffuse=pred_rgb_diff,
+                                            specular=pred_rgb_spec,
                                             img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
                                             out_path=args.out_path,
-                                            it=epoch,
+                                            it=iter,
                                             name=f"validation_random_reflectance",
-                                            save=False)
+                                            save=True)
                 
                 ssip_mean = 0.0
                 lpips_mean = 0.0
@@ -295,9 +318,8 @@ if __name__ == "__main__":
                 for i in range(dataset.get_n_images("val")):
                     X_H_i, img = dataset.get_X_H_rgb("val", img=i, device=device)
                     start_time = time.time()
-                    cluster_ids_i = kmeans_predict(X_H_i[..., :3], centroids, device=device)
-                    input = torch.cat([embed_fn(X_H_i), 
-                                    latent_features(cluster_ids_i).to(device)], dim=-1)
+                    cluster_ids_i = kmeans_predict(X_H_i[..., :3], centroids, device=device).cpu()
+                    input = torch.cat([embed_fn(X_H_i), latent_features(cluster_ids_i).to(device)], dim=-1)
                     pred_rgb = decoder(input, cluster_ids_i)
                     pred_time = time.time() - start_time
 
@@ -307,7 +329,7 @@ if __name__ == "__main__":
                                                     torch.reshape(pred_rgb, img_shape),
                                                     lpips_vgg,
                                                     device)
-                    psnr_val = mse2psnr(loss_fn(target_rgb.to(device), pred_rgb))
+                    psnr_val = mse2psnr(loss_fn(img.to(device), pred_rgb))
                                                     
                     ssip_mean = (ssip_mean*i + ssip_val)/(i+1)
                     lpips_mean = (lpips_mean*i + lpips_val)/(i+1)
@@ -322,7 +344,7 @@ if __name__ == "__main__":
                     }, step=iter)
 
                 torch.save({ # Save our checkpoint loc
-                    'epoch': epoch,
+                    'iter': iter,
                     'deocder_state_dict': decoder.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
                     'loss': loss,
@@ -331,7 +353,7 @@ if __name__ == "__main__":
 
                 wandb.save(f"{args.checkpoint_path}/{run.id}.tar") # saves checkpoint to wandb    
 
-            epoch += 1
+            iter += 1
             pbar.update(1)
         
         pbar.close()

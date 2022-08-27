@@ -182,8 +182,8 @@ def add_to_id(basedir="../data/lego_lighting/val", offset=300):
         shutil.copyfile(f"{basedir}/{f}", f"../COLMAP/lego_lighting/images/{filename}")
 
 def merge_images(sourcedir="../data/hotdog", destdir="../COLMAP/hotdog/images", is_synthetic=True):
-    #subdirs = ["train", "val", "test"]
-    subdirs = ["train_1", "train_2", "train_3", "train_4", "train_5"]
+    subdirs = ["train", "val"]#, "test"]
+    #subdirs = ["train_1", "train_2", "train_3", "train_4", "train_5"]
     i_img = 0
     transforms = None
     for subdir in subdirs:
@@ -453,7 +453,7 @@ def transforms2xmp(basedir, xmp_path, dest_path):
 if __name__ == "__main__":
     #convert_nerfactor(light_id="0000-0000")
     #add_to_id()
-    merge_images("../data/drums_light", "../COLMAP/drums_light/images", is_synthetic=True)
+    merge_images("../data/lego_light", "../COLMAP/lego_light/images", is_synthetic=True)
     #merge_images_realitycapture()
     #xmp2transforms("../RealityCapture/hotdog", "../RealityCapture/hotdog_xmp/", "../RealityCapture/hotdog_transforms/")
     #transforms2xmp("../data/hotdog", "../RealityCapture/hotdog_xmp", "../RealityCapture/hotdog_known_xmp")

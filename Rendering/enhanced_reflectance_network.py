@@ -11,6 +11,9 @@ import gc
 import matplotlib.pyplot as plt
 import wandb
 import sys
+import time
+import lpips
+import json
 sys.path.append('../')
 
 
@@ -119,10 +122,14 @@ if __name__ == "__main__":
     dataset.compute_depths(device=torch.device("cpu"))
     dataset.compute_normals()
     dataset.compute_halfangles()
+    dataset.switch_2_X_H_dataset()
     
     loss_fn = nn.MSELoss()
     mse2psnr = lambda x : -10. * torch.log(x) / torch.log(torch.Tensor([10.]).to(device))
-
+    
+    embed_fn, input_ch_posenc, input_ch_sphharm = emb.get_mixed_embedder(in_dim_posenc=3, in_dim_sphharm=3, num_freqs=args.encoding_freqs, deg_view=3, device=device)
+    input_ch=input_ch_posenc+input_ch_sphharm
+    
     if args.resume:
         run = wandb.init(project="controllable-neural-rendering", 
                         entity="guillemgarrofe",
@@ -145,12 +152,12 @@ if __name__ == "__main__":
     # INITIALIZING THE LINEAR LAYER
     iter=0
     if wandb.run.resumed:
-        x_NdotL_NdotH, target_rgb = dataset.get_X_NdotL_NdotH_rgb("train", img=-1, device=torch.device("cpu"))
-        embed_fn, input_ch = emb.get_posenc_embedder(in_dim=x_NdotL_NdotH.shape[-1], num_freqs=6)
-
-        reflectance_net = net.ReflectanceNetwork(in_features=x_NdotL_NdotH.shape[-1], 
-                                        linear_mappings=torch.zeros((args.num_clusters, 3, input_ch)), 
-                                        num_freqs=6)
+        reflectance_net = net.ReflectanceNetwork(linear_mappings=torch.zeros((args.num_clusters, 3, input_ch)), 
+                                                num_freqs=args.encoding_freqs,
+                                                embed_fn=embed_fn,
+                                                pos_boundaries=(0, input_ch_posenc),
+                                                diff_boundaries=(0, input_ch_posenc),
+                                                spec_boundaries=(input_ch_posenc, input_ch_posenc+input_ch_sphharm))
         reflectance_net.to(device)
         optimizer = torch.optim.Adam(reflectance_net.parameters(), lr=args.lrate)
 
@@ -163,33 +170,43 @@ if __name__ == "__main__":
         print(f"Resuming {run.id} at iteration {iter}")
 
     else:
-        x_NdotL_NdotH, target_rgb = dataset.get_X_NdotL_NdotH_rgb("train", img=-1, device=device)
-        embed_fn, input_ch = emb.get_posenc_embedder(in_dim=x_NdotL_NdotH.shape[-1], num_freqs=6)
+        x_H, target_rgb = dataset.get_X_H_rgb("train", img=-1, device=device)
+        embed_fn, input_ch = emb.get_posenc_embedder(in_dim=x_H.shape[-1], num_freqs=6)
         
         linear_mappings = torch.zeros([args.num_clusters, 3, input_ch]).to(device)
-        cluster_ids = torch.zeros((x_NdotL_NdotH.shape[0],), dtype=torch.long).to(device)
+        cluster_ids = torch.zeros((x_H.shape[0],), dtype=torch.long).to(device)
         centroids = torch.zeros((args.num_clusters, 3)).to(device)
 
-        mask = (x_NdotL_NdotH[:,0] == -1.) & (x_NdotL_NdotH[:,1] == -1.) & (x_NdotL_NdotH[:,2] == -1.) #not masking takes too much time
-        cluster_ids[~mask], centroids[:args.num_clusters-1] = kmeans(x_NdotL_NdotH[~mask, :3],
+        mask = (x_H[:,0] == -1.) & (x_H[:,1] == -1.) & (x_H[:,2] == -1.) #not masking takes too much time
+        start_time = time.time()
+        cluster_ids[~mask], centroids[:args.num_clusters-1] = kmeans(x_H[~mask, :3],
                                                                     num_clusters=args.num_clusters-1, 
                                                                     tol=args.kmeans_tol,
                                                                     device=device,
                                                                     batch_size=args.kmeans_batch_size)
         
         cluster_ids.masked_fill_(mask.to(device), args.num_clusters-1)
-        centroids[args.num_clusters-1] = torch.tensor([-1., -1., -1.]).to(x_NdotL_NdotH)
+        centroids[args.num_clusters-1] = torch.tensor([-1., -1., -1.]).to(x_H)
         cluster_ids = cluster_ids.cpu()
+        lin_map_time = time.time() - start_time
 
         for cluster_id in tqdm(range(args.num_clusters), unit="linear mapping", desc="Computing linear mappings"):
-            linear_mappings[cluster_id] = compute_inv(x_NdotL_NdotH, 
+            linear_mappings[cluster_id] = compute_inv(x_H, 
                                                     target_rgb, 
                                                     cluster_id, 
                                                     cluster_ids, 
                                                     embed_fn=embed_fn,
                                                     device=device)
+        train_time = time.time() - start_time
+        kmeans_time = train_time - lin_map_time
+        print("Linear mappings' training time: %s seconds. Including %s of K-means training." % (train_time, kmeans_time))
 
-        reflectance_net = net.EnhancedReflectanceNetwork(in_features=x_NdotL_NdotH.shape[-1], linear_mappings=linear_mappings, num_freqs=6)
+        reflectance_net = net.ReflectanceNetwork(linear_mappings=linear_mappings, 
+                                                 num_freqs=args.encoding_freqs,
+                                                 embed_fn=embed_fn,
+                                                 pos_boundaries=(0, input_ch_posenc),
+                                                 diff_boundaries=(0, input_ch_posenc),
+                                                 spec_boundaries=(input_ch_posenc, input_ch_posenc+input_ch_sphharm))
         linear_mappings = linear_mappings.cpu()
         reflectance_net = reflectance_net.to(device)
 
@@ -198,28 +215,20 @@ if __name__ == "__main__":
 
     pbar = tqdm(total=args.num_iters, unit="iteration")
     pbar.update(iter)
-    dataset.switch_2_X_NdotL_NdotH_dataset(device=device if args.dataset_to_gpu else torch.device("cpu"))
-
+    lpips_vgg = lpips.LPIPS(net="vgg").eval().to(device)
+    
     while iter < args.num_iters:
         # ------------------------ TRAINING -------------------------
         reflectance_net.train()
-        batch_x_NdotL_NdotH_tr, target_rgb_tr = dataset.next_batch("train", device=device)
+        batch_X_H, target_rgb = dataset.next_batch("train", device=device)
 
-        cluster_ids_tr = kmeans_predict(batch_x_NdotL_NdotH_tr[..., :3], centroids, device=device)
-        pred_rgb = reflectance_net(batch_x_NdotL_NdotH_tr)
-        pred_spec = reflectance_net.specular(batch_x_NdotL_NdotH_tr)
-        pred_diff = reflectance_net.diffuse(batch_x_NdotL_NdotH_tr)
-        pred_linear = reflectance_net.linear(batch_x_NdotL_NdotH_tr, cluster_ids_tr)
-        '''linear_pred_rgb = reflectance_net.linear_mapping.reflectance(batch_x_NdotL_NdotH_tr.to(device), cluster_ids_tr)
-        linear_pred_spec = reflectance_net.linear_mapping.specular(batch_x_NdotL_NdotH_tr.to(device), cluster_ids_tr)
-        linear_pred_diff = reflectance_net.linear_mapping.diffuse(batch_x_NdotL_NdotH_tr.to(device), cluster_ids_tr)
-        '''
-        loss = loss_fn(pred_rgb, target_rgb_tr) #+ loss_fn(pred_spec, linear_pred_spec) + loss_fn(pred_diff, linear_pred_diff)'''
-        '''print("train spec loss", 0.1 * loss_fn(pred_spec, linear_pred_spec))
-        print("train diff loss", 0.1 * loss_fn(pred_diff, linear_pred_diff))
-        print("train loss", loss_fn(pred_rgb, target_rgb_tr))'''
+        cluster_ids = kmeans_predict(batch_X_H[..., :3], centroids, device=device)
+        pred_rgb = reflectance_net(batch_X_H)
+        
+        tr_loss = loss_fn(pred_rgb, target_rgb) #+ loss_fn(pred_spec, linear_pred_spec) + loss_fn(pred_diff, linear_pred_diff)'''
+        
         optimizer.zero_grad()
-        loss.backward()
+        tr_loss.backward()
         optimizer.step()
 
         decay_rate = 0.1
@@ -229,113 +238,165 @@ if __name__ == "__main__":
             param_group['lr'] = new_lrate
 
         wandb.log({
-                "tr_loss": loss,
-                "tr_psnr": mse2psnr(loss),
-                "tr_linear_loss": loss_fn(pred_linear, target_rgb_tr)
+                "tr_loss": tr_loss,
+                "tr_psnr": mse2psnr(tr_loss)
                 }, step=iter)
 
         # ------------------------ VALIDATION ------------------------
         reflectance_net.eval()
-        batch_x_NdotL_NdotH_val, target_rgb_val = dataset.next_batch("val", device=device)
-        
-        cluster_ids_val = kmeans_predict(batch_x_NdotL_NdotH_val[..., :3], centroids, device=device)
-        pred_rgb_val = reflectance_net(batch_x_NdotL_NdotH_val.to(device))
-        pred_spec = reflectance_net.specular(batch_x_NdotL_NdotH_val)
-        pred_diff = reflectance_net.diffuse(batch_x_NdotL_NdotH_val)
-        pred_linear = reflectance_net.linear(batch_x_NdotL_NdotH_val, cluster_ids_val)
-        '''linear_pred_rgb = reflectance_net.linear_mapping.reflectance(batch_x_NdotL_NdotH_val.to(device), cluster_ids_val)
-        linear_pred_spec = reflectance_net.linear_mapping.specular(batch_x_NdotL_NdotH_val.to(device), cluster_ids_val)
-        linear_pred_diff = reflectance_net.linear_mapping.diffuse(batch_x_NdotL_NdotH_val.to(device), cluster_ids_val)
-        '''
+        batch_X_H, target_rgb = dataset.next_batch("val", device=device)
 
-        val_loss = loss_fn(pred_rgb_val, target_rgb_val) #+ loss_fn(pred_spec, linear_pred_spec) + loss_fn(pred_diff, linear_pred_diff)
+        cluster_ids = kmeans_predict(batch_X_H[..., :3], centroids, device=device)
+        pred_rgb = reflectance_net(batch_X_H.to(device))
+        
+        val_loss = loss_fn(pred_rgb, target_rgb) #+ loss_fn(pred_spec, linear_pred_spec) + loss_fn(pred_diff, linear_pred_diff)
 
         wandb.log({
                 "val_loss": val_loss,
                 "val_psnr": mse2psnr(val_loss),
-                "val_linear_loss": loss_fn(pred_linear, target_rgb_val)
                 }, step=iter)
 
         #  ------------------------ EVALUATION ------------------------
         if (iter < 200 and iter%20 == 0) or iter%2000 == 0:
-            x_NdotL_NdotH, img = dataset.get_X_NdotL_NdotH_rgb("train", img=0, device=device)
-            cluster_ids = kmeans_predict(x_NdotL_NdotH[..., :3], centroids, device=device)
-            pred_rgb = reflectance_net(x_NdotL_NdotH)
-            pred_rgb_spec = reflectance_net.specular(x_NdotL_NdotH)
-            pred_rgb_diff = reflectance_net.diffuse(x_NdotL_NdotH)
+            x_H, img = dataset.get_X_H_rgb("train", img=0, device=device)
+            cluster_ids = kmeans_predict(x_H[..., :3], centroids, device=device)
+            pred_rgb = reflectance_net(x_H)
+            pred_rgb_spec = reflectance_net.specular(x_H, cluster_ids)
+            pred_rgb_diff = reflectance_net.diffuse(x_H, cluster_ids)
 
-            v.validation_view_reflectance(reflectance=pred_rgb.detach().cpu(),
+            v.validation_view_reflectance_enh(reflectance=pred_rgb.detach().cpu(),
                                           specular=pred_rgb_spec.detach().cpu(), 
                                           diffuse=pred_rgb_diff.detach().cpu(), 
                                           target=img.detach().cpu(),
-                                          points=x_NdotL_NdotH[..., :3].detach().cpu(),
-                                          linear=reflectance_net.linear(x_NdotL_NdotH, cluster_ids).detach().cpu(),
+                                          linear=reflectance_net.linear(x_H).detach().cpu(),
                                           img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
                                           out_path=args.out_path,
                                           it=iter,
                                           name="training_reflectance")
 
-            x_NdotL_NdotH, img = dataset.get_X_NdotL_NdotH_rgb("val", img=0, device=device)
-            cluster_ids = kmeans_predict(x_NdotL_NdotH[..., :3], centroids, device=device)
-            pred_rgb = reflectance_net(x_NdotL_NdotH)
-            pred_rgb_spec = reflectance_net.specular(x_NdotL_NdotH)
-            pred_rgb_diff = reflectance_net.diffuse(x_NdotL_NdotH)
+            x_H, img = dataset.get_X_H_rgb("val", img=0, device=device)
+            cluster_ids = kmeans_predict(x_H[..., :3], centroids, device=device)
+            pred_rgb = reflectance_net(x_H)
+            pred_rgb_spec = reflectance_net.specular(x_H, cluster_ids)
+            pred_rgb_diff = reflectance_net.diffuse(x_H, cluster_ids)
 
-            v.validation_view_reflectance(reflectance=pred_rgb.detach().cpu(),
+            v.validation_view_reflectance_enh(reflectance=pred_rgb.detach().cpu(),
                                         specular=pred_rgb_spec.detach().cpu(), 
                                         diffuse=pred_rgb_diff.detach().cpu(), 
                                         target=img.detach().cpu(),
-                                        points=x_NdotL_NdotH[..., :3].detach().cpu(),
-                                        linear=reflectance_net.linear(x_NdotL_NdotH, cluster_ids).detach().cpu(),
+                                        linear=reflectance_net.linear(x_H).detach().cpu(),
                                         img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
                                         out_path=args.out_path,
                                         it=iter,
                                         name="val_reflectance")
 
-            x_NdotL_NdotH, img = dataset.get_X_NdotL_NdotH_rgb("train", img=np.random.randint(0, dataset.get_n_images("train")), device=device)
-            cluster_ids = kmeans_predict(x_NdotL_NdotH[..., :3], centroids, device=device)
-            pred_rgb = reflectance_net(x_NdotL_NdotH)
-            pred_rgb_spec = reflectance_net.specular(x_NdotL_NdotH)
-            pred_rgb_diff = reflectance_net.diffuse(x_NdotL_NdotH)
+            x_H, img_tr = dataset.get_X_H_rgb("train", img=np.random.randint(0, dataset.get_n_images("train")), device=device)
+            cluster_ids = kmeans_predict(x_H[..., :3], centroids, device=device)
+            pred_rgb_tr = reflectance_net(x_H)
+            pred_rgb_spec = reflectance_net.specular(x_H, cluster_ids)
+            pred_rgb_diff = reflectance_net.diffuse(x_H, cluster_ids)
 
-            v.validation_view_reflectance(reflectance=pred_rgb.detach().cpu(),
+            v.validation_view_reflectance_enh(reflectance=pred_rgb.detach().cpu(),
                                         specular=pred_rgb_spec.detach().cpu(), 
                                         diffuse=pred_rgb_diff.detach().cpu(), 
                                         target=img.detach().cpu(),
-                                        points=x_NdotL_NdotH[..., :3].detach().cpu(),
-                                        linear=reflectance_net.linear(x_NdotL_NdotH, cluster_ids).detach().cpu(),
+                                        linear=reflectance_net.linear(x_H).detach().cpu(),
                                         img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
                                         out_path=args.out_path,
                                         it=iter,
                                         name="train_random_reflectance")
 
-            x_NdotL_NdotH, img = dataset.get_X_NdotL_NdotH_rgb("val", img=np.random.randint(0, dataset.get_n_images("val")), device=device)
-            cluster_ids = kmeans_predict(x_NdotL_NdotH[..., :3], centroids, device=device)
-            pred_rgb = reflectance_net(x_NdotL_NdotH)
-            pred_rgb_spec = reflectance_net.specular(x_NdotL_NdotH)
-            pred_rgb_diff = reflectance_net.diffuse(x_NdotL_NdotH)
+            x_H, img_val = dataset.get_X_H_rgb("val", img=np.random.randint(0, dataset.get_n_images("val")), device=device)
+            start_time = time.time()
+            cluster_ids = kmeans_predict(x_H[..., :3], centroids, device=device)
+            pred_rgb_val = reflectance_net(x_H)
+            pred_time = time.time() - start_time
+            print("Prediction time: %s seconds" % (pred_time))
 
-            v.validation_view_reflectance(reflectance=pred_rgb.detach().cpu(),
+            pred_rgb_spec = reflectance_net.specular(x_H, cluster_ids)
+            pred_rgb_diff = reflectance_net.diffuse(x_H, cluster_ids)
+
+            v.validation_view_reflectance_enh(reflectance=pred_rgb.detach().cpu(),
                                         specular=pred_rgb_spec.detach().cpu(), 
                                         diffuse=pred_rgb_diff.detach().cpu(), 
                                         target=img.detach().cpu(),
-                                        points=x_NdotL_NdotH[..., :3].detach().cpu(),
-                                        linear=reflectance_net.linear(x_NdotL_NdotH, cluster_ids).detach().cpu(),
+                                        linear=reflectance_net.linear(x_H).detach().cpu(),
                                         img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
                                         out_path=args.out_path,
                                         it=iter,
                                         name="val_random_reflectance")
+            img_shape=(dataset.hwf[0], dataset.hwf[1], 3)
+        
+            if not args.only_eval:
+                results = {
+                    "loss_tr": tr_loss.item(),
+                    "psnr_tr": mse2psnr(tr_loss).item(),
+                    "ssim_tr": utils.compute_ssim(torch.reshape(img_tr, img_shape),
+                                                torch.reshape(pred_rgb_tr, img_shape)),
+                    "lpips_tr": utils.compute_lpips(torch.reshape(img_tr, img_shape),
+                                                    torch.reshape(pred_rgb_tr, img_shape),
+                                                    lpips_vgg,
+                                                    device),
+                    "loss_val": val_loss.item(),
+                    "psnr_val": mse2psnr(val_loss).item(),
+                    "ssim_val": utils.compute_ssim(torch.reshape(img_val, img_shape),
+                                                torch.reshape(pred_rgb_val, img_shape)),
+                    "lpips_val": utils.compute_lpips(torch.reshape(img_val, img_shape),
+                                                    torch.reshape(pred_rgb_val, img_shape),
+                                                    lpips_vgg,
+                                                    device),
+                    "train_time": train_time,
+                    "kmeans_time": kmeans_time,
+                    "pred_time": pred_time
+                }
 
-            torch.save({ # Save our checkpoint loc
-                'iter': iter,
-                'model_state_dict': reflectance_net.state_dict(),
-                'optimizer_state_dict': optimizer.state_dict(),
-                'loss': loss,
-                'centroids': centroids,
-                }, f"{args.checkpoint_path}/{run.id}.tar")
+                with open(f"{args.out_path}/results_{args.num_clusters}clusters.json", "w") as json_file:
+                    json.dump(results, json_file, indent = 4)
 
-            wandb.save(f"{args.checkpoint_path}/{run.id}.tar") # saves checkpoint to wandb    
+                torch.save({ # Save our checkpoint loc
+                    'iter': iter,
+                    'model_state_dict': reflectance_net.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'loss': tr_loss,
+                    'centroids': centroids,
+                    }, f"{args.checkpoint_path}/{run.id}.tar")
 
+                wandb.save(f"{args.checkpoint_path}/{run.id}.tar") # saves checkpoint to wandb    
+            
+            else:
+                psnr_mean = 0.0
+                ssim_mean = 0.0
+                lpips_mean = 0.0
+                pred_time_mean = 0.0
+
+                for i in range(dataset.get_n_images("val")):
+                    x_H, img_val = dataset.get_X_H_rgb("val", img=i, device=device)
+                    start_time = time.time()
+                    cluster_ids_val = kmeans_predict(x_H[..., :3], centroids, device=device)
+                    pred_rgb_val = reflectance_net(x_H, cluster_ids_val)
+                    pred_time = time.time() - start_time
+                    
+                    pred_time_mean += (pred_time - pred_time_mean)/(i+1)
+                    loss_val = loss_fn(pred_rgb_val, img_val)
+                    psnr_mean += (mse2psnr(loss_val).item() - psnr_mean)/(i+1)
+                    ssim = utils.compute_ssim(torch.reshape(img_val, img_shape),
+                                            torch.reshape(pred_rgb_val, img_shape))
+                    ssim_mean += (ssim - ssim_mean)/(i+1)
+
+                    lpips_val = utils.compute_lpips(torch.reshape(img_val, img_shape),
+                                                torch.reshape(pred_rgb_val, img_shape),
+                                                lpips_vgg,
+                                                device)
+                    lpips_mean += (lpips_val - lpips_mean)/(i+1)
+
+                results = {
+                    "psnr_mean": psnr_mean,
+                    "ssim_mean": ssim_mean,
+                    "lpips_mean": lpips_mean,
+                    "pred_time_mean": pred_time_mean
+                }
+                with open(f"{args.out_path}/val_results_{args.num_clusters}clusters.json", "w") as json_file:
+                    json.dump(results, json_file, indent = 4)
         iter += 1
         pbar.update(1)
     

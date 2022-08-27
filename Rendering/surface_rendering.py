@@ -12,6 +12,7 @@ import lpips
 import visualization as v
 import sys
 import time
+import gc 
 sys.path.append('../')
 
 def parse_args():
@@ -109,12 +110,14 @@ if __name__ == "__main__":
     pbar = tqdm(total=args.num_iters, unit="iteration")
     pbar.update(iter)
     lpips_vgg = lpips.LPIPS(net="vgg").eval().to(device)
+    training_time = 0
     while iter < args.num_iters:
+        start_time = time.time()
         batch_xnv_tr, target_rgb_tr = dataset.next_batch("train", device=device)
         
         rend_net.train()
         pred_rgb = rend_net(batch_xnv_tr[..., :3], batch_xnv_tr[..., 3:6], batch_xnv_tr[..., 6:])
-        
+        training_time += time.time()-start_time
         loss = loss_fn(pred_rgb, target_rgb_tr)
 
         optimizer.zero_grad()
@@ -130,6 +133,7 @@ if __name__ == "__main__":
         wandb.log({
                 "tr_loss": loss,
                 "tr_psnr": mse2psnr(loss),
+                "tr_time": training_time
                 }, step=iter)
 
         #  --------------- VALIDATION --------------
@@ -146,7 +150,7 @@ if __name__ == "__main__":
                 }, step=iter)
 
         # --------------- EVALUATION --------------
-        if (iter < 200 and iter%20 == 0) or iter%2000 == 0:
+        if (iter < 500 and iter%20 == 0) or iter%200 == 0:
             xnv, img, depths = dataset.get_X_target("train", 0, device=device)
             rgb_map = None
             for i in range(0, xnv.shape[0], args.batch_size):
@@ -240,20 +244,24 @@ if __name__ == "__main__":
                                       out_path=args.out_path,
                                       name="val_random_xnv")
 
-            ssip_mean = 0.0
+            '''ssip_mean = 0.0
             lpips_mean = 0.0
+            psnr_mean = 0.0
+            pred_time_mean = 0.0
             for i in range(dataset.get_n_images("val")):
                 xnv, img, depths = dataset.get_X_target("val", i, device=device)
 
                 start_time = time.time()
                 rgb_map = None
-                for i in range(0, xnv.shape[0], args.batch_size):
-                    pred = rend_net(xnv[i:i+args.batch_size, :3], xnv[i:i+args.batch_size, 3:6], xnv[i:i+args.batch_size, 6:])
+                for i in range(0, xnv.shape[0], 1_000):
+                    pred = rend_net(xnv[i:i+1_000, :3], xnv[i:i+1_000, 3:6], xnv[i:i+1_000, 6:])
                     
                     if rgb_map is None:
                         rgb_map = pred
                     else:
                         rgb_map = torch.cat((rgb_map, pred), dim=0)
+
+                    gc.collect()
                 pred_time = time.time() - start_time
 
                 ssip_val = utils.compute_ssim(torch.reshape(img, img_shape), 
@@ -262,7 +270,7 @@ if __name__ == "__main__":
                                                  torch.reshape(rgb_map, img_shape),
                                                  lpips_vgg,
                                                  device)
-                psnr_val = mse2psnr(loss_fn(rgb_map.to(device), pred_rgb))
+                psnr_val = mse2psnr(loss_fn(rgb_map.to(device), img))
 
                 ssip_mean = (ssip_mean*i + ssip_val)/(i+1)
                 lpips_mean = (lpips_mean*i + lpips_val)/(i+1)
@@ -272,7 +280,7 @@ if __name__ == "__main__":
             wandb.log({
                 "val_ssim": ssip_mean,
                 "val_lpips": lpips_mean
-                }, step=iter)
+                }, step=iter)'''
 
             torch.save({ # Save our checkpoint loc
                 'iter': iter,

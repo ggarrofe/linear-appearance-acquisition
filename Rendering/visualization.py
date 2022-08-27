@@ -65,12 +65,18 @@ def validation_view(rgb_map, val_target, img_shape, it=0, out_path=None, name="v
 def validation_view_rgb_xndv(rgb_map, val_target, img_shape, points, normals, depths, viewdirs, it=0, out_path=None, name="validation_xnv", save=True, wandb_act=True):
     rgb_map = torch.reshape(rgb_map, img_shape)
     val_target = torch.reshape(val_target, img_shape)
-    points = torch.reshape(points, img_shape)
+    min_point = -1.3 #torch.min(points)
+    max_point = 3.85 #torch.max(points-min_point)
+    points = torch.reshape((points-min_point)/max_point, img_shape)
     #points /= 7.0 # Keep the values lower than 1, constant so that all the views are scaled the same way
     normals = torch.reshape(normals, img_shape)
     viewdirs = torch.reshape(viewdirs, img_shape)
-    depths = torch.reshape(depths, list(img_shape)[0:2])
-    depths = torch.nan_to_num(depths, posinf=10.0, neginf=10.0, nan=0.0)
+    min_depth = 1000.0
+    max_depth = 10000.0
+    depths = torch.reshape((depths-min_depth)/max_depth, list(img_shape)[0:2])
+    depths = torch.nan_to_num(depths, posinf=0.0, neginf=0.0, nan=0.0)
+    print("min-max depths", torch.min(depths), torch.max(depths))
+
     #depths /= torch.max(depths)
 
     fig = plt.figure(figsize=(20, 7))
@@ -97,6 +103,12 @@ def validation_view_rgb_xndv(rgb_map, val_target, img_shape, points, normals, de
         plt.savefig(f"{out_path}/{name}_it{it}.png", bbox_inches='tight', dpi=150)
         im = Image.fromarray((rgb_map.cpu().numpy() * 255).astype(np.uint8))
         im.save(f"{out_path}/{name}_pred_it{it}.png")
+        im = Image.fromarray((normals.cpu().numpy() * 255).astype(np.uint8))
+        im.save(f"{out_path}/{name}_normals_it{it}.png")
+        im = Image.fromarray((points.cpu().numpy() * 255).astype(np.uint8))
+        im.save(f"{out_path}/{name}_points_it{it}.png")
+        im = Image.fromarray((depths.cpu().numpy() * 255).astype(np.uint8))
+        im.save(f"{out_path}/{name}_depths_it{it}.png")
 
     if wandb_act:
         wandb.log({f"{name}_view": fig}, step=it)
@@ -143,12 +155,64 @@ def validation_view_rgb_xndv(rgb_map, val_target, img_shape, points, normals, de
         wandb.log({f"{name}_view": fig}, step=it)
 '''
 
-def validation_view_reflectance(reflectance, specular, diffuse, target, linear, img_shape, points, it=0, out_path=None, name="val_reflectance", save=True, wandb_act=True):
+def validation_view_reflectance_enh(reflectance, specular, diffuse, target, linear, img_shape, it=0, out_path=None, name="val_reflectance", save=True, wandb_act=True):
     reflectance = torch.reshape(reflectance, img_shape)
-    specular = torch.reshape(specular, img_shape)
+    lin_diffuse = torch.reshape(diffuse[0].detach().cpu(), img_shape)
+    lin_specular = torch.reshape(specular[0].detach().cpu(), img_shape)
+    enh_diffuse = torch.reshape(diffuse[1].detach().cpu(), img_shape)
+    enh_specular = torch.reshape(specular[1].detach().cpu(), img_shape)
+    target = torch.reshape(target, img_shape)
+    linear = torch.reshape(linear, img_shape)
+    #points /= 7.0 # Keep the values lower than 1, constant so that all the views are scaled the same way
+
+    fig = plt.figure(figsize=(25, 10))
+    plt.subplot(241)
+    plt.imshow(lin_diffuse.cpu().numpy())
+    plt.title(f"Linear Diffuse - it {it}")
+    plt.subplot(242)
+    plt.imshow(lin_specular.cpu().numpy())
+    plt.title(f"Linear Specular - it {it}")
+    plt.subplot(243)
+    plt.imshow(linear.cpu().numpy())
+    plt.title("Linear Reflectance")
+    plt.subplot(245)
+    plt.imshow(enh_diffuse.cpu().numpy())
+    plt.title("Enhanced Diffuse")
+    plt.subplot(246)
+    plt.imshow(enh_specular.cpu().numpy())
+    plt.title("Enhanced Specular")
+    plt.subplot(247)
+    plt.imshow(reflectance.cpu().numpy())
+    plt.title("Enhanced Reflectance")
+    plt.subplot(248)
+    plt.imshow(target.cpu().numpy())
+    plt.title("Target")
+
+    if save and out_path is not None:
+        plt.savefig(f"{out_path}/{name}_it{it}.png", bbox_inches='tight', dpi=150)
+        plt.close(fig)
+        im = Image.fromarray((lin_diffuse.cpu().numpy() * 255).astype(np.uint8))
+        im.save(f"{out_path}/{name}_diffuse_it{it}.png")
+        im = Image.fromarray((torch.clamp(lin_specular, min=0.0, max=1.0).cpu().numpy() * 255).astype(np.uint8))
+        im.save(f"{out_path}/{name}_specular_it{it}.png")
+        im = Image.fromarray((linear.cpu().numpy() * 255).astype(np.uint8))
+        im.save(f"{out_path}/{name}_linear_it{it}.png")
+        im = Image.fromarray((reflectance.cpu().numpy() * 255).astype(np.uint8))
+        im.save(f"{out_path}/{name}_enh_reflectance_it{it}.png")
+        im = Image.fromarray((torch.clamp(enh_specular, min=0.0, max=1.0).cpu().numpy() * 255).astype(np.uint8))
+        im.save(f"{out_path}/{name}_enh_specular_it{it}.png")
+        im = Image.fromarray((torch.clamp(enh_diffuse, min=0.0, max=1.0).cpu().numpy() * 255).astype(np.uint8))
+        im.save(f"{out_path}/{name}_enh_diffuse_it{it}.png")
+    else:
+        plt.show()
+            
+    if wandb_act:
+        wandb.log({f"{name}_view": fig}, step=it)
+
+def validation_view_reflectance(reflectance, specular, diffuse, target, linear, img_shape, it=0, out_path=None, name="val_reflectance", save=True, wandb_act=True):
+    reflectance = torch.reshape(reflectance, img_shape)
     diffuse = torch.reshape(diffuse, img_shape)
     target = torch.reshape(target, img_shape)
-    points = torch.reshape(points, img_shape)
     linear = torch.reshape(linear, img_shape)
     #points /= 7.0 # Keep the values lower than 1, constant so that all the views are scaled the same way
 
@@ -174,10 +238,12 @@ def validation_view_reflectance(reflectance, specular, diffuse, target, linear, 
         plt.close(fig)
         im = Image.fromarray((diffuse.cpu().numpy() * 255).astype(np.uint8))
         im.save(f"{out_path}/{name}_diffuse_it{it}.png")
-        im = Image.fromarray((specular.cpu().numpy() * 255).astype(np.uint8))
+        im = Image.fromarray((torch.clamp(specular, min=0.0, max=1.0).cpu().numpy() * 255).astype(np.uint8))
         im.save(f"{out_path}/{name}_specular_it{it}.png")
-        im = Image.fromarray((linear.cpu().numpy() * 255).astype(np.uint8))
+        im = Image.fromarray((reflectance.cpu().numpy() * 255).astype(np.uint8))
         im.save(f"{out_path}/{name}_reflectance_it{it}.png")
+        im = Image.fromarray((linear.cpu().numpy() * 255).astype(np.uint8))
+        im.save(f"{out_path}/{name}_linear_it{it}.png")
     else:
         plt.show()
             
