@@ -115,7 +115,7 @@ if __name__ == "__main__":
     def mse2psnr(x): return -10. * torch.log(x) / torch.log(torch.Tensor([10.]).to(device))
 
     # TRAINING
-    embed_fn, input_ch = emb.get_posenc_embedder(in_dim=9, num_freqs=6)
+    embed_fn, input_ch = emb.get_posenc_embedder(in_dim=9, num_freqs=args.encoding_freqs)
     #embed_fn, input_ch = emb.get_sph_harm_embedder(in_dim=9, deg_view=3, device=device)
     if not args.only_eval:
         xnv, target_rgb, depths = dataset.get_tensors("train", device=device)
@@ -157,7 +157,7 @@ if __name__ == "__main__":
     linear_net = net.ClusterisedLinearNetwork(in_features=input_ch, 
                                                 linear_mappings=linear_mappings, 
                                                 embed_fn=embed_fn, 
-                                                num_freqs=6,
+                                                num_freqs=args.encoding_freqs,
                                                 input_ch=input_ch)
     linear_net.to(device)
     

@@ -63,19 +63,18 @@ def validation_view(rgb_map, val_target, img_shape, it=0, out_path=None, name="v
         plt.savefig(f"{out_path}/{name}_it{it}.png", bbox_inches='tight', dpi=150)
 
 def validation_view_rgb_xndv(rgb_map, val_target, img_shape, points, normals, depths, viewdirs, it=0, out_path=None, name="validation_xnv", save=True, wandb_act=True):
-    rgb_map = torch.reshape(rgb_map, img_shape)
+    rgb_map = torch.reshape(torch.clamp(rgb_map, min=0.0, max=1.0), img_shape)
     val_target = torch.reshape(val_target, img_shape)
+    normals = torch.reshape(torch.clamp(normals, min=0.0, max=1.0), img_shape)
+    viewdirs = torch.reshape(torch.clamp(viewdirs, min=0.0, max=1.0), img_shape)
+
     min_point = -1.3 #torch.min(points)
     max_point = 3.85 #torch.max(points-min_point)
     points = torch.reshape((points-min_point)/max_point, img_shape)
-    #points /= 7.0 # Keep the values lower than 1, constant so that all the views are scaled the same way
-    normals = torch.reshape(normals, img_shape)
-    viewdirs = torch.reshape(viewdirs, img_shape)
     min_depth = 1000.0
     max_depth = 10000.0
     depths = torch.reshape((depths-min_depth)/max_depth, list(img_shape)[0:2])
     depths = torch.nan_to_num(depths, posinf=0.0, neginf=0.0, nan=0.0)
-    print("min-max depths", torch.min(depths), torch.max(depths))
 
     #depths /= torch.max(depths)
 
@@ -156,13 +155,13 @@ def validation_view_rgb_xndv(rgb_map, val_target, img_shape, points, normals, de
 '''
 
 def validation_view_reflectance_enh(reflectance, specular, diffuse, target, linear, img_shape, it=0, out_path=None, name="val_reflectance", save=True, wandb_act=True):
-    reflectance = torch.reshape(reflectance, img_shape)
-    lin_diffuse = torch.reshape(diffuse[0].detach().cpu(), img_shape)
-    lin_specular = torch.reshape(specular[0].detach().cpu(), img_shape)
-    enh_diffuse = torch.reshape(diffuse[1].detach().cpu(), img_shape)
-    enh_specular = torch.reshape(specular[1].detach().cpu(), img_shape)
+    reflectance = torch.reshape(torch.clamp(reflectance, min=0.0, max=1.0), img_shape)
+    lin_diffuse = torch.reshape(torch.clamp(diffuse[0].detach().cpu(), min=0.0, max=1.0), img_shape)
+    lin_specular = torch.reshape(torch.clamp(specular[0].detach().cpu(), min=0.0, max=1.0), img_shape)
+    enh_diffuse = torch.reshape(torch.clamp(diffuse[1].detach().cpu(), min=0.0, max=1.0), img_shape)
+    enh_specular = torch.reshape(torch.clamp(specular[1].detach().cpu(), min=0.0, max=1.0), img_shape)
     target = torch.reshape(target, img_shape)
-    linear = torch.reshape(linear, img_shape)
+    linear = torch.reshape(torch.clamp(linear, min=0.0, max=1.0), img_shape)
     #points /= 7.0 # Keep the values lower than 1, constant so that all the views are scaled the same way
 
     fig = plt.figure(figsize=(25, 10))
@@ -193,15 +192,15 @@ def validation_view_reflectance_enh(reflectance, specular, diffuse, target, line
         plt.close(fig)
         im = Image.fromarray((lin_diffuse.cpu().numpy() * 255).astype(np.uint8))
         im.save(f"{out_path}/{name}_diffuse_it{it}.png")
-        im = Image.fromarray((torch.clamp(lin_specular, min=0.0, max=1.0).cpu().numpy() * 255).astype(np.uint8))
+        im = Image.fromarray((lin_specular.cpu().numpy() * 255).astype(np.uint8))
         im.save(f"{out_path}/{name}_specular_it{it}.png")
         im = Image.fromarray((linear.cpu().numpy() * 255).astype(np.uint8))
         im.save(f"{out_path}/{name}_linear_it{it}.png")
         im = Image.fromarray((reflectance.cpu().numpy() * 255).astype(np.uint8))
         im.save(f"{out_path}/{name}_enh_reflectance_it{it}.png")
-        im = Image.fromarray((torch.clamp(enh_specular, min=0.0, max=1.0).cpu().numpy() * 255).astype(np.uint8))
+        im = Image.fromarray((enh_specular.cpu().numpy() * 255).astype(np.uint8))
         im.save(f"{out_path}/{name}_enh_specular_it{it}.png")
-        im = Image.fromarray((torch.clamp(enh_diffuse, min=0.0, max=1.0).cpu().numpy() * 255).astype(np.uint8))
+        im = Image.fromarray((enh_diffuse.cpu().numpy() * 255).astype(np.uint8))
         im.save(f"{out_path}/{name}_enh_diffuse_it{it}.png")
     else:
         plt.show()
@@ -210,12 +209,12 @@ def validation_view_reflectance_enh(reflectance, specular, diffuse, target, line
         wandb.log({f"{name}_view": fig}, step=it)
 
 def validation_view_reflectance(reflectance, specular, diffuse, target, linear, img_shape, it=0, out_path=None, name="val_reflectance", save=True, wandb_act=True):
-    reflectance = torch.reshape(reflectance, img_shape)
-    diffuse = torch.reshape(diffuse, img_shape)
+    reflectance = torch.reshape(torch.clamp(reflectance, min=0.0, max=1.0), img_shape)
+    diffuse = torch.reshape(torch.clamp(diffuse, min=0.0, max=1.0), img_shape)
     target = torch.reshape(target, img_shape)
-    linear = torch.reshape(linear, img_shape)
-    #points /= 7.0 # Keep the values lower than 1, constant so that all the views are scaled the same way
-
+    linear = torch.reshape(torch.clamp(linear, min=0.0, max=1.0), img_shape)
+    specular = torch.reshape(torch.clamp(specular, min=0.0, max=1.0), img_shape)
+    
     fig = plt.figure(figsize=(25, 10))
     plt.subplot(231)
     plt.imshow(diffuse.cpu().numpy())
@@ -238,7 +237,7 @@ def validation_view_reflectance(reflectance, specular, diffuse, target, linear, 
         plt.close(fig)
         im = Image.fromarray((diffuse.cpu().numpy() * 255).astype(np.uint8))
         im.save(f"{out_path}/{name}_diffuse_it{it}.png")
-        im = Image.fromarray((torch.clamp(specular, min=0.0, max=1.0).cpu().numpy() * 255).astype(np.uint8))
+        im = Image.fromarray((specular.cpu().numpy() * 255).astype(np.uint8))
         im.save(f"{out_path}/{name}_specular_it{it}.png")
         im = Image.fromarray((reflectance.cpu().numpy() * 255).astype(np.uint8))
         im.save(f"{out_path}/{name}_reflectance_it{it}.png")

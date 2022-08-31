@@ -13,6 +13,8 @@ import visualization as v
 import sys
 import time
 import gc 
+from PIL import Image
+import json
 sys.path.append('../')
 
 def parse_args():
@@ -34,6 +36,7 @@ def parse_args():
     parser.add_argument("--lrate", type=float, default=5e-4, help='learning rate')
     parser.add_argument("--lrate_decay", type=int, default=250, help='exponential learning rate decay (in 1000 steps)')
     parser.add_argument('--shuffle', type=bool, default=False)
+    parser.add_argument("--only_eval", action='store_true', help='load a model and evaluate it')
     
     parser.add_argument('--colab_path', type=str, help='google colab base dir')
     parser.add_argument('--colab', action="store_true")
@@ -111,7 +114,7 @@ if __name__ == "__main__":
     pbar.update(iter)
     lpips_vgg = lpips.LPIPS(net="vgg").eval().to(device)
     training_time = 0
-    while iter < args.num_iters:
+    while iter < args.num_iters and not args.only_eval:
         start_time = time.time()
         batch_xnv_tr, target_rgb_tr = dataset.next_batch("train", device=device)
         
@@ -244,44 +247,6 @@ if __name__ == "__main__":
                                       out_path=args.out_path,
                                       name="val_random_xnv")
 
-            '''ssip_mean = 0.0
-            lpips_mean = 0.0
-            psnr_mean = 0.0
-            pred_time_mean = 0.0
-            for i in range(dataset.get_n_images("val")):
-                xnv, img, depths = dataset.get_X_target("val", i, device=device)
-
-                start_time = time.time()
-                rgb_map = None
-                for i in range(0, xnv.shape[0], 1_000):
-                    pred = rend_net(xnv[i:i+1_000, :3], xnv[i:i+1_000, 3:6], xnv[i:i+1_000, 6:])
-                    
-                    if rgb_map is None:
-                        rgb_map = pred
-                    else:
-                        rgb_map = torch.cat((rgb_map, pred), dim=0)
-
-                    gc.collect()
-                pred_time = time.time() - start_time
-
-                ssip_val = utils.compute_ssim(torch.reshape(img, img_shape), 
-                                               torch.reshape(rgb_map, img_shape))
-                lpips_val = utils.compute_lpips(torch.reshape(img, img_shape), 
-                                                 torch.reshape(rgb_map, img_shape),
-                                                 lpips_vgg,
-                                                 device)
-                psnr_val = mse2psnr(loss_fn(rgb_map.to(device), img))
-
-                ssip_mean = (ssip_mean*i + ssip_val)/(i+1)
-                lpips_mean = (lpips_mean*i + lpips_val)/(i+1)
-                psnr_mean = (psnr_mean*i + psnr_val)/(i+1)
-                pred_time_mean = (pred_time_mean*i + pred_time)/(i+1)
-
-            wandb.log({
-                "val_ssim": ssip_mean,
-                "val_lpips": lpips_mean
-                }, step=iter)'''
-
             torch.save({ # Save our checkpoint loc
                 'iter': iter,
                 'model_state_dict': rend_net.state_dict(),
@@ -294,3 +259,53 @@ if __name__ == "__main__":
         pbar.update(1)
     
     pbar.close()
+
+    img_shape=(dataset.hwf[0], dataset.hwf[1], 3)
+    if args.only_eval:
+        rend_net.eval()
+        ssim_mean = 0.0
+        lpips_mean = 0.0
+        psnr_mean = 0.0
+        pred_time_mean = 0.0
+
+        with torch.no_grad():
+            for i in range(dataset.get_n_images("val")):
+                xnv, img, depths = dataset.get_X_target("val", i, device=device)
+
+                start_time = time.time()
+                rgb_map = torch.zeros((0,3)).to(xnv)
+                for j in tqdm(range(0, xnv.shape[0], args.batch_size), desc="rendering image"):
+                    pred = rend_net(xnv[j:j+args.batch_size, :3], xnv[j:j+args.batch_size, 3:6], xnv[j:j+args.batch_size, 6:])
+                    rgb_map = torch.cat((rgb_map, pred), dim=0)
+                pred_time = time.time() - start_time
+
+                im = Image.fromarray((torch.clamp(torch.reshape(rgb_map, img_shape), min=0., max=1.).detach().cpu().numpy() * 255).astype(np.uint8))
+                im.save(f"{args.out_path}/val/pred_{i}.png")
+
+                ssip_val = utils.compute_ssim(torch.reshape(img, img_shape), 
+                                                torch.reshape(rgb_map, img_shape))
+                lpips_val = utils.compute_lpips(torch.reshape(img, img_shape), 
+                                                    torch.reshape(rgb_map, img_shape),
+                                                    lpips_vgg,
+                                                    device)
+                psnr_val = mse2psnr(loss_fn(rgb_map.to(device), img))
+
+                ssim_mean = (ssim_mean*i + ssip_val)/(i+1)
+                lpips_mean = (lpips_mean*i + lpips_val)/(i+1)
+                psnr_mean = (psnr_mean*i + psnr_val)/(i+1)
+                pred_time_mean = (pred_time_mean*i + pred_time)/(i+1)
+                del xnv
+                del img
+                del depths
+                del rgb_map
+                gc.collect()
+
+        results = {
+            "psnr_mean": psnr_mean.item(),
+            "ssim_mean": ssim_mean,
+            "lpips_mean": lpips_mean,
+            "pred_time_mean": pred_time_mean
+        }
+        print(results)
+        with open(f"{args.out_path}/val_results.json", "w") as json_file:
+            json.dump(results, json_file, indent = 4)

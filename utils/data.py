@@ -14,8 +14,7 @@ import utils.utils as utils
 from scipy.spatial.transform import Rotation as R
 
 import open3d as o3d
-
-from pprint import pprint
+import gc
 
 def _minify(basedir, subdir=None, factors=[], resolutions=[]):
     needtoload = False
@@ -108,7 +107,7 @@ def get_subdirs(path) -> list:
         for name in os.listdir(path):
             if os.path.isdir(os.path.join(path, name)) == False:
                 continue
-            if name[-1].isdigit() or ".tmp" in name or "_xmp" in name:
+            if name[-1].isdigit() or ".tmp" in name or "_xmp" in name or "relighting_ommit" in name:
                 continue
             subdirs.append(name)
 
@@ -220,35 +219,57 @@ class NeRFSubDataset():
     def switch_2_xnv_dataset(self, device=torch.device("cpu")):
         viewdirs = self.dataset.tensors[0][..., 6:].to(device)
         X = torch.cat([self.points, self.normals, viewdirs], dim=-1)
-        
-        self.dataset = TensorDataset(X, self.dataset.tensors[1])
+        shape_1 = self.dataset.tensors[1]
+        del self.dataset
+        del self.dataloader
+        del self.iterator
+        gc.collect()
+        self.dataset = TensorDataset(X, shape_1)
         self.dataloader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=self.shuffle)
         self.iterator = iter(self.dataloader)
 
     def switch_2_xv_dataset(self, device=torch.device("cpu")):
         viewdirs = self.dataset.tensors[0][..., 6:].to(device)
         X = torch.cat([self.points, viewdirs], dim=-1)
+        shape_1 = self.dataset.tensors[1]
+        del self.dataset
+        del self.dataloader
+        del self.iterator
+        gc.collect()
         
-        self.dataset = TensorDataset(X, self.dataset.tensors[1])
+        self.dataset = TensorDataset(X, shape_1)
         self.dataloader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=self.shuffle)
         self.iterator = iter(self.dataloader)
     
     def switch_2_xn_dataset(self, device=torch.device("cpu")):
-        viewdirs = self.dataset.tensors[0][..., 6:].to(device)
         X = torch.cat([self.points, self.normals], dim=-1)
+        shape_1 = self.dataset.tensors[1]
+        del self.dataset
+        del self.dataloader
+        del self.iterator
+        gc.collect()
         
-        self.dataset = TensorDataset(X, self.dataset.tensors[1])
+        self.dataset = TensorDataset(X, shape_1)
         self.dataloader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=self.shuffle)
         self.iterator = iter(self.dataloader)
 
     def switch_2_X_NdotL_NdotH_dataset(self, device=torch.device("cpu")):
+        del self.dataset
+        del self.dataloader
+        del self.iterator
+        gc.collect()
         X_NdotL_NdotH, rgb = self.get_X_NdotL_NdotH_rgb(i=-1, device=device)
         self.dataset = TensorDataset(X_NdotL_NdotH, rgb)
         self.dataloader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=self.shuffle)
         self.iterator = iter(self.dataloader)
 
     def switch_2_X_H_dataset(self, device=torch.device("cpu")):
+        del self.dataloader
+        del self.iterator
+        gc.collect()
         X_NdotL_NdotH, rgb = self.get_X_H_rgb(i=-1, device=device)
+        del self.dataset
+        gc.collect()
         self.dataset = TensorDataset(X_NdotL_NdotH, rgb)
         self.dataloader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=self.shuffle)
         self.iterator = iter(self.dataloader)
@@ -617,6 +638,7 @@ class NeRFDataset():
 
     def switch_2_xn_dataset(self, device=torch.device('cpu')):
         self.compute_depths(device=device)
+        self.compute_normals()
 
         for d in self.subdatasets:
             d.switch_2_xn_dataset(device=device)

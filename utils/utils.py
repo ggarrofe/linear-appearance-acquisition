@@ -146,12 +146,13 @@ def compute_ssim(img0,
 
 
 def compute_lpips(img0, img1, lpips, device=torch.device("cuda")):
-    if device == torch.device("cuda"):
-        return lpips(img0.permute([2, 0, 1]).cuda().contiguous(),
-                        img1.permute([2, 0, 1]).cuda().contiguous(),
-                        normalize=True).item()
-    
-    else:
-        return lpips(img0.permute([2, 0, 1]).contiguous(),
-                        img1.permute([2, 0, 1]).contiguous(),
-                        normalize=True).item()
+    with torch.no_grad():
+        if device == torch.device("cuda"):
+            return lpips(img0.permute([2, 0, 1]).cuda().contiguous(),
+                            img1.permute([2, 0, 1]).cuda().contiguous(),
+                            normalize=True).item()
+        
+        else:
+            return lpips(img0.permute([2, 0, 1]).contiguous(),
+                            img1.permute([2, 0, 1]).contiguous(),
+                            normalize=True).item()

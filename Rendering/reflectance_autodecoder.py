@@ -209,7 +209,7 @@ if __name__ == "__main__":
 
             cluster_ids = kmeans_predict(batch_X_H[..., :3], centroids, device=device).cpu()
             input = torch.cat([embed_fn(batch_X_H), latent_features(cluster_ids).to(device)], dim=-1)
-
+            gc.collect()
             pred_rgb = decoder(input.to(device), cluster_ids, linear_mappings)
 
             l2_size_loss = torch.sum(torch.norm(input[..., -args.latent_size:], dim=1))
@@ -229,10 +229,9 @@ if __name__ == "__main__":
                 h, w = dataset.hwf[0], dataset.hwf[1]
                 X_H_i, img = dataset.get_X_H_rgb("train", img=i, device=device)
                 cluster_ids_i = kmeans_predict(X_H_i[..., :3], centroids, device=device).cpu()
-                print(X_H_i.device, cluster_ids_i.device, latent_features.weight.device)
-                print(embed_fn(X_H_i).device, latent_features(cluster_ids_i).to(device).device)
                 input = torch.cat([embed_fn(X_H_i), 
                                     latent_features(cluster_ids_i).to(device)], dim=-1)
+                gc.collect()
                 pred_rgb = decoder(input, cluster_ids_i)
                 pred_rgb_spec = decoder.specular(input, cluster_ids_i)
                 pred_rgb_diff = decoder.diffuse(input, cluster_ids_i)
@@ -253,6 +252,7 @@ if __name__ == "__main__":
                 cluster_ids_i = kmeans_predict(X_H_i[..., :3], centroids, device=device).cpu()
                 input = torch.cat([embed_fn(X_H_i), 
                                     latent_features(cluster_ids_i).to(device)], dim=-1)
+                gc.collect()
                 pred_rgb = decoder(input, cluster_ids_i)
                 pred_rgb_spec = decoder.specular(input, cluster_ids_i)
                 pred_rgb_diff = decoder.diffuse(input, cluster_ids_i)
@@ -275,6 +275,7 @@ if __name__ == "__main__":
                 
                 input = torch.cat([embed_fn(X_H_i), 
                                     latent_features(cluster_ids_i).to(device)], dim=-1)
+                gc.collect()
                 pred_rgb = decoder(input, cluster_ids_i)
                 pred_rgb_spec = decoder.specular(input, cluster_ids_i)
                 pred_rgb_diff = decoder.diffuse(input, cluster_ids_i)
@@ -295,6 +296,7 @@ if __name__ == "__main__":
                 cluster_ids_i = kmeans_predict(X_H_i[..., :3], centroids, device=device).cpu()
                 input = torch.cat([embed_fn(X_H_i), 
                                     latent_features(cluster_ids_i).to(device)], dim=-1)
+                gc.collect()
                 pred_rgb = decoder(input, cluster_ids_i)
                 pred_rgb_spec = decoder.specular(input, cluster_ids_i)
                 pred_rgb_diff = decoder.diffuse(input, cluster_ids_i)
@@ -319,8 +321,15 @@ if __name__ == "__main__":
                     X_H_i, img = dataset.get_X_H_rgb("val", img=i, device=device)
                     start_time = time.time()
                     cluster_ids_i = kmeans_predict(X_H_i[..., :3], centroids, device=device).cpu()
-                    input = torch.cat([embed_fn(X_H_i), latent_features(cluster_ids_i).to(device)], dim=-1)
-                    pred_rgb = decoder(input, cluster_ids_i)
+                    pred_rgb = None
+                    for j in range(0, X_H_i.shape[0], args.batch_size):
+                        input = torch.cat([embed_fn(X_H_i[j:j+args.batch_size]), 
+                                           latent_features(cluster_ids_i[j:j+args.batch_size]).to(device)], dim=-1)
+                        pred = decoder(input, cluster_ids_i[j:j+args.batch_size])
+                        if pred_rgb is None:
+                            pred_rgb = pred
+                        else:
+                            pred_rgb = torch.cat((pred_rgb, pred), dim=0)
                     pred_time = time.time() - start_time
 
                     ssip_val = utils.compute_ssim(torch.reshape(img, img_shape), 
@@ -335,6 +344,7 @@ if __name__ == "__main__":
                     lpips_mean = (lpips_mean*i + lpips_val)/(i+1)
                     psnr_mean = (psnr_mean*i + psnr_val)/(i+1)
                     pred_time_mean = (pred_time_mean*i + pred_time)/(i+1)
+                    
 
                 wandb.log({
                     "val_ssim": ssip_mean,

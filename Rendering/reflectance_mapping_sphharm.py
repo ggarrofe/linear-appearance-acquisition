@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 
 import configargparse
-import open3d as o3d
+import numpy as np
 import visualization as v
 from tqdm import tqdm
 import gc
@@ -11,7 +11,8 @@ import time
 import lpips
 import json
 
-import matplotlib.pyplot as plt
+
+from PIL import Image
 
 import sys
 sys.path.append('../')
@@ -31,8 +32,8 @@ def parse_args():
     parser.add_argument('--dataset_type', type=str, help='type of dataset',
                         choices=['synthetic', 'llff', 'tiny', 'meshroom', 'colmap'])
     parser.add_argument('--factor', type=int, default=1)
-    parser.add_argument('--encoding_freqs', type=int,
-                        help='number of frequencies used in the positional encoding', default=6)
+    parser.add_argument('--encoding_freqs', type=int, help='number of frequencies used in the positional encoding', default=6)
+    parser.add_argument('--deg_view', type=int, help='number of degrees used in the spherical harmonics encoding', default=3)
     parser.add_argument('--dataset_to_gpu', default=False, action="store_true")
     parser.add_argument('--load_light', action='store_true',
                         help='load light sources positions')
@@ -112,10 +113,12 @@ if __name__ == "__main__":
     mse2psnr = lambda x : -10. * torch.log(x) / torch.log(torch.Tensor([10.]).to(device))
     
     # TRAINING
-    embed_fn, input_ch_posenc, input_ch_sphharm = emb.get_mixed_embedder(in_dim_posenc=3, in_dim_sphharm=3, num_freqs=args.encoding_freqs, deg_view=3, device=device)
+    embed_fn, input_ch_posenc, input_ch_sphharm = emb.get_mixed_embedder(in_dim_posenc=3, in_dim_sphharm=3, num_freqs=args.encoding_freqs, deg_view=args.deg_view, device=device)
     input_ch=input_ch_posenc+input_ch_sphharm
     #embed_fn, input_ch = emb.get_posenc_embedder(in_dim=6, num_freqs=args.encoding_freqs)
-    
+    #input_ch_posenc = 2*3*args.encoding_freqs
+    #input_ch_sphharm = 2*3*args.encoding_freqs
+
     if not args.only_eval:
         x_H, target_rgb = dataset.get_X_H_rgb("train", img=-1, device=device)
         
@@ -177,36 +180,34 @@ if __name__ == "__main__":
                                     diffuse=pred_rgb_diff.detach().cpu(), 
                                     linear=pred_rgb_lin.detach().cpu(),
                                     target=img_tr.detach().cpu(),
-                                    points=x_H[..., :3].detach().cpu(),
                                     img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
                                     out_path=args.out_path,
                                     it=args.num_clusters,
                                     name="training_reflectance",
                                     wandb_act=False)
                                 
+    for i in range(2):
+        x_H, img_val = dataset.get_X_H_rgb("val", img=i, device=device)
+        start_time = time.time()
+        cluster_ids_tr = kmeans_predict(x_H[..., :3], centroids, device=device)
+        pred_rgb_val = linear_net(x_H, cluster_ids_tr)
+        pred_time = time.time() - start_time
+        print("Prediction time: %s seconds" % (pred_time))
 
-    x_H, img_val = dataset.get_X_H_rgb("val", img=0, device=device)
-    start_time = time.time()
-    cluster_ids_tr = kmeans_predict(x_H[..., :3], centroids, device=device)
-    pred_rgb_val = linear_net(x_H, cluster_ids_tr)
-    pred_time = time.time() - start_time
-    print("Prediction time: %s seconds" % (pred_time))
+        pred_rgb_spec = linear_net.specular(x_H, cluster_ids_tr)
+        pred_rgb_diff = linear_net.diffuse(x_H, cluster_ids_tr)
+        pred_rgb_lin = linear_net.linear(x_H, cluster_ids_tr)
 
-    pred_rgb_spec = linear_net.specular(x_H, cluster_ids_tr)
-    pred_rgb_diff = linear_net.diffuse(x_H, cluster_ids_tr)
-    pred_rgb_lin = linear_net.linear(x_H, cluster_ids_tr)
-
-    v.validation_view_reflectance(reflectance=pred_rgb_val.detach().cpu(),
-                                    specular=pred_rgb_spec.detach().cpu(),
-                                    diffuse=pred_rgb_diff.detach().cpu(),
-                                    linear=pred_rgb_lin.detach().cpu(),
-                                    target=img_val.detach().cpu(),
-                                    points=x_H[..., :3].detach().cpu(),
-                                    it=args.num_clusters,
-                                    img_shape=(dataset.hwf[0], dataset.hwf[1], 3),
-                                    out_path=args.out_path,
-                                    name="val_reflectance",
-                                    wandb_act=False)
+        v.validation_view_reflectance(reflectance=pred_rgb_val.detach().cpu(),
+                                        specular=pred_rgb_spec.detach().cpu(),
+                                        diffuse=pred_rgb_diff.detach().cpu(),
+                                        linear=pred_rgb_lin.detach().cpu(),
+                                        target=img_val.detach().cpu(),
+                                        it=args.num_clusters,
+                                        img_shape=(dataset.hwf[0], dataset.hwf[1], 3),
+                                        out_path=args.out_path,
+                                        name=f"val_reflectance_{i}",
+                                        wandb_act=False)
     
     loss_val = loss_fn(pred_rgb_val, img_val)
     img_shape=(dataset.hwf[0], dataset.hwf[1], 3)
@@ -275,4 +276,45 @@ if __name__ == "__main__":
             "pred_time_mean": pred_time_mean
         }
         with open(f"{args.out_path}/val_results_{args.num_clusters}clusters.json", "w") as json_file:
+            json.dump(results, json_file, indent = 4)
+
+    print("relighting?", dataset.subdirs)
+    img_shape=(dataset.hwf[0], dataset.hwf[1], 3)
+    if "relighting" in dataset.subdirs:
+        print("yes")
+        psnr_mean = 0.0
+        ssim_mean = 0.0
+        lpips_mean = 0.0
+        pred_time_mean = 0.0
+
+        for i in range(dataset.get_n_images("relighting")):
+            x_H, img_val = dataset.get_X_H_rgb("relighting", img=i, device=device)
+            start_time = time.time()
+            cluster_ids_val = kmeans_predict(x_H[..., :3], centroids, device=device)
+            pred_rgb_val = linear_net(x_H, cluster_ids_val)
+            pred_time = time.time() - start_time
+            im_array = torch.clamp(pred_rgb_val, min=0., max=1.).detach().cpu().reshape(img_shape)
+            im = Image.fromarray((im_array.numpy() * 255).astype(np.uint8))
+            im.save(f"{args.out_path}/relighting_{i}.png")
+            
+            pred_time_mean += (pred_time - pred_time_mean)/(i+1)
+            loss_val = loss_fn(pred_rgb_val, img_val)
+            psnr_mean += (mse2psnr(loss_val).item() - psnr_mean)/(i+1)
+            ssim = utils.compute_ssim(torch.reshape(img_val, img_shape),
+                                       torch.reshape(pred_rgb_val, img_shape))
+            ssim_mean += (ssim - ssim_mean)/(i+1)
+
+            lpips_val = utils.compute_lpips(torch.reshape(img_val, img_shape),
+                                         torch.reshape(pred_rgb_val, img_shape),
+                                         lpips_vgg,
+                                         device)
+            lpips_mean += (lpips_val - lpips_mean)/(i+1)
+
+        results = {
+            "psnr_mean": psnr_mean,
+            "ssim_mean": ssim_mean,
+            "lpips_mean": lpips_mean,
+            "pred_time_mean": pred_time_mean
+        }
+        with open(f"{args.out_path}/relighting_results_{args.num_clusters}clusters.json", "w") as json_file:
             json.dump(results, json_file, indent = 4)

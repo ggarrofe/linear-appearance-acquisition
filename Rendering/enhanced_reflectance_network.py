@@ -239,7 +239,8 @@ if __name__ == "__main__":
 
         wandb.log({
                 "tr_loss": tr_loss,
-                "tr_psnr": mse2psnr(tr_loss)
+                "tr_psnr": mse2psnr(tr_loss),
+                "lr": new_lrate
                 }, step=iter)
 
         # ------------------------ VALIDATION ------------------------
@@ -257,18 +258,19 @@ if __name__ == "__main__":
                 }, step=iter)
 
         #  ------------------------ EVALUATION ------------------------
-        if (iter < 200 and iter%20 == 0) or iter%2000 == 0:
+        if (iter < 200 and iter%20 == 0) or iter%200 == 0:
             x_H, img = dataset.get_X_H_rgb("train", img=0, device=device)
             cluster_ids = kmeans_predict(x_H[..., :3], centroids, device=device)
             pred_rgb = reflectance_net(x_H)
             pred_rgb_spec = reflectance_net.specular(x_H, cluster_ids)
             pred_rgb_diff = reflectance_net.diffuse(x_H, cluster_ids)
+            pred_rgb_lin = reflectance_net.linear(x_H, cluster_ids).detach().cpu()
 
             v.validation_view_reflectance_enh(reflectance=pred_rgb.detach().cpu(),
-                                          specular=pred_rgb_spec.detach().cpu(), 
-                                          diffuse=pred_rgb_diff.detach().cpu(), 
+                                          specular=pred_rgb_spec, 
+                                          diffuse=pred_rgb_diff, 
                                           target=img.detach().cpu(),
-                                          linear=reflectance_net.linear(x_H).detach().cpu(),
+                                          linear=pred_rgb_lin,
                                           img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
                                           out_path=args.out_path,
                                           it=iter,
@@ -279,12 +281,13 @@ if __name__ == "__main__":
             pred_rgb = reflectance_net(x_H)
             pred_rgb_spec = reflectance_net.specular(x_H, cluster_ids)
             pred_rgb_diff = reflectance_net.diffuse(x_H, cluster_ids)
+            pred_rgb_lin = reflectance_net.linear(x_H, cluster_ids).detach().cpu()
 
             v.validation_view_reflectance_enh(reflectance=pred_rgb.detach().cpu(),
-                                        specular=pred_rgb_spec.detach().cpu(), 
-                                        diffuse=pred_rgb_diff.detach().cpu(), 
+                                        specular=pred_rgb_spec, 
+                                        diffuse=pred_rgb_diff, 
                                         target=img.detach().cpu(),
-                                        linear=reflectance_net.linear(x_H).detach().cpu(),
+                                        linear=pred_rgb_lin,
                                         img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
                                         out_path=args.out_path,
                                         it=iter,
@@ -295,12 +298,13 @@ if __name__ == "__main__":
             pred_rgb_tr = reflectance_net(x_H)
             pred_rgb_spec = reflectance_net.specular(x_H, cluster_ids)
             pred_rgb_diff = reflectance_net.diffuse(x_H, cluster_ids)
+            pred_rgb_lin = reflectance_net.linear(x_H, cluster_ids).detach().cpu()
 
-            v.validation_view_reflectance_enh(reflectance=pred_rgb.detach().cpu(),
-                                        specular=pred_rgb_spec.detach().cpu(), 
-                                        diffuse=pred_rgb_diff.detach().cpu(), 
-                                        target=img.detach().cpu(),
-                                        linear=reflectance_net.linear(x_H).detach().cpu(),
+            v.validation_view_reflectance_enh(reflectance=pred_rgb_tr.detach().cpu(),
+                                        specular=pred_rgb_spec, 
+                                        diffuse=pred_rgb_diff, 
+                                        target=img_tr.detach().cpu(),
+                                        linear=pred_rgb_lin,
                                         img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
                                         out_path=args.out_path,
                                         it=iter,
@@ -315,12 +319,13 @@ if __name__ == "__main__":
 
             pred_rgb_spec = reflectance_net.specular(x_H, cluster_ids)
             pred_rgb_diff = reflectance_net.diffuse(x_H, cluster_ids)
+            pred_rgb_lin = reflectance_net.linear(x_H, cluster_ids).detach().cpu()
 
-            v.validation_view_reflectance_enh(reflectance=pred_rgb.detach().cpu(),
-                                        specular=pred_rgb_spec.detach().cpu(), 
-                                        diffuse=pred_rgb_diff.detach().cpu(), 
-                                        target=img.detach().cpu(),
-                                        linear=reflectance_net.linear(x_H).detach().cpu(),
+            v.validation_view_reflectance_enh(reflectance=pred_rgb_val.detach().cpu(),
+                                        specular=pred_rgb_spec, 
+                                        diffuse=pred_rgb_diff, 
+                                        target=img_val.detach().cpu(),
+                                        linear=pred_rgb_lin,
                                         img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
                                         out_path=args.out_path,
                                         it=iter,

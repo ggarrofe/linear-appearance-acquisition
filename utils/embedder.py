@@ -26,9 +26,11 @@ class PositionalEncodingEmbedder:
                 out_dim += in_dim
 
         self.embed_fns = embed_fns
-        self.out_dim = out_dim
+        self.out_dim = out_dim if out_dim > 0 else in_dim
 
     def embed(self, inputs):
+        if self.kwargs['num_freqs'] == 0:
+            return inputs
         return torch.cat([fn(inputs) for fn in self.embed_fns], -1)
 
 
@@ -76,6 +78,9 @@ class SphericalHarmonicsEmbedder:
         deg_view = self.kwargs["deg_view"]
         if deg_view > 5:
             raise ValueError('Only deg_view of at most 5 is numerically stable.')
+        elif deg_view == -1:
+            self.out_dim = self.kwargs['in_dim']
+            return
 
         self.ml_array = self.get_ml_array(deg_view)
         l_max = 2**(deg_view - 1)
@@ -87,7 +92,7 @@ class SphericalHarmonicsEmbedder:
         for i, (m, l) in enumerate(self.ml_array.T):
             for k in range(l - m + 1):
                 self.mat[k, i] = self.sph_harm_coeff(l, m, k)
-
+        
         self.out_dim = self.mat.shape[1] * 2 * int(self.kwargs['in_dim']//3)
 
     def embed(self, X):
@@ -99,6 +104,9 @@ class SphericalHarmonicsEmbedder:
         Returns:
           An array with the resulting IDE.
         """
+        if self.kwargs["deg_view"] == -1:
+            return X
+
         embed_X = torch.zeros((X.shape[0], 0)).to(self.kwargs['device'])
         for i in range(0, self.kwargs['in_dim'], 3):
             x = X[..., i:i+1]

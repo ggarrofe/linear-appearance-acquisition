@@ -191,40 +191,40 @@ if __name__ == "__main__":
                                 diffuse=pred_rgb_diff.detach().cpu(), 
                                 linear=pred_rgb_lin.detach().cpu(),
                                 target=img_tr.detach().cpu(),
-                                points=x_NdotL_NdotH[..., :3].detach().cpu(),
                                 img_shape=(dataset.hwf[0], dataset.hwf[1], 3), 
                                 out_path=args.out_path,
                                 it=args.num_clusters,
                                 name="training_reflectance",
                                 wandb_act=False)
                                 
+    for i in range(2):
+        x_NdotL_NdotH, img_val = dataset.get_X_NdotL_NdotH_rgb("val", img=i, device=device)
+        start_time = time.time()
+        cluster_ids_tr = kmeans_predict(x_NdotL_NdotH[..., :3], centroids, device=device)
+        pred_rgb_val = linear_net(x_NdotL_NdotH, cluster_ids_tr)
+        pred_time = time.time() - start_time
+        print("Prediction time: %s seconds" % (pred_time))
 
-    x_NdotL_NdotH, img_val = dataset.get_X_NdotL_NdotH_rgb("val", img=0, device=device)
-    start_time = time.time()
-    cluster_ids_tr = kmeans_predict(x_NdotL_NdotH[..., :3], centroids, device=device)
-    pred_rgb_val = linear_net(x_NdotL_NdotH, cluster_ids_tr)
-    pred_time = time.time() - start_time
-    print("Prediction time: %s seconds" % (pred_time))
+        pred_rgb_spec = linear_net.specular(x_NdotL_NdotH, cluster_ids_tr)
+        pred_rgb_diff = linear_net.diffuse(x_NdotL_NdotH, cluster_ids_tr)
+        pred_rgb_lin = linear_net.linear(x_NdotL_NdotH, cluster_ids_tr)
 
-    pred_rgb_spec = linear_net.specular(x_NdotL_NdotH, cluster_ids_tr)
-    pred_rgb_diff = linear_net.diffuse(x_NdotL_NdotH, cluster_ids_tr)
-    pred_rgb_lin = linear_net.linear(x_NdotL_NdotH, cluster_ids_tr)
-
-    v.validation_view_reflectance(reflectance=pred_rgb_val.detach().cpu(),
-                                    specular=pred_rgb_spec.detach().cpu(),
-                                    diffuse=pred_rgb_diff.detach().cpu(),
-                                    linear=pred_rgb_lin.detach().cpu(),
-                                    target=img_val.detach().cpu(),
-                                    points=x_NdotL_NdotH[..., :3].detach().cpu(),
-                                    it=args.num_clusters,
-                                    img_shape=(dataset.hwf[0], dataset.hwf[1], 3),
-                                    out_path=args.out_path,
-                                    name="val_reflectance",
-                                    wandb_act=False)
+        v.validation_view_reflectance(reflectance=pred_rgb_val.detach().cpu(),
+                                        specular=pred_rgb_spec.detach().cpu(),
+                                        diffuse=pred_rgb_diff.detach().cpu(),
+                                        linear=pred_rgb_lin.detach().cpu(),
+                                        target=img_val.detach().cpu(),
+                                        it=args.num_clusters,
+                                        img_shape=(dataset.hwf[0], dataset.hwf[1], 3),
+                                        out_path=args.out_path,
+                                        name=f"val_reflectance_{i}",
+                                        wandb_act=False)
     
     loss_val = loss_fn(pred_rgb_val, img_val)
     img_shape=(dataset.hwf[0], dataset.hwf[1], 3)
+    print("Saving results?", args.only_eval)
     if not args.only_eval:
+        print("yes")
         results = {
             "loss_tr": loss_tr.item(),
             "psnr_tr": mse2psnr(loss_tr).item(),

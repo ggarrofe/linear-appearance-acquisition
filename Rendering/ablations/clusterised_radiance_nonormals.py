@@ -174,9 +174,9 @@ if __name__ == "__main__":
     v.validation_view_rgb_xndv(pred_rgb_tr.detach().cpu(),
                             img_tr.detach().cpu(),
                             points=xv_tr[..., :3].detach().cpu(),
-                            normals=xv_tr[..., 3:6].detach().cpu(),
+                            normals=torch.zeros_like(xv_tr[..., 3:6]),
                             depths=depths_tr,
-                            viewdirs=torch.zeros_like(xv_tr[..., 3:6]),
+                            viewdirs=xv_tr[..., 3:6].detach().cpu(),
                             img_shape=img_shape,
                             it=args.num_clusters,
                             out_path=args.out_path,
@@ -192,9 +192,9 @@ if __name__ == "__main__":
     v.validation_view_rgb_xndv(pred_rgb_val.detach().cpu(),
                             img_val.detach().cpu(),
                             points=xv_val[..., :3].detach().cpu(),
-                            normals=xv_val[..., 3:6].detach().cpu(),
+                            normals=torch.zeros_like(xv_val[..., 3:6]),
                             depths=depths_val,
-                            viewdirs=torch.zeros_like(xv_val[..., 3:6]),
+                            viewdirs=xv_val[..., 3:6].detach().cpu(),
                             img_shape=(dataset.hwf[0], dataset.hwf[1], 3),
                             it=args.num_clusters,
                             out_path=args.out_path,
@@ -202,31 +202,6 @@ if __name__ == "__main__":
                             wandb_act=False)
 
     if not args.only_eval:
-        results = {
-            "loss_tr": loss_tr.item(),
-            "psnr_tr": mse2psnr(loss_tr).item(),
-            "ssim_tr": utils.compute_ssim(torch.reshape(img_tr, img_shape),
-                                        torch.reshape(pred_rgb_tr, img_shape)),
-            "lpips_tr": utils.compute_lpips(torch.reshape(img_tr, img_shape),
-                                            torch.reshape(pred_rgb_tr, img_shape),
-                                            lpips_vgg,
-                                            device),
-            "loss_val": loss_val.item(),
-            "psnr_val": mse2psnr(loss_val).item(),
-            "ssim_val": utils.compute_ssim(torch.reshape(img_val, img_shape),
-                                            torch.reshape(pred_rgb_val, img_shape)),
-            "lpips_val": utils.compute_lpips(torch.reshape(img_val, img_shape),
-                                            torch.reshape(pred_rgb_val, img_shape),
-                                            lpips_vgg,
-                                            device),
-            "train_time": train_time,
-            "kmeans_time": kmeans_time,
-            "pred_time": pred_time
-        }
-
-        with open(f"{args.out_path}/results_{args.num_clusters}clusters.json", "w") as json_file:
-            json.dump(results, json_file, indent = 4)
-
         torch.save({ # Save our checkpoint loc
             'num_clusters': args.num_clusters,
             'linear_mappings': linear_mappings,
