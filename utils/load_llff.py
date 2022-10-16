@@ -105,7 +105,8 @@ def _load_data(basedir, poses, images, factor=None, width=None, height=None, loa
         print( imgdir, 'does not exist, returning' )
         return hwf, torch.zeros(3, 4, 0)
     
-    imgfiles = [os.path.join(imgdir, f) for f in sorted(os.listdir(imgdir)) if f.endswith('JPG') or f.endswith('jpg') or f.endswith('png')][:n_imgs]
+    imgfiles = [os.path.join(imgdir, f) for f in sorted(os.listdir(imgdir)) if f.endswith('JPG') or f.endswith('jpg') or f.endswith('png')][:n_imgs] #changed to[-n_imgs:] from [:n_imgs]
+    print("img files", imgfiles)
     if poses.shape[-1] != len(imgfiles):
         print( 'Mismatch between imgs {} and poses {} !!!!'.format(len(imgfiles), poses.shape[-1]) )
         return hwf, torch.zeros(3, 4, 0)

@@ -129,6 +129,7 @@ if __name__ == "__main__":
     
     embed_fn, input_ch_posenc, input_ch_sphharm = emb.get_mixed_embedder(in_dim_posenc=3, in_dim_sphharm=3, num_freqs=args.encoding_freqs, deg_view=3, device=device)
     input_ch=input_ch_posenc+input_ch_sphharm
+    print("inputch", input_ch, input_ch_posenc, input_ch_sphharm)
     
     if args.resume:
         run = wandb.init(project="controllable-neural-rendering", 

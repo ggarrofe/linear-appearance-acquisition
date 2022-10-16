@@ -587,8 +587,9 @@ class NeRFDataset():
         return subdataset.get_light_rays(img, device=device)
 
     def get_n_images(self, dataset="train"):
-        subdataset = [d for d in self.subdatasets if d.name == dataset][0]
-        return subdataset.n_images
+        subdataset = [d for d in self.subdatasets if d.name == dataset]
+        if len(subdataset) == 0: return 0
+        return subdataset[0].n_images
 
     def compute_depths(self, device=torch.device('cuda')):
         mesh = o3d.io.read_triangle_mesh(self.args.mesh_path, print_progress=True)

@@ -1,0 +1,18 @@
+<!DOCTYPE MeshLabDocument>
+<MeshLabProject>
+ <MeshGroup>
+  <MLMesh idInFile="-1" filename="Lego.ply" label="Lego.ply" visible="1">
+   <MLMatrix44>
+1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 
+</MLMatrix44>
+   <RenderingOption pointColor="252 233 79 255" wireColor="64 64 64 255" pointSize="3" boxColor="234 234 234 255" solidColor="192 192 192 255" wireWidth="1">100001000000000000000100000001011000010010100000000100111010000111001001</RenderingOption>
+  </MLMesh>
+  <MLMesh idInFile="-1" filename="../../data/lego/meshed-poisson.ply" label="meshed-poisson.ply" visible="1">
+   <MLMatrix44>
+-0.838405 -15.9666 17.1597 -6.16426 -23.439 0.565044 -0.619449 -4.64007 0.00829343 -17.1708 -15.9766 60.1178 0 0 0 1 
+</MLMatrix44>
+   <RenderingOption pointColor="252 233 79 255" wireColor="64 64 64 255" pointSize="3" boxColor="234 234 234 255" solidColor="192 192 192 255" wireWidth="1">100001000000000000000100000001010100000010100000000100111010000111001001</RenderingOption>
+  </MLMesh>
+ </MeshGroup>
+ <RasterGroup/>
+</MeshLabProject>

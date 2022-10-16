@@ -8,6 +8,15 @@ import torch.nn.functional as F
 from tqdm import tqdm
 
 
+import nvidia_smi
+nvidia_smi.nvmlInit()
+
+def print_memory_usage():
+    handle = nvidia_smi.nvmlDeviceGetHandleByIndex(0)
+    info = nvidia_smi.nvmlDeviceGetMemoryInfo(handle)
+    print(f"Device {0}: {nvidia_smi.nvmlDeviceGetName(handle)}, Memory : ({100*info.free/info.total:.2f}% free): {info.total} (total), {info.free} (free), {info.used} (used)")
+
+
 def append_dict(dict, new_dict):
     for key in dict:
         dict[key].append(new_dict[key])

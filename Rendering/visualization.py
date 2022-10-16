@@ -249,6 +249,58 @@ def validation_view_reflectance(reflectance, specular, diffuse, target, linear, 
     if wandb_act:
         wandb.log({f"{name}_view": fig}, step=it)
 
+def validation_view_selfattention(diffuse_att, specular_att, pred_att, diffuse_kmeans, specular_kmeans, pred_kmeans, target, 
+                                    img_shape, it=0, out_path=None, name="att_reflectance", save=True, wandb_act=True):
+    
+    diffuse_att = torch.reshape(torch.clamp(diffuse_att, min=0.0, max=1.0), img_shape)
+    specular_att = torch.reshape(torch.clamp(specular_att, min=0.0, max=1.0), img_shape)
+    pred_att = torch.reshape(torch.clamp(pred_att, min=0.0, max=1.0), img_shape)
+    diffuse_kmeans = torch.reshape(torch.clamp(diffuse_kmeans, min=0.0, max=1.0), img_shape)
+    specular_kmeans = torch.reshape(torch.clamp(specular_kmeans, min=0.0, max=1.0), img_shape)
+    pred_kmeans = torch.reshape(torch.clamp(pred_kmeans, min=0.0, max=1.0), img_shape)
+    target = torch.reshape(target, img_shape)
+    
+    fig = plt.figure(figsize=(25, 10))
+    plt.subplot(241)
+    plt.imshow(diffuse_att.cpu().numpy())
+    plt.title(f"Self-attention Diffuse")
+    plt.subplot(242)
+    plt.imshow(specular_att.cpu().numpy())
+    plt.title(f"Self-attention Specular")
+    plt.subplot(243)
+    plt.imshow(pred_att.cpu().numpy())
+    plt.title("Self-attention Reflectance")
+    plt.subplot(244)
+    plt.imshow(target.cpu().numpy())
+    plt.title("Target reflectance")
+    plt.subplot(245)
+    plt.imshow(diffuse_kmeans.cpu().numpy())
+    plt.title(f"K-means Diffuse")
+    plt.subplot(246)
+    plt.imshow(specular_kmeans.cpu().numpy())
+    plt.title(f"K-means Specular")
+    plt.subplot(247)
+    plt.imshow(pred_kmeans.cpu().numpy())
+    plt.title("K-means Reflectance")
+
+    if save and out_path is not None:
+        plt.savefig(f"{out_path}/{name}_it{it}.png", bbox_inches='tight', dpi=150)
+        plt.close(fig)
+        im = Image.fromarray((diffuse_att.cpu().numpy() * 255).astype(np.uint8))
+        im.save(f"{out_path}/{name}_diffuse_it{it}.png")
+        im = Image.fromarray((specular_att.cpu().numpy() * 255).astype(np.uint8))
+        im.save(f"{out_path}/{name}_specular_it{it}.png")
+        im = Image.fromarray((pred_att.cpu().numpy() * 255).astype(np.uint8))
+        im.save(f"{out_path}/{name}_it{it}.png")
+        im = Image.fromarray((pred_kmeans.cpu().numpy() * 255).astype(np.uint8))
+        im.save(f"{out_path}/{name}_kmeans_it{it}.png")
+    else:
+        plt.show()
+            
+    if wandb_act:
+        wandb.log({f"{name}_view": fig}, step=it)
+
+
 '''def validation_view_reflectance(reflectance, target, linear, img_shape, it=0, out_path=None, name="val_reflectance", save=True, wandb_act=True):
     reflectance = torch.reshape(reflectance, img_shape)
     target = torch.reshape(target, img_shape)

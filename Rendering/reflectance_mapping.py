@@ -10,7 +10,8 @@ import gc
 import time
 import lpips
 import json
-
+from PIL import Image
+import numpy as np
 import matplotlib.pyplot as plt
 
 import sys
@@ -256,7 +257,7 @@ if __name__ == "__main__":
             'centroids': centroids,
             }, f"{args.checkpoint_path}/{args.num_clusters}clusters.tar")
 
-    else:
+    elif dataset.get_n_images("val") > 2:
         psnr_mean = 0.0
         ssim_mean = 0.0
         lpips_mean = 0.0
@@ -290,3 +291,22 @@ if __name__ == "__main__":
         }
         with open(f"{args.out_path}/val_results_{args.num_clusters}clusters.json", "w") as json_file:
             json.dump(results, json_file, indent = 4)
+
+    elif dataset.get_n_images("test") > 0:
+
+        for i in range(dataset.get_n_images("test")):
+            x_NdotL_NdotH, img_test = dataset.get_X_NdotL_NdotH_rgb("test", img=i, device=device)
+            cluster_ids_test = kmeans_predict(x_NdotL_NdotH[..., :3], centroids, device=device)
+            pred_rgb_test = linear_net(x_NdotL_NdotH, cluster_ids_test)
+            pred_rgb_spec = linear_net.specular(x_NdotL_NdotH, cluster_ids_test)
+            pred_rgb_diff = linear_net.diffuse(x_NdotL_NdotH, cluster_ids_test)
+
+            pred_rgb_test = torch.reshape(torch.clamp(pred_rgb_test, min=0.0, max=1.0), img_shape)
+            im = Image.fromarray((pred_rgb_test.detach().cpu().numpy() * 255).astype(np.uint8))
+            im.save(f"{args.out_path}/test/reflectance/pred_{100+i}.png")
+            pred_rgb_spec = torch.reshape(torch.clamp(pred_rgb_spec, min=0.0, max=1.0), img_shape)
+            im = Image.fromarray((pred_rgb_spec.detach().cpu().numpy() * 255).astype(np.uint8))
+            im.save(f"{args.out_path}/test/specular/pred_{100+i}.png")
+            pred_rgb_diff = torch.reshape(torch.clamp(pred_rgb_diff, min=0.0, max=1.0), img_shape)
+            im = Image.fromarray((pred_rgb_diff.detach().cpu().numpy() * 255).astype(np.uint8))
+            im.save(f"{args.out_path}/test/diffuse/pred_{100+i}.png")

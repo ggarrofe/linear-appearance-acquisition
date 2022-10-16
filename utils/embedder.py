@@ -88,7 +88,7 @@ class SphericalHarmonicsEmbedder:
         # Create a matrix corresponding to ml_array holding all coefficients, which,
         # when multiplied (from the right) by the z coordinate Vandermonde matrix,
         # results in the z component of the encoding.
-        self.mat = torch.zeros((l_max + 1, self.ml_array.shape[1]), device=self.kwargs["device"])
+        self.mat = torch.zeros((l_max + 1, self.ml_array.shape[1]), device="cpu")
         for i, (m, l) in enumerate(self.ml_array.T):
             for k in range(l - m + 1):
                 self.mat[k, i] = self.sph_harm_coeff(l, m, k)
@@ -107,7 +107,7 @@ class SphericalHarmonicsEmbedder:
         if self.kwargs["deg_view"] == -1:
             return X
 
-        embed_X = torch.zeros((X.shape[0], 0)).to(self.kwargs['device'])
+        embed_X = torch.zeros((X.shape[0], 0)).to(X)
         for i in range(0, self.kwargs['in_dim'], 3):
             x = X[..., i:i+1]
             y = X[..., i+1:i+2]
@@ -120,7 +120,7 @@ class SphericalHarmonicsEmbedder:
             vmxy = torch.cat([(x + 1j * y)**m for m in self.ml_array[0, :]], dim=-1)
 
             # Get spherical harmonics.
-            sph_harms = vmxy * torch.matmul(vmz, self.mat)
+            sph_harms = vmxy * torch.matmul(vmz, self.mat.to(embed_X))
 
             # Split into real and imaginary parts and return
             embed = torch.cat([torch.real(sph_harms), torch.imag(sph_harms)], dim=-1)
@@ -166,18 +166,17 @@ class SphericalHarmonicsEmbedder:
                 np.math.factorial(l - k - m) *
                 self.generalized_binomial_coeff(0.5 * (l + k + m - 1.0), l)))
 
-def get_sph_harm_embedder(in_dim=3, deg_view=3, device=torch.device("cuda")):
+def get_sph_harm_embedder(in_dim=3, deg_view=3):
     embed_kwargs = {
         'in_dim': in_dim,
         'deg_view': deg_view,
-        'device': device
     }
 
     embedder_obj = SphericalHarmonicsEmbedder(**embed_kwargs)
     def embed(x, eo=embedder_obj): return eo.embed(x)
     return embed, embedder_obj.out_dim
 
-def get_mixed_embedder(in_dim_posenc=3, in_dim_sphharm=9, num_freqs=6, deg_view=3, device=torch.device("cuda")):
+def get_mixed_embedder(in_dim_posenc=3, in_dim_sphharm=9, num_freqs=6, deg_view=3):
     embed_kwargs_posenc = {
         'in_dim': in_dim_posenc,
         'num_freqs': num_freqs,
@@ -186,8 +185,7 @@ def get_mixed_embedder(in_dim_posenc=3, in_dim_sphharm=9, num_freqs=6, deg_view=
 
     embed_kwargs_sphharm = {
         'in_dim': in_dim_sphharm,
-        'deg_view': deg_view,
-        'device': device
+        'deg_view': deg_view
     }
 
     posenc_emb = PositionalEncodingEmbedder(**embed_kwargs_posenc)

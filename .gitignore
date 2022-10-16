@@ -9,9 +9,13 @@ database.db
 out*
 *.png
 *.ply
+*.obj
 *.db
 checkpoints
 wandb
 *xmp
 RealityCapture/**/*.txt
 *.db
+data/*
+COLMAP/*
+*.mtl

@@ -12,6 +12,7 @@ import time
 import json
 
 import sys
+from PIL import Image
 sys.path.append('../')
 
 
@@ -247,7 +248,7 @@ if __name__ == "__main__":
             'boundaries': boundaries
             }, f"{args.checkpoint_path}/{args.num_voxels}voxels.tar")
 
-    else:
+    elif dataset.get_n_images("val") > 1:
         psnr_mean = 0.0
         ssim_mean = 0.0
         lpips_mean = 0.0
@@ -281,3 +282,13 @@ if __name__ == "__main__":
         }
         with open(f"{args.out_path}/val_results_{args.num_voxels}voxels.json", "w") as json_file:
             json.dump(results, json_file, indent = 4)
+
+    elif dataset.get_n_images("test") > 0:
+
+        for i in range(dataset.get_n_images("test")):
+            xnv_test, img_test, _ = dataset.get_X_target("test", i, device=device)
+            row_ids, voxel_ids = get_voxel_ids(xnv_test, boundaries)
+            pred_rgb_test = linear_net(xnv_test, row_ids, voxel_ids)
+            pred_rgb_test = torch.reshape(torch.clamp(pred_rgb_test, min=0.0, max=1.0), img_shape)
+            im = Image.fromarray((pred_rgb_test.detach().cpu().numpy() * 255).astype(np.uint8))
+            im.save(f"{args.out_path}/test/pred_{i}.png")

@@ -11,6 +11,8 @@ import time
 import json
 
 import sys
+from PIL import Image
+import numpy as np
 sys.path.append('../')
 
 
@@ -81,15 +83,6 @@ def compute_inv(xh, target, cluster_id, cluster_ids, embed_fn, device=torch.devi
     return linear_mapping.T.to(device)
 
 
-def predict(xnv, pred, linear_mapping, cluster_id, cluster_ids, embed_fn):
-    mask = (cluster_ids == cluster_id)
-    if not torch.any(mask):
-        return
-
-    xnv_enc = embed_fn(xnv[mask])
-    pred[mask] = xnv_enc @ linear_mapping
-
-
 if __name__ == "__main__":
     args = parse_args()
 
@@ -144,7 +137,7 @@ if __name__ == "__main__":
         kmeans_time = lin_map_time - start_time
         print("Training time: %s seconds. Including %s of K-means training." % (train_time, kmeans_time))
 
-        xnv_tr, img_tr, depths_tr = dataset.get_X_target("train", 0, device=device)
+        xnv_tr, img_tr, depths_tr = dataset.get_X_target("train", 23, device=device)
         cluster_ids_tr = kmeans_predict(xnv_tr[..., :3], centroids, device=device)
         v.plot_clusters_3Dpoints(xnv_tr[..., :3], cluster_ids_tr, args.num_clusters,
                                 colab=args.colab, out_path=args.out_path, filename="train_clusters.png")
@@ -235,7 +228,7 @@ if __name__ == "__main__":
             'centroids': centroids,
             }, f"{args.checkpoint_path}/{args.num_clusters}clusters.tar")
 
-    else:
+    elif dataset.get_n_images("val") > 1:
         psnr_mean = 0.0
         ssim_mean = 0.0
         lpips_mean = 0.0
@@ -269,3 +262,13 @@ if __name__ == "__main__":
         }
         with open(f"{args.out_path}/val_results_{args.num_clusters}clusters.json", "w") as json_file:
             json.dump(results, json_file, indent = 4)
+
+    elif dataset.get_n_images("test") > 0:
+
+        for i in range(dataset.get_n_images("test")):
+            xnv_test, img_test, _ = dataset.get_X_target("test", i, device=device)
+            cluster_ids_test = kmeans_predict(xnv_test[..., :3], centroids, device=device)
+            pred_rgb_test = linear_net(xnv_test, cluster_ids_test)
+            pred_rgb_test = torch.reshape(torch.clamp(pred_rgb_test, min=0.0, max=1.0), img_shape)
+            im = Image.fromarray((pred_rgb_test.detach().cpu().numpy() * 255).astype(np.uint8))
+            im.save(f"{args.out_path}/test/pred_{i+100}.png")
