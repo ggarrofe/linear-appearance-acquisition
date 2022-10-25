@@ -12,16 +12,18 @@ import utils.utils as utils
 import gc
 from tqdm import tqdm
 import math as m
+import numpy as np 
 
 class MLP(nn.Module):
-    def __init__(self, input_ch, out_ch, hidden_ch, weight_norm=True) -> None:
+    def __init__(self, input_ch, out_ch, hidden_ch, weight_norm=True, identity_intialisation=False) -> None:
         super(MLP, self).__init__()
         in_dim = input_ch
+        bias = True if identity_intialisation is False else False
 
         layers = []
         for hidden_dim in hidden_ch:
             
-            lin = torch.nn.Linear(in_dim, hidden_dim)
+            lin = torch.nn.Linear(in_dim, hidden_dim, bias=bias)
 
             if weight_norm:
                 lin = nn.utils.weight_norm(lin)
@@ -31,7 +33,7 @@ class MLP(nn.Module):
             
             in_dim = hidden_dim
 
-        lin = torch.nn.Linear(in_dim, out_ch)
+        lin = torch.nn.Linear(in_dim, out_ch, bias=bias)
 
         if weight_norm:
             lin = nn.utils.weight_norm(lin)
@@ -40,8 +42,33 @@ class MLP(nn.Module):
         layers.append(nn.Tanh())
         self.layers = nn.Sequential(*layers)
 
+        if identity_intialisation: 
+            self._identity_intialisation()
+
     def forward(self, X):    
         return self.layers(X)
+    
+    def _identity_intialisation(self):
+        with torch.no_grad():
+            shape_0 = self.layers[0].weight.shape
+            uniform_weight = torch.zeros(shape_0)
+            mask_0 = torch.cat([torch.ones((shape_0[0], 3)), torch.zeros((shape_0[0], shape_0[1]-3))], dim=1)
+            nn.init.uniform_(uniform_weight, 0, 1/np.sqrt(shape_0[1]))
+            self.layers[0].weight = nn.Parameter(uniform_weight * mask_0)
+            self.layers[2].weight = nn.Parameter(torch.eye(self.layers[2].weight.shape[0]))
+            self.layers[4].weight = nn.Parameter(torch.linalg.pinv(self.layers[0].weight[..., :3]))
+        
+    def test_layers(self):
+        test_X = torch.rand((10, 37))
+        test_X[test_X < 0.0] = test_X[test_X < 0.0] * -1
+        print("test X", test_X)
+        result = test_X
+        for i, layer in enumerate(self.layers):
+            result = layer(result)
+        print("result", result)
+            
+        print("diff", test_X[..., :3]-result)
+
 
 class MLP_skips(nn.Module):
 
@@ -78,7 +105,6 @@ class MLP_skips(nn.Module):
             x_ = y
         
         return y
-
 
 class SurfaceRenderingNetwork(nn.Module):
     def __init__(self, input_ch, out_ch, hidden_ch, weight_norm=True, embed_fn=None) -> None:
@@ -153,54 +179,54 @@ class ClusterisedLinearNetwork(nn.Module):
 
         self.embed_fn = kwargs['embed_fn']
         self.num_freqs = kwargs['num_freqs']
+        self.batch_size = kwargs['batch_size']
+        self.knn_clusters = kwargs['knn_clusters']
         self.kwargs = kwargs
 
-    def forward(self, X, cluster_ids):
-        encoded_X = self.embed_fn(X)
+    def forward(self, X, cluster_ids, weights):
+        rgb_clusters = torch.zeros((X.shape[0], 3), device=(X.device))
+        mask = (X[:,0] == -1.) & (X[:,1] == -1.) & (X[:,2] == -1.)
+        encoded_X = self.embed_fn(X[~mask])
+        cluster_ids = cluster_ids[~mask]
+        weights = weights[..., ~mask]
 
-        rgb_clusters = self.linear_net(encoded_X)
-        rgb_clusters = torch.reshape(rgb_clusters, [rgb_clusters.shape[0], -1, 3])
-        row_indices = torch.arange(len(rgb_clusters))
-        rgb_clusters = rgb_clusters[row_indices, cluster_ids]
-            
-        del row_indices
-        del encoded_X
-        torch.cuda.empty_cache()
-        return rgb_clusters
-
-    def forward_new(self, X, cluster_ids, batch_size=100_000):
-        encoded_X = self.embed_fn(X)
-        rgb_clusters = torch.zeros((encoded_X.shape[0], 3), device=(encoded_X.device))
-        batch_size = int(batch_size * 30_000 / self.linear_mappings.shape[0])
-
-        for i in range(0, len(encoded_X), batch_size):
-            rgb_clusters_tmp = encoded_X[i:i+batch_size] @ self.linear_mappings.T
+        for i in range(0, len(encoded_X), self.batch_size):
+            rgb_clusters_tmp = self.linear_net(encoded_X[i:i+self.batch_size])
             rgb_clusters_tmp = torch.reshape(rgb_clusters_tmp, [rgb_clusters_tmp.shape[0], -1, 3])
             row_indices = torch.arange(len(rgb_clusters_tmp))
-            rgb_clusters[i:i+batch_size] = rgb_clusters_tmp[row_indices, cluster_ids[i:i+batch_size]]
+            old_indices = torch.arange(len(rgb_clusters))
             
+            rgb_clusters_result = torch.zeros((old_indices[~mask][i:i+self.batch_size].shape[0], 3), device=rgb_clusters_tmp.device)
+            for j in range(self.knn_clusters):
+                rgb_clusters_result += rgb_clusters_tmp[row_indices, cluster_ids[i:i+self.batch_size, j]] * weights[j][i:i+self.batch_size, None]
+            
+            rgb_clusters[old_indices[~mask][i:i+self.batch_size]] = rgb_clusters_result
+            '''rgb_clusters[old_indices[~mask][i:i+self.batch_size]] =  + \
+                                                       rgb_clusters_tmp[row_indices, cluster_ids[i:i+self.batch_size, 1]] * weights[1][i:i+self.batch_size, None] + \
+                                                       rgb_clusters_tmp[row_indices, cluster_ids[i:i+self.batch_size, 2]] * weights[2][i:i+self.batch_size, None]'''
+            
+            del rgb_clusters_result
             del rgb_clusters_tmp
             del row_indices
             torch.cuda.empty_cache()
-
+            
         del encoded_X
         torch.cuda.empty_cache()
         return rgb_clusters
 
-    def specular(self, X, cluster_ids, batch_size=100_000):
+    def specular(self, X, cluster_ids):
         encoded_X = self.embed_fn(X)
         spec_boundaries = (4*2*self.num_freqs, encoded_X.shape[-1]) if 'spec_boundaries' not in self.kwargs else self.kwargs['spec_boundaries']
         linear_mapping_spec = self.linear_mappings[..., spec_boundaries[0]:spec_boundaries[1]] 
         specular = torch.zeros((encoded_X.shape[0], 3), device=(encoded_X.device))
-        batch_size = int(batch_size * 30_000 / self.linear_mappings.shape[0])
 
-        for i in range(0, len(encoded_X), batch_size):
+        for i in range(0, len(encoded_X), self.batch_size):
             
-            specular_tmp = encoded_X[i:i+batch_size, spec_boundaries[0]:spec_boundaries[1]] @ linear_mapping_spec.T
+            specular_tmp = encoded_X[i:i+self.batch_size, spec_boundaries[0]:spec_boundaries[1]] @ linear_mapping_spec.T
 
             specular_tmp = torch.reshape(specular_tmp, [specular_tmp.shape[0], -1, 3])
             row_indices = torch.arange(len(specular_tmp))
-            specular[i:i+batch_size] = specular_tmp[row_indices, cluster_ids[i:i+batch_size]]
+            specular[i:i+self.batch_size] = specular_tmp[row_indices, cluster_ids[i:i+self.batch_size, 0]]
             del specular_tmp
             del row_indices
             torch.cuda.empty_cache()
@@ -210,19 +236,18 @@ class ClusterisedLinearNetwork(nn.Module):
 
         return specular
 
-    def diffuse(self, X, cluster_ids, batch_size=100_000):
+    def diffuse(self, X, cluster_ids):
         encoded_X = self.embed_fn(X)
         diff_boundaries = (3*2*self.num_freqs, 4*2*self.num_freqs) if 'diff_boundaries' not in self.kwargs is None else self.kwargs['diff_boundaries']
         linear_mapping_diff = self.linear_mappings[..., diff_boundaries[0]:diff_boundaries[1]]
         diffuse = torch.zeros((encoded_X.shape[0], 3), device=(encoded_X.device))
-        batch_size = int(batch_size * 30_000 / self.linear_mappings.shape[0])
 
-        for i in range(0, len(encoded_X), batch_size):
-            diffuse_tmp = encoded_X[i:i+batch_size, diff_boundaries[0]:diff_boundaries[1]] @ linear_mapping_diff.T
+        for i in range(0, len(encoded_X), self.batch_size):
+            diffuse_tmp = encoded_X[i:i+self.batch_size, diff_boundaries[0]:diff_boundaries[1]] @ linear_mapping_diff.T
 
             diffuse_tmp = torch.reshape(diffuse_tmp, [diffuse_tmp.shape[0], -1, 3])
             row_indices = torch.arange(len(diffuse_tmp))
-            diffuse[i:i+batch_size] = diffuse_tmp[row_indices, cluster_ids[i:i+batch_size]]
+            diffuse[i:i+self.batch_size] = diffuse_tmp[row_indices, cluster_ids[i:i+self.batch_size, 0]]
             del diffuse_tmp
             del row_indices
             torch.cuda.empty_cache()
@@ -232,18 +257,17 @@ class ClusterisedLinearNetwork(nn.Module):
 
         return diffuse
 
-    def linear(self, X, cluster_ids, batch_size=100_000):
+    def linear(self, X, cluster_ids):
         encoded_X = self.embed_fn(X)
         pos_boundaries = (0, 3*2*self.num_freqs) if 'pos_boundaries' not in self.kwargs else self.kwargs['pos_boundaries']
         linear = torch.zeros((encoded_X.shape[0], 3), device=(encoded_X.device))
-        batch_size = int(batch_size * 30_000 / self.linear_mappings.shape[0])
 
-        for i in range(0, len(encoded_X), batch_size):
-            linear_tmp = encoded_X[i:i+batch_size, pos_boundaries[0]:pos_boundaries[1]] @ self.linear_mappings[..., pos_boundaries[0]:pos_boundaries[1]].T
+        for i in range(0, len(encoded_X), self.batch_size):
+            linear_tmp = encoded_X[i:i+self.batch_size, pos_boundaries[0]:pos_boundaries[1]] @ self.linear_mappings[..., pos_boundaries[0]:pos_boundaries[1]].T
 
             linear_tmp = torch.reshape(linear_tmp, [linear_tmp.shape[0], -1, 3])
             row_indices = torch.arange(len(linear_tmp))
-            linear[i:i+batch_size] = linear_tmp[row_indices, cluster_ids[i:i+batch_size]]
+            linear[i:i+self.batch_size] = linear_tmp[row_indices, cluster_ids[i:i+self.batch_size, 0]]
             del linear_tmp
             del row_indices
             torch.cuda.empty_cache()
@@ -253,40 +277,129 @@ class ClusterisedLinearNetwork(nn.Module):
 
         return linear
 
-    def specular_component(self, X, cluster_ids):
+
+
+class ClusterisedLinearNetworkSGD(nn.Module):
+    def __init__(self, linear_mappings, **kwargs):
+        super(ClusterisedLinearNetworkSGD, self).__init__()
+
+        # linear_mappings: n_clusters x 3 x encoding_size
+        self.num_clusters = linear_mappings.shape[0]
+        self.input_ch = linear_mappings.shape[2]
+        self.linear_mappings = linear_mappings.reshape(-1, linear_mappings.shape[-1])
+
+        self.linear_net = nn.Linear(in_features=linear_mappings.shape[-1], out_features=linear_mappings.shape[0], bias=False)
+        with torch.no_grad():
+            self.linear_net.weight = nn.Parameter(self.linear_mappings, requires_grad=True)
+
+        self.mlps = nn.ModuleList([MLP(input_ch=3+self.input_ch, out_ch=3, hidden_ch=[256, 256], weight_norm=False, identity_intialisation=True) for i in range(self.num_clusters)])
+        
+        self.embed_fn = kwargs['embed_fn']
+        self.num_freqs = kwargs['num_freqs']
+        self.batch_size = kwargs['batch_size']
+        self.knn_clusters = kwargs['knn_clusters']
+        self.kwargs = kwargs
+
+        self.lambdas = nn.Parameter(torch.ones((self.num_clusters))*15.0, requires_grad=True)
+
+    def forward(self, X, cluster_ids, dist):
+        rgb_clusters = torch.zeros((X.shape[0], 3), device=(X.device))
+        mask = (X[:,0] == -1.) & (X[:,1] == -1.) & (X[:,2] == -1.)
+        encoded_X = self.embed_fn(X[~mask])
+        cluster_ids = cluster_ids[~mask]
+        dist = dist[..., ~mask]
+        nearest_cluster = torch.argmin(dist, dim=0)
+        lam = self.lambdas[nearest_cluster]
+        weights = torch.nn.functional.softmax(lam*torch.exp(-lam*dist), dim=0)
+
+        for i in range(0, len(encoded_X), self.batch_size):
+            rgb_clusters_tmp = self.linear_net(encoded_X[i:i+self.batch_size])
+            rgb_clusters_tmp = torch.reshape(rgb_clusters_tmp, [rgb_clusters_tmp.shape[0], -1, 3])
+            row_indices = torch.arange(len(rgb_clusters_tmp))
+            old_indices = torch.arange(len(rgb_clusters))
+            
+            rgb_clusters_result = torch.zeros((old_indices[~mask][i:i+self.batch_size].shape[0], 3), device=rgb_clusters_tmp.device)
+            for j in range(self.knn_clusters):
+                rgb_clusters_result += rgb_clusters_tmp[row_indices, cluster_ids[i:i+self.batch_size, j]] * weights[j][i:i+self.batch_size, None]
+            
+            rgb_clusters[old_indices[~mask][i:i+self.batch_size]] = rgb_clusters_result
+
+            for i in range(self.num_clusters):
+                input = torch.cat([rgb_clusters[old_indices[~mask][nearest_cluster==i]], encoded_X[nearest_cluster==i]], dim=1)
+                rgb_clusters[old_indices[~mask][nearest_cluster==i]] = self.mlps[i](input)
+            
+            del input
+            del rgb_clusters_result
+            del rgb_clusters_tmp
+            del row_indices
+            torch.cuda.empty_cache()
+            
+        del encoded_X
+        torch.cuda.empty_cache()
+        return rgb_clusters
+
+    def specular(self, X, cluster_ids):
         encoded_X = self.embed_fn(X)
-        NdotH_pos = 4*2*self.num_freqs
-        encoded_X[..., :NdotH_pos] = 0.
+        spec_boundaries = (4*2*self.num_freqs, encoded_X.shape[-1]) if 'spec_boundaries' not in self.kwargs else self.kwargs['spec_boundaries']
+        linear_mapping_spec = self.linear_mappings[..., spec_boundaries[0]:spec_boundaries[1]] 
+        specular = torch.zeros((encoded_X.shape[0], 3), device=(encoded_X.device))
 
-        rgb_clusters = self.linear_net(encoded_X)
+        for i in range(0, len(encoded_X), self.batch_size):
+            
+            specular_tmp = encoded_X[i:i+self.batch_size, spec_boundaries[0]:spec_boundaries[1]] @ linear_mapping_spec.T
 
-        row_indices = torch.arange(encoded_X.shape[0])
-        col_indices = torch.stack([3*cluster_ids, 3*cluster_ids+1, 3*cluster_ids+2])
-        return rgb_clusters[row_indices, col_indices].T
-    
-    def diffuse_component(self, X, cluster_ids):
+            specular_tmp = torch.reshape(specular_tmp, [specular_tmp.shape[0], -1, 3])
+            row_indices = torch.arange(len(specular_tmp))
+            specular[i:i+self.batch_size] = specular_tmp[row_indices, cluster_ids[i:i+self.batch_size, 0]]
+            del specular_tmp
+            del row_indices
+            torch.cuda.empty_cache()
+
+        del encoded_X
+        torch.cuda.empty_cache()
+
+        return specular
+
+    def diffuse(self, X, cluster_ids):
         encoded_X = self.embed_fn(X)
-        X_pos = 3*2*self.num_freqs
-        NdotL_pos = 4*2*self.num_freqs
-        encoded_X[..., :X_pos] = 0.
-        encoded_X[..., NdotL_pos:] = 0.
+        diff_boundaries = (3*2*self.num_freqs, 4*2*self.num_freqs) if 'diff_boundaries' not in self.kwargs is None else self.kwargs['diff_boundaries']
+        linear_mapping_diff = self.linear_mappings[..., diff_boundaries[0]:diff_boundaries[1]]
+        diffuse = torch.zeros((encoded_X.shape[0], 3), device=(encoded_X.device))
 
-        rgb_clusters = self.linear_net(encoded_X)
+        for i in range(0, len(encoded_X), self.batch_size):
+            diffuse_tmp = encoded_X[i:i+self.batch_size, diff_boundaries[0]:diff_boundaries[1]] @ linear_mapping_diff.T
 
-        row_indices = torch.arange(encoded_X.shape[0])
-        col_indices = torch.stack([3*cluster_ids, 3*cluster_ids+1, 3*cluster_ids+2])
-        return rgb_clusters[row_indices, col_indices].T
+            diffuse_tmp = torch.reshape(diffuse_tmp, [diffuse_tmp.shape[0], -1, 3])
+            row_indices = torch.arange(len(diffuse_tmp))
+            diffuse[i:i+self.batch_size] = diffuse_tmp[row_indices, cluster_ids[i:i+self.batch_size, 0]]
+            del diffuse_tmp
+            del row_indices
+            torch.cuda.empty_cache()
 
-    def ambient_component(self, X, cluster_ids):
+        del encoded_X
+        torch.cuda.empty_cache()
+
+        return diffuse
+
+    def linear(self, X, cluster_ids):
         encoded_X = self.embed_fn(X)
-        X_pos = 3*2*self.num_freqs
-        encoded_X[..., X_pos:] = 0.
+        pos_boundaries = (0, 3*2*self.num_freqs) if 'pos_boundaries' not in self.kwargs else self.kwargs['pos_boundaries']
+        linear = torch.zeros((encoded_X.shape[0], 3), device=(encoded_X.device))
 
-        rgb_clusters = self.linear_net(encoded_X)
+        for i in range(0, len(encoded_X), self.batch_size):
+            linear_tmp = encoded_X[i:i+self.batch_size, pos_boundaries[0]:pos_boundaries[1]] @ self.linear_mappings[..., pos_boundaries[0]:pos_boundaries[1]].T
 
-        row_indices = torch.arange(encoded_X.shape[0])
-        col_indices = torch.stack([3*cluster_ids, 3*cluster_ids+1, 3*cluster_ids+2])
-        return rgb_clusters[row_indices, col_indices].T
+            linear_tmp = torch.reshape(linear_tmp, [linear_tmp.shape[0], -1, 3])
+            row_indices = torch.arange(len(linear_tmp))
+            linear[i:i+self.batch_size] = linear_tmp[row_indices, cluster_ids[i:i+self.batch_size, 0]]
+            del linear_tmp
+            del row_indices
+            torch.cuda.empty_cache()
+
+        del encoded_X
+        torch.cuda.empty_cache()
+
+        return linear
 
 class ClusterisedMLP(nn.Module):
     def __init__(self, **kwargs):

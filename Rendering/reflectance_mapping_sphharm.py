@@ -63,6 +63,8 @@ def parse_args():
                         help='threshold to stop iterating the kmeans algorithm', default=1e-04)
     parser.add_argument('--kmeans_batch_size', type=int,
                         default=200000, help='number of points to cluster at once')
+    parser.add_argument('--knn_clusters', type=int,
+                        default=3, help="number of nearest clusters' colours to consider")
 
     args = parser.parse_args()
     return args
@@ -186,6 +188,8 @@ if __name__ == "__main__":
     linear_net = net.ClusterisedLinearNetwork(linear_mappings=linear_mappings, 
                                               embed_fn=embed_fn, 
                                               num_freqs=args.encoding_freqs, 
+                                              batch_size=args.batch_size,
+                                              knn_clusters=args.knn_clusters,
                                               pos_boundaries=(0, input_ch_posenc),
                                               diff_boundaries=(0, input_ch_posenc),
                                               spec_boundaries=(input_ch_posenc, input_ch_posenc+input_ch_sphharm))
@@ -197,18 +201,14 @@ if __name__ == "__main__":
     print("evaluating...")
     x_H, img_tr = dataset.get_X_H_rgb("train", img=0, device=device)
     
-    cluster_ids = kmeans_predict(x_H[..., :3], centroids, device=device)
-    pred_rgb_tr = torch.zeros((x_H.shape[0], 3)).to(x_H)
-    pred_rgb_spec = torch.zeros((x_H.shape[0], 3)).to(x_H)
-    pred_rgb_diff = torch.zeros((x_H.shape[0], 3)).to(x_H)
-    pred_rgb_lin = torch.zeros((x_H.shape[0], 3)).to(x_H)
-    for i in range(0, len(x_H), args.batch_size):
-        pred_rgb_tr[i:i+args.batch_size] = linear_net(x_H[i:i+args.batch_size], cluster_ids[i:i+args.batch_size])
-        pred_rgb_spec[i:i+args.batch_size] = linear_net.specular(x_H[i:i+args.batch_size], cluster_ids[i:i+args.batch_size])
-        pred_rgb_diff[i:i+args.batch_size] = linear_net.diffuse(x_H[i:i+args.batch_size], cluster_ids[i:i+args.batch_size])
-        pred_rgb_lin[i:i+args.batch_size] = linear_net.linear(x_H[i:i+args.batch_size], cluster_ids[i:i+args.batch_size])
+    cluster_ids, weights = kmeans_predict(x_H[..., :3], centroids, device=device, k=args.knn_clusters)
+    pred_rgb_tr = linear_net(x_H, cluster_ids, weights)
+    pred_rgb_spec = linear_net.specular(x_H, cluster_ids)
+    pred_rgb_diff = linear_net.diffuse(x_H, cluster_ids)
+    pred_rgb_lin = linear_net.linear(x_H, cluster_ids)
         
     loss_tr = loss_fn(pred_rgb_tr, img_tr)
+    print("loss train", loss_tr)
 
     v.validation_view_reflectance(reflectance=pred_rgb_tr.detach().cpu(),
                                     specular=pred_rgb_spec.detach().cpu(), 
@@ -222,23 +222,16 @@ if __name__ == "__main__":
                                     wandb_act=False)
                         
     x_H, img_val = dataset.get_X_H_rgb("val", img=0, device=device)
-    start_time = time.time()
-    cluster_ids = kmeans_predict(x_H[..., :3], centroids, device=device)
 
-    pred_rgb_val = torch.zeros((x_H.shape[0], 3)).to(x_H)
-    for i in range(0, len(x_H), args.batch_size):
-        pred_rgb_val[i:i+args.batch_size] = linear_net(x_H[i:i+args.batch_size], cluster_ids[i:i+args.batch_size])
-    
+    start_time = time.time()
+    cluster_ids, weights = kmeans_predict(x_H[..., :3], centroids, device=device, k=args.knn_clusters)
+    pred_rgb_val = linear_net(x_H, cluster_ids, weights)
     pred_time = time.time() - start_time
     print("Prediction time: %s seconds" % (pred_time))
 
-    pred_rgb_spec = torch.zeros((x_H.shape[0], 3)).to(x_H)
-    pred_rgb_diff = torch.zeros((x_H.shape[0], 3)).to(x_H)
-    pred_rgb_lin = torch.zeros((x_H.shape[0], 3)).to(x_H)
-    for i in range(0, len(x_H), args.batch_size):
-        pred_rgb_spec[i:i+args.batch_size] = linear_net.specular(x_H[i:i+args.batch_size], cluster_ids[i:i+args.batch_size])
-        pred_rgb_diff[i:i+args.batch_size] = linear_net.diffuse(x_H[i:i+args.batch_size], cluster_ids[i:i+args.batch_size])
-        pred_rgb_lin[i:i+args.batch_size] = linear_net.linear(x_H[i:i+args.batch_size], cluster_ids[i:i+args.batch_size])
+    pred_rgb_spec = linear_net.specular(x_H, cluster_ids)
+    pred_rgb_diff = linear_net.diffuse(x_H, cluster_ids)
+    pred_rgb_lin = linear_net.linear(x_H, cluster_ids)
 
     v.validation_view_reflectance(reflectance=pred_rgb_val.detach().cpu(),
                                     specular=pred_rgb_spec.detach().cpu(),
@@ -252,6 +245,8 @@ if __name__ == "__main__":
                                     wandb_act=False)
     
     loss_val = loss_fn(pred_rgb_val, img_val)
+    print("loss val.", loss_val)
+
     img_shape=(dataset.hwf[0], dataset.hwf[1], 3)
     if not args.only_eval:
         results = {
@@ -294,10 +289,8 @@ if __name__ == "__main__":
         for i in range(dataset.get_n_images("val")):
             x_H, img_val = dataset.get_X_H_rgb("val", img=i, device=device)
             start_time = time.time()
-            cluster_ids = kmeans_predict(x_H[..., :3], centroids, device=device)
-            pred_rgb_val = torch.zeros((x_H.shape[0], 3)).to(x_H)
-            for j in range(0, len(x_H), args.batch_size):
-                pred_rgb_val[j:j+args.batch_size] = linear_net(x_H[j:j+args.batch_size], cluster_ids[j:j+args.batch_size])
+            cluster_ids, weights = kmeans_predict(x_H[..., :3], centroids, device=device, k=args.knn_clusters)
+            pred_rgb_val = linear_net(x_H, cluster_ids, weights)
             
             if not os.path.exists(f"{args.out_path}/val/{args.num_clusters}clusters/"):
                 os.mkdir(f"{args.out_path}/val/{args.num_clusters}clusters/")
@@ -341,8 +334,8 @@ if __name__ == "__main__":
         for i in range(dataset.get_n_images("relighting")):
             x_H, img_val = dataset.get_X_H_rgb("relighting", img=i, device=device)
             start_time = time.time()
-            cluster_ids_val = kmeans_predict(x_H[..., :3], centroids, device=device)
-            pred_rgb_val = linear_net(x_H, cluster_ids_val)
+            cluster_ids_val, weights = kmeans_predict(x_H[..., :3], centroids, device=device, k=args.knn_clusters)
+            pred_rgb_val = linear_net(x_H, cluster_ids_val, weights)
             pred_time = time.time() - start_time
             im_array = torch.clamp(pred_rgb_val, min=0., max=1.).detach().cpu().reshape(img_shape)
             im = Image.fromarray((im_array.numpy() * 255).astype(np.uint8))
@@ -374,8 +367,8 @@ if __name__ == "__main__":
 
         for i in range(dataset.get_n_images("test")):
             X_H, img_test = dataset.get_X_H_rgb("test", img=i, device=device)
-            cluster_ids_test = kmeans_predict(X_H[..., :3], centroids, device=device)
-            pred_rgb_test = linear_net(X_H, cluster_ids_test)
+            cluster_ids_test, weights = kmeans_predict(X_H[..., :3], centroids, device=device, k=args.knn_clusters)
+            pred_rgb_test = linear_net(X_H, cluster_ids_test, weights)
             pred_rgb_spec = linear_net.specular(X_H, cluster_ids_test)
             pred_rgb_diff = linear_net.diffuse(X_H, cluster_ids_test)
 

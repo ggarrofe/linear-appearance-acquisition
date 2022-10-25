@@ -143,6 +143,18 @@ def distance(points, centroids):
     # batch_size x num_clusters matrix 
     return dis.sum(dim=-1).squeeze()
 
+def k_dist(x, y, k):
+    tree = scipy.spatial.cKDTree(x.detach().numpy())
+    dist, col = tree.query(
+        y.detach().cpu(), k=k, distance_upper_bound=x.size(1))
+    dist = torch.from_numpy(dist).to(x.dtype)
+    col = torch.from_numpy(col).to(torch.long)
+    row = torch.arange(col.size(0), dtype=torch.long).view(-1, 1).repeat(1, k)
+    mask = 1 - torch.isinf(dist).view(-1)
+    row, col = row.view(-1)[mask], col.view(-1)[mask]
+
+    return row, col, dist
+
 def kmeans(
         X,
         num_clusters,
@@ -229,13 +241,44 @@ def kmeans(
 def kmeans_predict(
         X,
         centroids,
-        device=torch.device('cpu')
+        device=torch.device('cpu'),
+        k=3
 ):
-    cluster_ids = torch.zeros((len(X)), device=X.device, dtype=torch.long)
-    nearest = knn(centroids.to(device), X.to(device), 1)
+    X_device = X.device
+    '''cluster_ids = torch.zeros((len(X)), device=X.device, dtype=torch.long)
+    nearest = knn(centroids.to(device), X.to(device), 3)
     rows = nearest[0].to(cluster_ids)
-    cluster_ids[rows] = nearest[1].to(cluster_ids)
-    return cluster_ids
+    cluster_ids[rows] = nearest[1].to(cluster_ids)'''
+    X = X.to(device)
+    centroids = centroids.to(device)
+    nearest = knn(centroids, X, k)
+    cluster_ids = nearest[1].reshape(-1, k).to(X_device)
+
+    dist = (X-centroids[cluster_ids.T]).pow(2).sum(2).sqrt()
+    #suma = dist.sum(0)
+    #lambda_val = 15.0
+    #weights = torch.nn.functional.softmax(lambda_val*torch.exp(-lambda_val*dist), dim=0)
+    return cluster_ids, dist
+
+def self_distances(centroids):
+    tree = scipy.spatial.cKDTree(centroids.detach().numpy())
+    dist, col = tree.query(centroids.detach().cpu(), k=len(centroids))
+    dist = torch.from_numpy(dist).to(centroids.dtype)
+    col = torch.from_numpy(col).to(torch.long)
+    dist2 = torch.zeros_like(dist)
+    row = torch.arange(col.size(0), dtype=torch.long).view(-1, 1).repeat(1, len(centroids))
+    col_d = torch.arange(col.size(0), dtype=torch.long).view(1, -1).repeat(1, len(centroids))
+    dist2[row.flatten(), col.flatten()] = dist[row.flatten(), col_d.flatten()]
+    return dist2
+
+def nearest_distances(centroids, y, k):
+    tree = scipy.spatial.cKDTree(centroids.detach().cpu().numpy())
+    dist, col = tree.query(
+        y.detach().cpu(), k=k)
+    dist = torch.from_numpy(dist).to(x.dtype)
+    col = torch.from_numpy(col).to(torch.long)
+
+    return col, dist
 
 # --------------- Threaded version --------------------
 
